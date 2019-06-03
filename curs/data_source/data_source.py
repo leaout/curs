@@ -1,6 +1,6 @@
 # coding: utf-8
 import datetime
-from easyquant.easydealutils.read_csv import *
+from curs.easydealutils.read_csv import *
 
 class DataSource(object):
     #read data from csv

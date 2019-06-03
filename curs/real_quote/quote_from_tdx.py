@@ -2,7 +2,8 @@
 from pytdx.hq import TdxHq_API
 from retrying import retry
 import pandas as pd
-from easyquant.log_handler.logger import logger
+from curs.log_handler.logger import logger
+
 server_list = [
         # added 20190222 from tdx
         {"ip": "119.147.212.81", "port": 7709, "name": "北京行情主站1"},

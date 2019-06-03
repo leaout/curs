@@ -1,8 +1,9 @@
 # coding: utf-8
-from easyquant.easydealutils import *
-from easyquant.real_quote import *
-from easyquant.const import *
-from easyquant.broker.account import *
+from curs.easydealutils import *
+from curs.real_quote import *
+from curs.const import *
+from curs.broker.account import *
+from curs.utils import *
 
 class Order(object):
 
