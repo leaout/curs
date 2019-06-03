@@ -1,0 +1,11 @@
+numpy
+pytz
+pandas
+requests
+logbook
+anyjson
+aiohttp
+arrow
+xlrd
+pytdx==1.67
+bcolz
