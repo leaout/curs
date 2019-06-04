@@ -22,6 +22,11 @@ class SIDE(CustomEnum):
     SELL = "SELL"
 
 # noinspection PyPep8Naming
+class ORDER_TYPE(CustomEnum):
+    MARKET = "MARKET"
+    LIMIT = "LIMIT"
+
+# noinspection PyPep8Naming
 class POSITION_EFFECT(CustomEnum):
     OPEN = "OPEN"
     CLOSE = "CLOSE"

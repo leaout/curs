@@ -3,7 +3,8 @@
 from queue import Queue, Empty
 from enum import Enum
 from collections import defaultdict
-
+from threading import Thread
+import time
 
 class Event(object):
     def __init__(self, event_type, **kwargs):
@@ -17,23 +18,24 @@ class Event(object):
 class EventBus(object):
 
     def __init__(self):
-        self._listeners = defaultdict(list)
+        self.__listeners = defaultdict(list)
         self.__queue = Queue()
+        self.__is_runing = False
 
     def add_listener(self, event_type, listener):
-        self._listeners[event_type].append(listener)
+        self.__listeners[event_type].append(listener)
 
     def del_listener(self, event_type, handler):
-        listeners = self._listeners.get(event_type)
+        listeners = self.__listeners.get(event_type)
         if listeners is None:
             return
         if handler in listeners:
             listeners.remove(handler)
         if len(listeners) == 0:
-            self._listeners.pop(event_type)
+            self.__listeners.pop(event_type)
 
     def publish_event(self, event):
-        for listener in self._listeners[event.event_type]:
+        for listener in self.__listeners[event.event_type]:
             # 如果返回 True ，那么消息不再传递下去
             if listener(event):
                 break
@@ -41,13 +43,22 @@ class EventBus(object):
     def put_event(self, event):
         self.__queue.put(event)
 
-    def get_event(self, event):
-        event = self.__queue.get(block=True, timeout=1)
+    def get_event(self):
+        event = self.__queue.get(block=True)
         return event
 
-    def process(self, event):
-        event = self.get_event()
-        self.publish_event(event)
+    def __process(self):
+        while self.__is_runing:
+            event = self.get_event()
+            self.publish_event(event)
+
+    def start(self):
+        self.__is_runing = True
+        handle_thread = Thread(target=self.__process, name="EventBus")
+        handle_thread.start()
+
+    def stop(self):
+        self.__is_runing = False
 
 
 
@@ -72,3 +83,28 @@ class EVENT(Enum):
 
 def parse_event(event_str):
     return EVENT[event_str.upper()]
+
+
+
+def test_put_event(event_bus):
+    while True:
+        event = Event(100,data="hello")
+        event_bus.put_event(event)
+        time.sleep(1)
+
+def test_get_event(data):
+    print(data)
+
+def main():
+    ev_bus = EventBus()
+    ev_bus.start()
+    ev_bus.add_listener(100, test_get_event)
+
+    handle_thread = Thread(target=test_put_event, name="put_event", args=(ev_bus,))
+    handle_thread.start()
+    time.sleep(3)
+    ev_bus.del_listener(100, test_get_event)
+    handle_thread.join()
+    pass
+if __name__ == '__main__':
+    main()

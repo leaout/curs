@@ -1,5 +1,4 @@
 # coding: utf-8
-from curs.easydealutils import *
 from curs.real_quote import *
 from curs.const import *
 from curs.broker.account import *
@@ -119,6 +118,27 @@ class Order(object):
             ORDER_STATUS.PENDING_CANCEL
         }
 
+    @classmethod
+    def __from_create__(cls, order_book_id, quantity, side,  position_effect):
+        # env = Environment.get_instance()
+        order = cls()
+        order._order_id = next(order.order_id_gen)
+        # order._calendar_dt = env.calendar_dt
+        # order._trading_dt = env.trading_dt
+        order._quantity = quantity
+        order._order_book_id = order_book_id
+        order._side = side
+        order._position_effect = position_effect
+        order._message = ""
+        order._filled_quantity = 0
+        order._status = ORDER_STATUS.PENDING_NEW
+
+        order._frozen_price = 0.
+        order._type = ORDER_TYPE.MARKET
+        order._avg_price = 0
+        order._transaction_cost = 0
+        return order
+
 
 class Trade(object):
     trade_id_gen = id_gen(int(time.time()) * 10000)
@@ -162,6 +182,29 @@ class Trade(object):
             raise RuntimeError("Last price of trade {} is not supposed to be nan.")
         self._price = price
 
+    @classmethod
+    def __from_create__(
+            cls, order_id, price, amount, side, position_effect, order_book_id, commission=0., tax=0.,
+            trade_id=None, close_today_amount=0, frozen_price=0, calendar_dt=None, trading_dt=None
+    ):
+        # env = Environment.get_instance()
+        trade = cls()
+        # trade._calendar_dt = calendar_dt or env.calendar_dt
+        # trade._trading_dt = trading_dt or env.trading_dt
+        trade._price = price
+        trade._amount = amount
+        trade._order_id = order_id
+        trade._commission = commission
+        trade._tax = tax
+        trade._trade_id = trade_id if trade_id is not None else next(trade.trade_id_gen)
+        trade._close_today_amount = close_today_amount
+        trade._side = side
+        trade._position_effect = position_effect
+        trade._order_book_id = order_book_id
+        trade._frozen_price = frozen_price
+        return trade
+
+
 class Matcher(object):
 
     def __init__(self):
@@ -178,6 +221,7 @@ class Matcher(object):
             td = Trade
             td.last_quantity = 100
             td.last_price = 13
+            print("id[%s] price[%f]"%(order_book_id,deal_price))
             if  order.price > deal_price:
                 #成交
                 order.fill(td)
