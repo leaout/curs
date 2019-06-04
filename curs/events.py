@@ -36,9 +36,8 @@ class EventBus(object):
 
     def publish_event(self, event):
         for listener in self.__listeners[event.event_type]:
-            # 如果返回 True ，那么消息不再传递下去
-            if listener(event):
-                break
+            listener(event)
+
 
     def put_event(self, event):
         self.__queue.put(event)
