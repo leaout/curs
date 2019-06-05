@@ -1,5 +1,5 @@
 # coding: utf-8
-from curs.easydealutils import *
+from curs.utils import *
 import bcolz
 import numpy as np
 
