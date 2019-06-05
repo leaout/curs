@@ -25,12 +25,12 @@ class EventBus(object):
     def add_listener(self, event_type, listener):
         self.__listeners[event_type].append(listener)
 
-    def del_listener(self, event_type, handler):
+    def del_listener(self, event_type, listener):
         listeners = self.__listeners.get(event_type)
         if listeners is None:
             return
-        if handler in listeners:
-            listeners.remove(handler)
+        if listener in listeners:
+            listeners.remove(listener)
         if len(listeners) == 0:
             self.__listeners.pop(event_type)
 
@@ -86,8 +86,10 @@ def parse_event(event_str):
 
 
 def test_put_event(event_bus):
+    i = 0
     while True:
-        event = Event(100,data="hello")
+        i+=1
+        event = Event(100,data=i)
         event_bus.put_event(event)
         time.sleep(1)
 
@@ -102,7 +104,7 @@ def main():
     handle_thread = Thread(target=test_put_event, name="put_event", args=(ev_bus,))
     handle_thread.start()
     time.sleep(3)
-    ev_bus.del_listener(100, test_get_event)
+    # ev_bus.del_listener(100, test_get_event)
     handle_thread.join()
     pass
 if __name__ == '__main__':
