@@ -39,3 +39,13 @@ class UserFuncStrategyLoader():
 
     def load(self, scope):
         return self._user_funcs
+
+
+def main():
+    s_loader = FileStrategyLoader("E:/Quant.Pro/curs/curs/strategy/test_strategy.py")
+    scop = {}
+    s_loader.load(scop)
+    print(scop.keys())
+
+if __name__ == "__main__":
+    main()
