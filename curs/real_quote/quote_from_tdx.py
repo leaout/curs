@@ -216,7 +216,7 @@ def get_security_kline(code,count, frequence='1min'):
     if not connect_server() :
         return None
     type_ = ''
-    code,market_code = str_to_tdxtype(code)
+    market_code,code = str_to_tdxtype(code)
 
     # start_date = str(start)[0:10]
     # today_ = datetime.date.today()
@@ -322,18 +322,27 @@ def get_security_finance_info(code):
     data = api.get_finance_info(market, code)
     return data
 
+order = ['datetime', 'open', 'close', 'high', 'low', 'vol', 'amount']
+def reset_col(data):
+    '''
+    修改列顺序
+    :param data: pandas
+    :return:
+    '''
+    return data[order]
 def main():
     # data = get_security_kline("600446","sh",10)
     # print(data)
-    # # data = get_security_kline("600000", "sh", 10)
+    data = get_security_kline("600004.xshg", 240)
     # se_list = get_security_list()
     # print(se_list)
     # data = get_security_trade('000001.xshe',0,1)
     # for v in data:
     #     print(v)
-    quote = get_security_quotes(["600000.xshg"])
-    print(quote)
-    data = get_security_finance_info("000001.xshe")
+    # quote = get_security_quotes(["600000.xshg"])
+    # print(quote)
+    # data = get_security_finance_info("000001.xshe")
+
     print(data)
 if __name__ == '__main__':
     main()
