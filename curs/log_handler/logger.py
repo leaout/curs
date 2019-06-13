@@ -3,7 +3,7 @@
 import logging
 import logging.handlers
 
-class curse_logger(object):
+class curs_logger(object):
     """Log对象
     :param log_path: log文件名路径
     """
@@ -39,7 +39,7 @@ class curse_logger(object):
 
 
 
-logger = curse_logger()
+logger = curs_logger()
 
 
 # logger.info("this is info log")

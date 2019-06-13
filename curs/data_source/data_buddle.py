@@ -66,7 +66,7 @@ class DataBuddle(object):
     @function_eleapsed
     def open(self):
         '''
-        先加载所以目录，动态加载数据
+        先加载目录，动态加载数据
         :return:
         '''
         list_dirs = WalkSubDir(self.root_dir)
