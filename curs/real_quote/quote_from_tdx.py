@@ -209,6 +209,58 @@ def tdxtype_to_str(market):
     elif market == 0:
         return 'XSHE'
 
+#股票和指数是两个接口
+@retry(stop_max_attempt_number=3, wait_random_min=50, wait_random_max=100)
+def get_index_kline(code,count, frequence='1min'):
+    # code 证券代码 count k线根数 frequence
+    if not connect_server() :
+        return None
+    type_ = ''
+    market_code,code = str_to_tdxtype(code)
+
+    # start_date = str(start)[0:10]
+    # today_ = datetime.date.today()
+    lens = count
+    if str(frequence) in ['5', '5m', '5min', 'five']:
+        frequence, type_ = 0, '5min'
+        # lens = 48 * lens
+    elif str(frequence) in ['1', '1m', '1min', 'one']:
+        frequence, type_ = 8, '1min'
+        # lens = 240 * lens
+    elif str(frequence) in ['15', '15m', '15min', 'fifteen']:
+        frequence, type_ = 1, '15min'
+        # lens = 16 * lens
+    elif str(frequence) in ['30', '30m', '30min', 'half']:
+        frequence, type_ = 2, '30min'
+        # lens = 8 * lens
+    elif str(frequence) in ['60', '60m', '60min', '1h']:
+        frequence, type_ = 3, '60min'
+    elif str(frequence) in ['d', '1d','day']:
+        frequence, type_ = 4, 'day'
+    elif str(frequence) in ['w', '1w','week']:
+        frequence, type_ = 5, 'week'
+    elif str(frequence) in ['mon', 'month']:
+        frequence, type_ = 6, 'month'
+    elif str(frequence) in ['s', 'season']:
+        frequence, type_ = 10, 'season'
+    elif str(frequence) in ['y', 'year']:
+        frequence, type_ = 11, 'year'
+
+    if lens > 20800:
+        lens = 20800
+    batch_count = 800
+    if count < 800:
+        batch_count = count
+    # with api.connect(ip, port):
+    #
+    #     data = pd.concat([api.to_df(api.get_security_bars(frequence,
+    #         market_code, str(code), (int(lens / 800) - i) * 800, batch_count)) for i in range(int(lens / 800) + 1)], axis=0)
+    #     return data
+    data = pd.concat([api.to_df(api.get_index_bars(frequence,
+                                                      market_code, str(code), (int(lens / 800) - i) * 800, batch_count))
+                      for i in range(int(lens / 800) + 1)], axis=0)
+    return data
+
 
 @retry(stop_max_attempt_number=3, wait_random_min=50, wait_random_max=100)
 def get_security_kline(code,count, frequence='1min'):
@@ -329,7 +381,10 @@ def reset_col(data):
     :param data: pandas
     :return:
     '''
-    return data[order]
+    if data is not None:
+        return data[order]
+    return None
+
 def main():
     # data = get_security_kline("600446","sh",10)
     # print(data)

@@ -18,7 +18,8 @@ def main():
     # bt = BuddleTools()
     # nparr = bt.df_to_np(df)
     # bt.df_to_carray(df,"E:/hqfile","600004.XSHG")
-    # carr = bcolz.carray(rootdir="E:/hqfile/600004.XSHG",  mode="a")
+    carr = bcolz.carray(rootdir="E:/buddles/min/000001.XSHE",  mode="a")
+    print(carr.purge())
     # print(carr)
     # carr.append(nparr)
     # carr.flush()
@@ -27,18 +28,20 @@ def main():
 
     #列名 df.columns.values
 
-    sedf = get_security_list()
-    selist = sedf.index.tolist()
-    flist = []
-    for k in selist:
-        market =  "XSHG" if (k[1] == "sh") else "XSHE"
-        bookid = k[0]+ '.' +market
-        flist.append(bookid)
-
-    print(flist)
+    # sedf = get_security_list()
+    # selist = sedf.index.tolist()
+    # flist = []
+    # for k in selist:
+    #     market =  "XSHG" if (k[1] == "sh") else "XSHE"
+    #     bookid = k[0]+ '.' +market
+    #     flist.append(bookid)
+    #
+    # print(flist)
     # print(selist.index.tolist())
     # inlist = get_security_list("index")
     # print(inlist.columns.values)
+    # print(GetFileName("002955.XSHE"))
+    pass
 
 if __name__ == "__main__":
     main()
