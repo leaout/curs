@@ -5,7 +5,7 @@ from curs.data_source import *
 from curs.utils import *
 
 
-def get_quote_to_np(code,type):
+def day_quote_to_np(code, type):
     '''
     获取当日分钟线
     type index stock
@@ -13,9 +13,9 @@ def get_quote_to_np(code,type):
     :return: 返回 np.array
     '''
     if type == "stock":
-        df = get_security_kline(code, 480)
+        df = get_security_kline(code, 240)
     elif type == "index":
-        df = get_index_kline(code, 480)
+        df = get_index_kline(code, 240)
     if df.empty :
         return None
     df = reset_col(df)
@@ -70,7 +70,7 @@ def quote_to_buddle(root_dir):
         file_name = GetFileName(k)
         if int(file_name) <= 417:
             continue
-        arr = get_quote_to_np(k,"stock")
+        arr = day_quote_to_np(k, "stock")
         if arr is None:
             continue
         print(k)
@@ -80,7 +80,7 @@ def quote_to_buddle(root_dir):
         file_name = GetFileName(k)
         if int(file_name) >= 880001:
             continue
-        arr = get_quote_to_np(k,"index")
+        arr = day_quote_to_np(k, "index")
         if arr is None:
             continue
         print(k)
