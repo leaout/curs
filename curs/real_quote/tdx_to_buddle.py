@@ -61,7 +61,7 @@ def df_to_securitylist(stockdf):
 
     return flist
 
-
+@function_eleapsed
 def quote_to_buddle(root_dir):
     dtdb = DataBuddle(root_dir,'a')
     dtdb.open()
