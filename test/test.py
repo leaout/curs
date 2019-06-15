@@ -19,7 +19,7 @@ def main():
     # nparr = bt.df_to_np(df)
     # bt.df_to_carray(df,"E:/hqfile","600004.XSHG")
     carr = bcolz.carray(rootdir="E:/buddles/min/000001.XSHE",  mode="a")
-    print(carr.purge())
+    print(carr)
     # print(carr)
     # carr.append(nparr)
     # carr.flush()
