@@ -329,9 +329,18 @@ def get_security_quotes(list):
     if not connect_server() :
         return None
     s_list = convert_tdx_type(list)
-    data = api.get_security_quotes(s_list)
+    #长度限制200
+    print("s_list:",len(s_list))
+    data = []
+    for v in range(0,len(s_list),150):
+        data = api.get_security_quotes(s_list[v:v+150])
+        print(data)
+        print("datalen:",len(data))
     #to map data
+    # print("data",len(data))
     map_data = {}
+    if data is None:
+        return map_data
     for v in data:
         map_data[v['code'] + '.' + tdxtype_to_str(v['market'])] = v
     return map_data

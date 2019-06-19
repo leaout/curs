@@ -51,9 +51,11 @@ def get_securities():
 
 
 def df_to_securitylist(stockdf):
-
-    stocklist = stockdf.index.tolist()
     flist = []
+    if stockdf is None:
+        return  flist
+    stocklist = stockdf.index.tolist()
+
     for k in stocklist:
         market = "XSHG" if (k[1] == "sh") else "XSHE"
         bookid = k[0] + '.' + market
@@ -87,6 +89,8 @@ def quote_to_buddle(root_dir):
         dtdb.append(k,arr)
 
 def main():
+    # stock_list,index_list = get_securities()
+    # print(len(stock_list))
     quote_to_buddle("E:/buddles/min")
     # df = get_index_kline("000001.XSHG", 480)
     # print(df["datetime"])
