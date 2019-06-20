@@ -82,6 +82,8 @@ def quote_to_buddle(root_dir):
         file_name = GetFileName(k)
         if int(file_name) >= 880001:
             continue
+        # if int(file_name) <= 31:
+        #     continue
         arr = day_quote_to_np(k, "index")
         if arr is None:
             continue

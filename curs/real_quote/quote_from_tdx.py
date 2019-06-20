@@ -86,7 +86,7 @@ def connect_server():
                 return True
             else:
                 logger.info("tdx_host=%s:%d %s connect failed", v['ip'], v['port'], v['name'])
-                return False
+                continue
     except Exception as e:
         logger.error(e)
         return False
@@ -333,7 +333,9 @@ def get_security_quotes(list):
     # print("s_list:",len(s_list))
     data = []
     for v in range(0,len(s_list),80):
-        data += api.get_security_quotes(s_list[v:v+80])
+        qt = api.get_security_quotes(s_list[v:v + 80])
+        if qt is not None:
+            data += qt
 
     #to map data
     # print("data",len(data))
@@ -389,9 +391,12 @@ def reset_col(data):
     :param data: pandas
     :return:
     '''
-    if data is not None:
-        return data[order]
-    return None
+    try:
+        if data is not None:
+            return data[order]
+    except Exception as e:
+        logger.error(e)
+        return None
 
 def main():
     # data = get_security_kline("600446","sh",10)
