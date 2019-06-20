@@ -263,7 +263,6 @@ class StrategyContext(object):
 def main():
     context = StrategyContext()
     context.s1=1
-    print(StrategyContext.dict)
     print(context)
 
 if __name__ == "__main__":
