@@ -393,7 +393,7 @@ def reset_col(data):
     '''
     try:
         if data is not None:
-            return data[order]
+            return data[order] 
     except Exception as e:
         logger.error(e)
         return None
