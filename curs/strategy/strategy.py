@@ -33,7 +33,7 @@ class Strategy(object):
             logger.warn((u"[deprecated] before_day_trading is no longer used. use before_trading instead."))
         if self._before_night_trading is not None:
             logger.warn((u"[deprecated] before_night_trading is no longer used. use before_trading instead."))
-
+        self._force_run_before_trading = True
        # self._force_run_before_trading = Environment.get_instance().config.extra.force_run_init_when_pt_resume
 
     @property
@@ -43,22 +43,26 @@ class Strategy(object):
     def init(self):
         if not self._init:
             return
-
+        self._init(self._user_context)
 
     def before_trading(self, event):
         self._force_run_before_trading = False
+        self._before_trading(self._user_context)
 
     def handle_bar(self, event):
         if self._force_run_before_trading:
             self.before_trading(event)
         else:
             bar_dict = event.bar_dict
+            self._handle_bar(self._user_context, bar_dict)
 
     def handle_tick(self, event):
         if self._force_run_before_trading:
             self.before_trading(event)
         else:
             tick = event.tick
+            self._handle_tick(self._user_context, tick)
 
     def after_trading(self, event):
+        self._after_trading(self._user_context)
         pass

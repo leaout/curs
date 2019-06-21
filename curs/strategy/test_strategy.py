@@ -1,5 +1,5 @@
 from curs.log_handler.logger import logger
-
+from curs.cursglobal import *
 
 
 # 在这个方法中编写任何的初始化逻辑。context对象将会在你的算法策略的任何方法之间做传递。
@@ -27,3 +27,11 @@ def handle_bar(context, bar_dict):
     if not context.fired:
         # order_percent并且传入1代表买入该股票并且使其占有投资组合的100%
         context.fired = True
+
+
+def handle_tick(context,tick):
+    logger.info("handle_tick")
+    s1="603520.XSHG"
+    # for k in c_global.stock_map:
+    #     print(k)
+    logger.info(g_cursglobal.stock_map[context.s1])

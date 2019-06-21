@@ -1,4 +1,5 @@
 # coding: utf-8
+from curs.events import *
 
 class CursGlobal:
     def __init__(self,event_bus,config = None):
@@ -25,3 +26,5 @@ class CursGlobal:
         if index_map is None:
             raise ValueError('invalid security_map')
         self._index_map = index_map
+
+g_cursglobal = CursGlobal(g_event_bus)

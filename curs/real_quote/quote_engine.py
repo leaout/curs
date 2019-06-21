@@ -29,7 +29,7 @@ class QuoteEngine:
     def __process(self):
         while self.__is_runing:
             self.get_full_quote()
-            event = Event(EVENT.TICK, data=1)
+            event = Event(EVENT.TICK, tick=1)
             self.__event_bus.put_event(event)
             time.sleep(3)
 

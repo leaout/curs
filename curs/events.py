@@ -79,7 +79,10 @@ class EVENT(Enum):
     TICK = 'tick'
     # 执行handle_tick后触发
     POST_TICK = 'post_tick'
-
+    # before_trading()
+    BEFORE_TRADING = 'before_trading'
+    # after_trading()
+    AFTER_TRADING = 'after_trading'
 def parse_event(event_str):
     return EVENT[event_str.upper()]
 
@@ -92,6 +95,10 @@ def test_put_event(event_bus):
         event = Event(100,data=i)
         event_bus.put_event(event)
         time.sleep(1)
+
+
+g_event_bus = EventBus()
+g_event_bus.start()
 
 def test_get_event(data):
     print(data)
