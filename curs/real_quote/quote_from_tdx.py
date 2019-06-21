@@ -3,6 +3,7 @@ from pytdx.hq import TdxHq_API
 from retrying import retry
 import pandas as pd
 from curs.log_handler.logger import logger
+import datetime
 
 server_list = [
         # added 20190222 from tdx
@@ -398,10 +399,36 @@ def reset_col(data):
         logger.error(e)
         return None
 
+
+import datetime
+import math
+def get_today_kline_counts():
+
+    l_timestr = datetime.datetime.now().strftime('%H-%M-%S').split('-', 3)
+    # now_h = datetime.datetime.now().strftime('%H')
+    # now_m = datetime.datetime.now().strftime('%M')
+    # now_s = datetime.datetime.now().strftime('%S')
+    now_h = l_timestr[0]
+    now_m = l_timestr[1]
+    now_s = l_timestr[2]
+    now_time = (now_h + now_m + now_s)
+    t930 = datetime.datetime(2001,1,1,9, 30, 00)
+    tnow = datetime.datetime(2001,1,1,int(now_h), int(now_m), int(now_s))
+    if int(now_time) < 93000:
+        return 0
+    if int(now_time) >= 150000:
+        return 240
+    if int(now_time) < 113000:
+        return math.ceil((tnow - t930).seconds/60)
+    if int(now_time) >= 130000 :
+        return math.ceil((tnow - t930).seconds/60) - 90
+
 def main():
     # data = get_security_kline("600446","sh",10)
     # print(data)
-    data = get_security_kline("600004.xshg", 240)
+    # data = api.get_minute_time_data(1, '600300')
+    # data = get_security_kline("600004.xshg", 240)
+    # data1 = get_index_kline("000001.xshg", 240)
     # se_list = get_security_list()
     # print(se_list)
     # data = get_security_trade('000001.xshe',0,1)
@@ -410,7 +437,11 @@ def main():
     # quote = get_security_quotes(["600000.xshg"])
     # print(quote)
     # data = get_security_finance_info("000001.xshe")
-
-    print(data)
+    # print(mins_between(92500,103000))
+    counts = get_today_kline_counts()
+    print(counts)
+    # print(data)
+    # print(data1)
+    pass
 if __name__ == '__main__':
     main()
