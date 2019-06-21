@@ -18,18 +18,23 @@ def main():
     q_engine.start()
 
     #load strategy
-    s_loader = FileStrategyLoader("E:/Quant.Pro/curs/curs/strategy/test_strategy.py")
-    scop = {}
-    s_loader.load(scop)
-    strategy_context = StrategyContext()
-    strategy = Strategy(g_event_bus, scop, strategy_context)
-    strategy.init()
+    str = "E:/Quant.Pro/curs/curs/strategy/test_strategy.py"
+    load_strategy(str)
     # print(quotes)
     # data = load_yaml("config.yml")
     # print (data["base"])
     while 1 :
         time.sleep(3)
     pass
+
+
+def load_strategy(strategy_path):
+    s_loader = FileStrategyLoader(strategy_path)
+    scop = {}
+    s_loader.load(scop)
+    strategy_context = StrategyContext()
+    strategy = Strategy(g_event_bus, scop, strategy_context)
+    strategy.init()
 
 
 if __name__ == "__main__":
