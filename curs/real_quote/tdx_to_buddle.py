@@ -5,7 +5,7 @@ from curs.data_source import *
 from curs.utils import *
 
 
-def day_quote_to_np(code, type):
+def min_quote_to_np(code, type):
     '''
     获取当日分钟线
     type index stock
@@ -16,6 +16,25 @@ def day_quote_to_np(code, type):
         df = get_security_kline(code, 240)
     elif type == SECURITY_TYPE.INDEX:
         df = get_index_kline(code, 240)
+    if df.empty :
+        return None
+    df = reset_col(df)
+
+    df['datetime'] = df['datetime'].map(timestamp_to_unix_ext)
+    bt = BuddleTools()
+    return bt.df_to_np(df)
+
+def day_quote_to_np(code, type):
+    '''
+    获取当日分钟线
+    type index stock
+    :param code:"600004.XSHG"
+    :return: 返回 np.array
+    '''
+    if type == SECURITY_TYPE.STOCK:
+        df = get_security_kline(code, 1,"1d")
+    elif type == SECURITY_TYPE.INDEX:
+        df = get_index_kline(code, 1,"1d")
     if df.empty :
         return None
     df = reset_col(df)
@@ -64,18 +83,45 @@ def df_to_securitylist(stockdf):
     return flist
 
 @function_eleapsed
-def quote_to_buddle(root_dir):
+def min_quote_to_buddle(root_dir):
     dtdb = DataBuddle(root_dir,'a')
     dtdb.open()
     slist,inlist = get_securities()
     for k in slist:
-        file_name = GetFileName(k)
-        if int(file_name) <= 417:
-            continue
-        arr = day_quote_to_np(k, SECURITY_TYPE.STOCK)
+        # file_name = GetFileName(k)
+        # if int(file_name) > 417:
+        #     continue
+        arr = min_quote_to_np(k, SECURITY_TYPE.STOCK)
         if arr is None:
             continue
-        print(k)
+        logger.info("security min quote:", k)
+        dtdb.append(k,arr)
+
+    #index
+    for k in inlist:
+        file_name = GetFileName(k)
+        if int(file_name) >= 880001:
+            continue
+        # if int(file_name) <= 31:
+        #     continue
+        arr = min_quote_to_np(k, SECURITY_TYPE.INDEX)
+        if arr is None:
+            continue
+        logger.info("security min quote:", k)
+        dtdb.append(k,arr)
+@function_eleapsed
+def day_quote_to_buddle(root_dir):
+    dtdb = DataBuddle(root_dir,'a')
+    dtdb.open()
+    slist,inlist = get_securities()
+    for k in slist:
+        # file_name = GetFileName(k)
+        # if int(file_name) > 417:
+        #     continue
+        arr = min_quote_to_np(k, SECURITY_TYPE.STOCK)
+        if arr is None:
+            continue
+        logger.info("security day quote:", k)
         dtdb.append(k,arr)
     #index
     for k in inlist:
@@ -84,16 +130,17 @@ def quote_to_buddle(root_dir):
             continue
         # if int(file_name) <= 31:
         #     continue
-        arr = day_quote_to_np(k, SECURITY_TYPE.INDEX)
+        arr = min_quote_to_np(k, SECURITY_TYPE.INDEX)
         if arr is None:
             continue
-        print(k)
+        logger.info("security day quote:",k)
         dtdb.append(k,arr)
 
 def main():
     # stock_list,index_list = get_securities()
     # print(len(stock_list))
-    quote_to_buddle("E:/buddles/min")
+    # day_quote_to_buddle("E:/buddles/day")
+    min_quote_to_buddle("E:/buddles/min")
     # df = get_index_kline("000001.XSHG", 480)
     # print(df["datetime"])
     pass

@@ -50,7 +50,7 @@ class QuoteEngine:
     def get_sub_min_klines(self):
         for k in self.__min_subcribers:
             type = get_security_type(k)
-            min_arr = day_quote_to_np(k,type)
+            min_arr = min_quote_to_np(k, type)
             self.__cursglobal.index_map[k]["1m"] = min_arr
 
 
