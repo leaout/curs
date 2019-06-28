@@ -5,7 +5,6 @@ from curs.cursglobal import *
 from curs.strategy import *
 
 
-
 def hanle_tick(data):
     s1="603520.XSHG"
     # for k in c_global.stock_map:

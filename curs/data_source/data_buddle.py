@@ -28,12 +28,12 @@ class DataBuddle(object):
         # print(self._data.keys())
 
 
-    def get_buddle(self,name):
-        if name not in self._data:
-            if name not in self._map_dirs:
+    def get_buddle(self, order_book_id):
+        if order_book_id not in self._data:
+            if order_book_id not in self._map_dirs:
                 return None
-            self._data[name] = bcolz.carray(rootdir=self._map_dirs[name], mode=self.mode)
-        return self._data[name]
+            self._data[order_book_id] = bcolz.carray(rootdir=self._map_dirs[order_book_id], mode=self.mode)
+        return self._data[order_book_id]
 
     def insert(self,name,array):
         self._data[name] = array
