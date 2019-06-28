@@ -139,7 +139,7 @@ def day_quote_to_buddle(root_dir):
 def main():
     # stock_list,index_list = get_securities()
     # print(len(stock_list))
-    # day_quote_to_buddle("E:/buddles/day")
+    day_quote_to_buddle("E:/buddles/day")
     min_quote_to_buddle("E:/buddles/min")
     # df = get_index_kline("000001.XSHG", 480)
     # print(df["datetime"])
