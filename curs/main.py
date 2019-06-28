@@ -14,7 +14,7 @@ def hanle_tick(data):
     print(quote)
 def main():
     conf = load_yaml("config.yml")
-
+    print(conf)
     q_engine = QuoteEngine(g_event_bus, g_cursglobal)
     q_engine.start()
 
