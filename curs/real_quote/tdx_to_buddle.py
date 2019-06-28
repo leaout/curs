@@ -12,9 +12,9 @@ def day_quote_to_np(code, type):
     :param code:"600004.XSHG"
     :return: 返回 np.array
     '''
-    if type == "stock":
+    if type == SECURITY_TYPE.STOCK:
         df = get_security_kline(code, 240)
-    elif type == "index":
+    elif type == SECURITY_TYPE.INDEX:
         df = get_index_kline(code, 240)
     if df.empty :
         return None
@@ -72,7 +72,7 @@ def quote_to_buddle(root_dir):
         file_name = GetFileName(k)
         if int(file_name) <= 417:
             continue
-        arr = day_quote_to_np(k, "stock")
+        arr = day_quote_to_np(k, SECURITY_TYPE.STOCK)
         if arr is None:
             continue
         print(k)
@@ -84,7 +84,7 @@ def quote_to_buddle(root_dir):
             continue
         # if int(file_name) <= 31:
         #     continue
-        arr = day_quote_to_np(k, "index")
+        arr = day_quote_to_np(k, SECURITY_TYPE.INDEX)
         if arr is None:
             continue
         print(k)

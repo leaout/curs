@@ -13,6 +13,7 @@ def hanle_tick(data):
     quote = g_cursglobal.stock_map[s1]
     print(quote)
 def main():
+    conf = load_yaml("config.yml")
 
     q_engine = QuoteEngine(g_event_bus, g_cursglobal)
     q_engine.start()

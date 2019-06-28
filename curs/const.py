@@ -31,3 +31,7 @@ class POSITION_EFFECT(CustomEnum):
     OPEN = "OPEN"
     CLOSE = "CLOSE"
     CLOSE_TODAY = "CLOSE_TODAY"
+#证券类型
+class SECURITY_TYPE(CustomEnum):
+    INDEX = "INDEX"
+    STOCK = "STOCK"
