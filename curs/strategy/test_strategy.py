@@ -34,4 +34,4 @@ def handle_tick(context,tick):
     s1="603520.XSHG"
     # for k in c_global.stock_map:
     #     print(k)
-    logger.info(g_cursglobal.stock_map[context.s1])
+    logger.info(CursGlobal.get_instance().stock_map[context.s1])

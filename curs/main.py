@@ -9,17 +9,22 @@ def hanle_tick(data):
     s1="603520.XSHG"
     # for k in c_global.stock_map:
     #     print(k)
-    quote = g_cursglobal.stock_map[s1]
+    quote = CursGlobal.get_instance().stock_map[s1]
     print(quote)
 def main():
+    #event
+    event_bus = EventBus()
+    event_bus.start()
+
+    cgbl = CursGlobal(event_bus)
     conf = load_yaml("config.yml")
     print(conf)
-    q_engine = QuoteEngine(g_event_bus, g_cursglobal)
+    q_engine = QuoteEngine(event_bus, CursGlobal.get_instance())
     q_engine.start()
 
     #load strategy
     str = "E:/Quant.Pro/curs/curs/strategy/test_strategy.py"
-    load_strategy(str)
+    load_strategy(str, event_bus)
     # print(quotes)
     # data = load_yaml("config.yml")
     # print (data["base"])
@@ -28,12 +33,12 @@ def main():
     pass
 
 
-def load_strategy(strategy_path):
+def load_strategy(strategy_path, event_bus):
     s_loader = FileStrategyLoader(strategy_path)
     scop = {}
     s_loader.load(scop)
     strategy_context = StrategyContext()
-    strategy = Strategy(g_event_bus, scop, strategy_context)
+    strategy = Strategy(event_bus, scop, strategy_context)
     strategy.init()
 
 

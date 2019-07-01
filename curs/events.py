@@ -96,10 +96,6 @@ def test_put_event(event_bus):
         event_bus.put_event(event)
         time.sleep(1)
 
-
-g_event_bus = EventBus()
-g_event_bus.start()
-
 def test_get_event(data):
     print(data)
 
