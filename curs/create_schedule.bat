@@ -1,6 +1,6 @@
 @echo off
-set oasis_path=E:\Quant.Pro\curs\curs
-set script_path=%oasis_path%\real_quote
+set curs_path=E:\Quant.Pro\curs\curs
+set script_path=%curs_path%\real_quote
 
 
 schtasks /delete /tn start_tdx2buddle /f
