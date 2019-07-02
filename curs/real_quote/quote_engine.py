@@ -56,8 +56,13 @@ class QuoteEngine:
 
     def __process(self):
         while self.__is_runing:
+            #get time
+            self.__cursglobal.real_dt = datetime.datetime.now()
+            # get full market quote
             self.get_full_quote()
+            # get today min klines
             self.get_sub_min_klines()
+
             event = Event(EVENT.TICK, tick=1)
             self.__event_bus.put_event(event)
             time.sleep(3)

@@ -438,8 +438,10 @@ def main():
     # print(quote)
     # data = get_security_finance_info("000001.xshe")
     # print(mins_between(92500,103000))
-    counts = get_today_kline_counts()
-    print(counts)
+    # counts = get_today_kline_counts()
+    # print(counts)
+
+    print(datetime.datetime.min.time())
     # print(data)
     # print(data1)
     pass

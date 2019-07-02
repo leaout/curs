@@ -11,6 +11,8 @@ class CursGlobal:
         self._index_map = {}
         self._min_buddles = None
         self._day_buddles = None
+        # real trade time
+        self.real_dt = None
 
     @classmethod
     def get_instance(cls):

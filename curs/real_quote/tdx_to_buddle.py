@@ -94,7 +94,7 @@ def min_quote_to_buddle(root_dir):
         arr = min_quote_to_np(k, SECURITY_TYPE.STOCK)
         if arr is None:
             continue
-        logger.info("security min quote:", k)
+        logger.info("security min quote:"+ k)
         dtdb.append(k,arr)
 
     #index
@@ -107,7 +107,7 @@ def min_quote_to_buddle(root_dir):
         arr = min_quote_to_np(k, SECURITY_TYPE.INDEX)
         if arr is None:
             continue
-        logger.info("security min quote:", k)
+        logger.info("security min quote:"+ k)
         dtdb.append(k,arr)
 @function_eleapsed
 def day_quote_to_buddle(root_dir):
