@@ -3,7 +3,7 @@ from pytdx.hq import TdxHq_API
 from retrying import retry
 import pandas as pd
 from curs.log_handler.logger import logger
-import datetime
+from curs.const import *
 
 server_list = [
         # added 20190222 from tdx
@@ -422,6 +422,7 @@ def get_today_kline_counts():
         return math.ceil((tnow - t930).seconds/60)
     if int(now_time) >= 130000 :
         return math.ceil((tnow - t930).seconds/60) - 90
+
 
 def main():
     # data = get_security_kline("600446","sh",10)

@@ -1,14 +1,13 @@
 from curs.log_handler.logger import logger
 from curs.cursglobal import *
-
+from curs.api import *
 
 # 在这个方法中编写任何的初始化逻辑。context对象将会在你的算法策略的任何方法之间做传递。
 def init(context):
     logger.info("init")
     context.s1 = "000001.XSHE"
-    # 是否已发送了order
-    context.fired = False
-
+    subscribe_min(context.s1)
+    # QuoteEngine.add_min_subcriber("000001.XSHE")
 
 def before_trading(context):
     pass
@@ -34,5 +33,8 @@ def handle_tick(context,tick):
     s1="603520.XSHG"
     # for k in c_global.stock_map:
     #     print(k)
+    m1_data = history_bars(context.s1,480,"1m")
+    logger.info("len:%d"%len(m1_data))
+    logger.info(m1_data)
     logger.info("Now time:"+CursGlobal.get_instance().real_dt.strftime("%Y-%m-%d %H:%M:%S"))
-    logger.info(CursGlobal.get_instance().stock_map[context.s1])
+    logger.info(CursGlobal.get_instance().stock_map[context.s1]["quote"])

@@ -3,7 +3,7 @@
 from curs.real_quote import *
 from curs.data_source import *
 from curs.utils import *
-
+from curs.const import *
 
 def min_quote_to_np(code, type):
     '''
@@ -16,6 +16,26 @@ def min_quote_to_np(code, type):
         df = get_security_kline(code, 240)
     elif type == SECURITY_TYPE.INDEX:
         df = get_index_kline(code, 240)
+    if df.empty :
+        return None
+    df = reset_col(df)
+
+    df['datetime'] = df['datetime'].map(timestamp_to_unix_ext)
+    bt = BuddleTools()
+    return bt.df_to_np(df)
+
+def get_real_min(code, type):
+    '''
+    获取当日分钟线
+    type index stock
+    :param code:"600004.XSHG"
+    :return: 返回 np.array
+    '''
+    k_counts = get_today_kline_counts()
+    if type == SECURITY_TYPE.STOCK:
+        df = get_security_kline(code, k_counts)
+    elif type == SECURITY_TYPE.INDEX:
+        df = get_index_kline(code, k_counts)
     if df.empty :
         return None
     df = reset_col(df)

@@ -13,6 +13,7 @@ class CursGlobal:
         self._day_buddles = None
         # real trade time
         self.real_dt = None
+        self.data_source = None
 
     @classmethod
     def get_instance(cls):
@@ -21,7 +22,7 @@ class CursGlobal:
         """
         if CursGlobal._global is None:
             raise RuntimeError(
-                _(u"Environment has not been created. Please Use `Environment.get_instance()` after RQAlpha init"))
+                _(u"Environment has not been created. Please Use `CursGlobal.get_instance()` after  init"))
         return CursGlobal._global
 
     @property
@@ -49,4 +50,6 @@ class CursGlobal:
         self._min_buddles.open()
         self._day_buddles = DataBuddle(self.__config["data_bundle_path"] + "\day", "r")
         self._day_buddles.open()
-        pass
+
+    def set_data_source(self, data_source):
+        self.data_source = data_source

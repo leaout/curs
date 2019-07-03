@@ -15,7 +15,7 @@ class BuddleTools(object):
 
     def csv_to_carray(self):
         list_csvs = WalkDir(self._srcdir)
-        print("totoal counts:",len(list_csvs))
+        logger.info("totoal counts:",len(list_csvs))
         for csv in list_csvs:
             df = ReadFromCsv(pd_names, csv,1,',')
             # print(df)
@@ -51,7 +51,8 @@ class BuddleTools(object):
                             cparams=bcolz.cparams(quantize=1))
         return carr
 
-    def df_to_np(self,df):
+    @classmethod
+    def df_to_np(cls,df):
 
         return np.array(df)
 
