@@ -41,6 +41,7 @@ def get_period_int(frequency):
             return 30 * (24*60*60)
         elif frequency[0] == "60":
             return 60 * (24*60*60)
+    return 1
 
 def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
     '''

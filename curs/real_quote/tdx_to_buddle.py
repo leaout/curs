@@ -138,7 +138,7 @@ def day_quote_to_buddle(root_dir):
         # file_name = GetFileName(k)
         # if int(file_name) > 417:
         #     continue
-        arr = min_quote_to_np(k, SECURITY_TYPE.STOCK)
+        arr = day_quote_to_np(k, SECURITY_TYPE.STOCK)
         if arr is None:
             continue
         logger.info("security day quote:"+ k)
@@ -150,7 +150,7 @@ def day_quote_to_buddle(root_dir):
             continue
         # if int(file_name) <= 31:
         #     continue
-        arr = min_quote_to_np(k, SECURITY_TYPE.INDEX)
+        arr = day_quote_to_np(k, SECURITY_TYPE.INDEX)
         if arr is None:
             continue
         logger.info("security day quote:"+k)

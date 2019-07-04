@@ -58,8 +58,17 @@ class DataBuddle(object):
 def main():
     # bt = BuddleTools("H:/indexmincsv","H:/buddles")
     # bt.csv_to_carray()
-    dbuddle = DataBuddle("E:\\buddles","r")
+    dbuddle = DataBuddle("E:\\buddles\\day","r")
     dbuddle.open()
+    arr = dbuddle.get_buddle("603520.XSHG")
+    ret_df = pd.DataFrame(arr[-100:-1])
+    ret_df.columns = ['time', 'open', 'close', 'high', 'low', 'volume', 'money']
+
+    # ret_df['time'] = ret_df['time'].map(lambda s: (s - s%get_period_int(frequency)))
+
+    ret_df['time'] = ret_df['time'].map(unix_to_timestamp)
+
+    print(ret_df)
     # buddle = dbuddle.get_buddle("000012.XSHG")
     # print(buddle)
 if __name__ == '__main__':
