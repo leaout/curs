@@ -48,6 +48,15 @@ def timestamp_to_unix_ext(time_stamp):
     a = datetime.datetime.strptime(str(time_stamp), "%Y-%m-%d %H:%M").timetuple()
     b = time.mktime(a)
     return int(b)
+
+def unix_to_timestamp(unix_time):
+    '''
+    :param time_stamp 2005-01-04 09:31:00:
+    :return:
+    '''
+    time_local = time.localtime(unix_time)
+    dt = time.strftime("%Y-%m-%d %H:%M:%S", time_local)
+    return dt
 def main():
     list_dirs = WalkSubDir("D:/JoinQuant-Desktop-Py3/USERDATA/.joinquant-py3/bundle/stock1d/00")
     print(list_dirs)

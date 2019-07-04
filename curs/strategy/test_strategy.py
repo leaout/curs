@@ -33,8 +33,9 @@ def handle_tick(context,tick):
     s1="603520.XSHG"
     # for k in c_global.stock_map:
     #     print(k)
-    m1_data = history_bars(context.s1,480,"1m")
+    m1_data = history_bars(context.s1,480,"5m")
     logger.info("len:%d"%len(m1_data))
+    logger.info(m1_data.columns)
     logger.info(m1_data)
     logger.info("Now time:"+CursGlobal.get_instance().real_dt.strftime("%Y-%m-%d %H:%M:%S"))
     logger.info(CursGlobal.get_instance().stock_map[context.s1]["quote"])

@@ -16,13 +16,14 @@ def main():
     event_bus = EventBus()
     event_bus.start()
     #buddle
-    min_buddle = DataBuddle("E:\\buddles\\min", "r")
-    min_buddle.open()
+    # min_buddle = DataBuddle("E:\\buddles\\min", "r")
+    # min_buddle.open()
     #config
     conf = load_yaml("config.yml")
 
     cgbl = CursGlobal(event_bus,conf)
-    cgbl.set_data_source(min_buddle)
+    cgbl.load_buddles()
+    # cgbl.set_data_source(min_buddle)
 
     q_engine = QuoteEngine(event_bus, CursGlobal.get_instance())
     q_engine.start()

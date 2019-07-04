@@ -9,8 +9,8 @@ class CursGlobal:
         self.__config= config
         self._stock_map = {}
         self._index_map = {}
-        self._min_buddles = None
-        self._day_buddles = None
+        self.min_buddles = None
+        self.day_buddles = None
         # real trade time
         self.real_dt = None
         self.data_source = None
@@ -46,10 +46,10 @@ class CursGlobal:
         self._index_map = index_map
 
     def load_buddles(self):
-        self._min_buddles = DataBuddle(self.__config["data_bundle_path"] + "\min", "r")
-        self._min_buddles.open()
-        self._day_buddles = DataBuddle(self.__config["data_bundle_path"] + "\day", "r")
-        self._day_buddles.open()
+        self.min_buddles = DataBuddle(self.__config["base"]["data_bundle_path"] + "/min", "r")
+        self.min_buddles.open()
+        self.day_buddles = DataBuddle(self.__config["base"]["data_bundle_path"] + "/day", "r")
+        self.day_buddles.open()
 
     def set_data_source(self, data_source):
         self.data_source = data_source
