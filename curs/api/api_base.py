@@ -78,7 +78,10 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
             # print(len(buddle[-sub_counts:-1]))
             np_arr = np.concatenate([buddle[-sub_counts:-1], real_min])
     else:
-        np_arr = buddle[-bar_count:-1]
+        if bar_count >= len(buddle):
+            np_arr = buddle[:]
+        else:
+            np_arr = buddle[-bar_count:-1]
 
     ret_df = pd.DataFrame(np_arr)
     ret_df.columns = pd_names

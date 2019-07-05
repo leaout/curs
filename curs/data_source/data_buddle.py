@@ -61,7 +61,8 @@ def main():
     dbuddle = DataBuddle("E:\\buddles\\day","r")
     dbuddle.open()
     arr = dbuddle.get_buddle("603520.XSHG")
-    ret_df = pd.DataFrame(arr[-100:-1])
+    print(len(arr))
+    ret_df = pd.DataFrame(arr[:-1])
     ret_df.columns = ['time', 'open', 'close', 'high', 'low', 'volume', 'money']
 
     # ret_df['time'] = ret_df['time'].map(lambda s: (s - s%get_period_int(frequency)))

@@ -33,7 +33,7 @@ def handle_tick(context,tick):
     s1="603520.XSHG"
     # for k in c_global.stock_map:
     #     print(k)
-    m1_data = history_bars(context.s1,20,"1d")
+    m1_data = history_bars(context.s1,2,"1d")
     logger.info("len:%d"%len(m1_data))
     logger.info(m1_data.columns)
     logger.info(m1_data)
