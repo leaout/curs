@@ -32,13 +32,19 @@ def get_real_min(code, type):
     :return: 返回 np.array
     '''
     k_counts = get_today_kline_counts()
+    if k_counts is None:
+        return None
     if type == SECURITY_TYPE.STOCK:
         df = get_security_kline(code, k_counts)
     elif type == SECURITY_TYPE.INDEX:
         df = get_index_kline(code, k_counts)
-    if df.empty :
+    if df.empty or df is None :
         return None
+
     df = reset_col(df)
+
+    if df is None:
+        return None
 
     df['datetime'] = df['datetime'].map(timestamp_to_unix_ext)
     bt = BuddleTools()

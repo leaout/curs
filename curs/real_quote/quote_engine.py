@@ -95,7 +95,7 @@ class QuoteEngine:
 
             event = Event(EVENT.TICK, tick=1)
             self.__event_bus.put_event(event)
-            time.sleep(1)
+            time.sleep(3)
 
     def start(self):
         self.get_security_map()
