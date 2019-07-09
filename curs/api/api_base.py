@@ -71,8 +71,10 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
     if ismin:
         real_min = gl.stock_map[order_book_id]["1m"]
         sub_counts = bar_count - len(real_min)
-        if sub_counts <= 0:
-            return real_min
+        if sub_counts == 0 :
+            np_arr = real_min
+        elif sub_counts < 0 :
+            np_arr = real_min[:bar_count]
         else:
             sub_counts += 1
             # print(len(buddle[-sub_counts:-1]))

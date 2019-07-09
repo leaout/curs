@@ -47,6 +47,8 @@ class QuoteEngine:
         stock_quotes = get_security_quotes(self.__stocks)
         # print(self.__cursglobal.stock_map.keys())
         # print(stock_quotes.keys())
+        if stock_quotes is None:
+            return
         for k in stock_quotes:
             # self.__cursglobal.stock_map.setdefault(k,{"quote", stock_quotes[k]})
             # stock_map[k].setdefault("quote",stock_quotes[k])
@@ -56,6 +58,8 @@ class QuoteEngine:
             self.__cursglobal.stock_map[k]["quote"]= stock_quotes[k]
             # stock_map[k] = {"quote": stock_quotes[k]}
         index_quotes = get_security_quotes(self.__indexs)
+        if index_quotes is None:
+            return
         for k in index_quotes:
             # index_map[k] = {"quote":index_quotes[k]}
             self.__cursglobal.index_map[k]["quote"] = index_quotes[k]
