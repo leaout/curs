@@ -107,7 +107,7 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
         ret_df = ret_df.set_index("time")
         #index 需要转成 datetime 类型
         ret_df.index = pd.to_datetime(ret_df.index)
-        #TODO 15:00 无法归并到前一分钟
+        #TODO 15:00 无法归并到前一分钟  Done
         ret_df = ret_df.groupby("time").agg({'open': lambda s: s[0],
                                              'close': lambda s: s[-1],
                                              'high': lambda s: s.max(),
