@@ -43,6 +43,13 @@ def get_period_int(frequency):
             return 60 * (24*60*60)
     return 1
 
+def judge_period_border(unix_time):
+    time_local = time.localtime(unix_time)
+    time_str = time.strftime("%H:%M:%S", time_local)
+    if time_str == "15:00:00":
+        return False
+    return True
+
 def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
     '''
 
@@ -52,73 +59,68 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
     :param fields:
     :return:
     '''
-    buddle_manager = None
-    gl = CursGlobal.get_instance()
-    ismin = False
+    try:
+        buddle_manager = None
+        gl = CursGlobal.get_instance()
+        ismin = False
 
-    if frequency[1] == "m" or frequency[1]  == "M":
-        buddle_manager = gl.min_buddles
-        ismin = True
-    else:
-        buddle_manager = gl.day_buddles
-
-    buddle = buddle_manager.get_buddle(order_book_id)
-    if buddle is None:
-        return None
-    if order_book_id not in gl.stock_map.keys():
-        return None
-    np_arr = None
-    if ismin:
-        real_min = gl.stock_map[order_book_id]["1m"]
-        sub_counts = bar_count - len(real_min)
-        if sub_counts == 0 :
-            np_arr = real_min
-        elif sub_counts < 0 :
-            np_arr = real_min[:bar_count]
+        if frequency[1] == "m" or frequency[1] == "M":
+            buddle_manager = gl.min_buddles
+            ismin = True
         else:
-            sub_counts += 1
-            # print(len(buddle[-sub_counts:-1]))
-            np_arr = np.concatenate([buddle[-sub_counts:-1], real_min])
-    else:
-        if bar_count >= len(buddle):
-            np_arr = buddle[:]
+            buddle_manager = gl.day_buddles
+
+        buddle = buddle_manager.get_buddle(order_book_id)
+        if buddle is None:
+            return None
+        if order_book_id not in gl.stock_map.keys():
+            return None
+        #计算bar_count
+        bar_count = int(frequency[0])*bar_count
+
+        np_arr = None
+        if ismin:
+            real_min = gl.stock_map[order_book_id]["1m"]
+            sub_counts = bar_count - len(real_min)
+            if sub_counts == 0:
+                np_arr = real_min
+            elif sub_counts < 0:
+                np_arr = real_min[(240 - bar_count):]
+            else:
+                sub_counts += 1
+                # print(len(buddle[-sub_counts:-1]))
+                np_arr = np.concatenate([buddle[-sub_counts:-1], real_min])
         else:
-            np_arr = buddle[-bar_count:-1]
+            if bar_count >= len(buddle):
+                np_arr = buddle[:]
+            else:
+                np_arr = buddle[-bar_count:-1]
 
-    ret_df = pd.DataFrame(np_arr)
-    ret_df.columns = pd_names
+        ret_df = pd.DataFrame(np_arr)
+        ret_df.columns = pd_names
+        #同一周期时间 改为相同时间
+        period_time = get_period_int(frequency)
+        ret_df['time'] = ret_df['time'].map(lambda s: ((s +(period_time - s % period_time)) if judge_period_border(
+            s) else s))
 
-    ret_df['time'] = ret_df['time'].map(lambda s: (s - s%get_period_int(frequency)))
+        ret_df['time'] = ret_df['time'].map(unix_to_timestamp)
+        ret_df = ret_df.set_index("time")
+        #index 需要转成 datetime 类型
+        ret_df.index = pd.to_datetime(ret_df.index)
+        #TODO 15:00 无法归并到前一分钟
+        ret_df = ret_df.groupby("time").agg({'open': lambda s: s[0],
+                                             'close': lambda s: s[-1],
+                                             'high': lambda s: s.max(),
+                                             'low': lambda s: s.min(),
+                                             'volume': lambda s: s.sum(),
+                                             'money': lambda s: s.sum()})
 
-    ret_df['time'] = ret_df['time'].map(unix_to_timestamp)
-    ret_df = ret_df.set_index("time")
-    ret_df.index = pd.to_datetime(ret_df.index)
-    # ohlc_dict = {
-    #     'open': 'first',
-    #     'high': 'max',
-    #     'low': 'min',
-    #     'close': 'last',
-    #     'volume': 'sum',
-    #     'money': 'sum'
-    # }
-    # if frequency[0] == "5" :
-    #     # ret_df = ret_df.resample('5Min', how=ohlc_dict, closed='left', label='left')
-    #     # ret_df = ret_df.resample('5Min').ohlc()
-    #     ret_df = ret_df.groupby("time").agg({'low': lambda s: s.min(),
-    #                                     'high': lambda s: s.max(),
-    #                                     'open': lambda s: s[0],
-    #                                     'close': lambda s: s[-1],
-    #                                     'volume': lambda s: s.sum(),
-    #                                     'money': lambda s: s.sum()})
-    ret_df = ret_df.groupby("time").agg({'low': lambda s: s.min(),
-                                         'high': lambda s: s.max(),
-                                         'open': lambda s: s[0],
-                                         'close': lambda s: s[-1],
-                                         'volume': lambda s: s.sum(),
-                                         'money': lambda s: s.sum()})
+        # ret_df.dropna(axis=0, how='any', inplace=True)
+        return ret_df
+    except Exception as e:
+        logger.error(e)
+        return None
 
-    # ret_df.dropna(axis=0, how='any', inplace=True)
-    return ret_df
 
 
 

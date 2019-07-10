@@ -47,16 +47,20 @@ class DataSource(object):
 
 #test
 def main():
-    starttime = datetime.datetime.now()
-    ds = DataSource("E:/Yueniu/gitYueniu2019/setup_Tdx_Tools/tdx_kline/kdata")
-    ds.load_kline_data()
-    price = ds.history_bars('100600000',20,'1d','last','20190111','none')
-    print(price)
-    # print(ds.get_kline_by_sid('100600000'))
-
-    endtime = datetime.datetime.now()
-
-    print(endtime - starttime)
+    # starttime = datetime.datetime.now()
+    # ds = DataSource("E:/Yueniu/gitYueniu2019/setup_Tdx_Tools/tdx_kline/kdata")
+    # ds.load_kline_data()
+    # price = ds.history_bars('100600000',20,'1d','last','20190111','none')
+    # print(price)
+    # # print(ds.get_kline_by_sid('100600000'))
+    #
+    # endtime = datetime.datetime.now()
+    #
+    # print(endtime - starttime)
+    a = 4
+    b = 2
+    c = 3
+    print(a if (a > b) else c)
     pass
 
 if __name__ == '__main__':
