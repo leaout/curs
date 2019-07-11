@@ -1,6 +1,10 @@
 from curs.log_handler.logger import logger
 from curs.cursglobal import *
 from curs.api import *
+import matplotlib.pyplot as plt
+#test
+from curs.api import *
+from curs.utils import *
 
 # 在这个方法中编写任何的初始化逻辑。context对象将会在你的算法策略的任何方法之间做传递。
 def init(context):
@@ -36,8 +40,14 @@ def handle_tick(context,tick):
     m1_data = history_bars(context.s1,20,"5m")
     if m1_data is None:
         return
+    logger.info(m1_data.close)
+    # m1_data["close"].plot(kind='line')
+    # plt.show()
     logger.info("len:%d"%len(m1_data))
     logger.info(m1_data.columns)
-    logger.info(m1_data.high)
+
     logger.info("Now time:"+CursGlobal.get_instance().real_dt.strftime("%Y-%m-%d %H:%M:%S"))
     logger.info(CursGlobal.get_instance().stock_map[context.s1]["quote"])
+
+    # m5_data = history_bars("000001.XSHE", 20, "5m")
+    # candles_plot(m5_data,"000001.XSHE")

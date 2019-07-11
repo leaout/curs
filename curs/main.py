@@ -34,6 +34,8 @@ def main():
     # print(quotes)
     # data = load_yaml("config.yml")
     # print (data["base"])
+
+
     while 1 :
         time.sleep(3)
     pass
