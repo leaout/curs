@@ -81,7 +81,10 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
         np_arr = None
         if ismin:
             real_min = gl.stock_map[order_book_id]["1m"]
-            sub_counts = bar_count - len(real_min)
+            real_len = 0
+            if real_min is not None:
+                real_len = len(real_min)
+            sub_counts = bar_count - real_len
             if sub_counts == 0:
                 np_arr = real_min
             elif sub_counts < 0:
@@ -89,7 +92,10 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
             else:
                 sub_counts += 1
                 # print(len(buddle[-sub_counts:-1]))
-                np_arr = np.concatenate([buddle[-sub_counts:-1], real_min])
+                if real_min is not None:
+                    np_arr = np.concatenate([buddle[-sub_counts:-1], real_min])
+                else:
+                    np_arr = buddle[-sub_counts:-1]
         else:
             if bar_count >= len(buddle):
                 np_arr = buddle[:]
