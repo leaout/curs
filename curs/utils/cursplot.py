@@ -21,6 +21,10 @@ def candles_plot(df,order_book_id):
     df = df.reset_index()
     df["indexxx"] = df.index
     # 生成横轴的刻度名字
+    df['5'] = df.close.rolling(5).mean()
+    df['20'] = df.close.rolling(20).mean()
+    df['30'] = df.close.rolling(30).mean()
+    df['60'] = df.close.rolling(60).mean()
 
     date_tickers = df.time
 
@@ -42,7 +46,9 @@ def candles_plot(df,order_book_id):
     # candlestick_ochl(ax1, quotes, colordown='#53c156', colorup='#ff1717', width=0.2)
     candlestick_ochl(ax1, df[['indexxx', 'open', 'close', 'high', 'low']].values,
                      colordown='#53c156', colorup='#ff1717', width=0.2)
-
+    for ma in ['5', '20', '30', '60']:
+        ax1.plot(df['indexxx'], df[ma])
+    ax1.legend()
     #成交量
     # ax2.xaxis.set_major_formatter(ticker.FuncFormatter(format_date))
     df['up'] = df.apply(lambda row: 1 if row['close'] >= row['open'] else 0, axis=1)
