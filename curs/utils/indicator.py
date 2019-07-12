@@ -45,7 +45,7 @@ def get_avg_price(df):
 '''
 close = hData['close']
 close = np.array(close, dtype='f8')
-wDif, wDea, wMacd =  MACD_CN(close, 12, 26, 9)
+wDif, wDea, wMacd =  macd_cn(close, 12, 26, 9)
 '''
 def macd_cn(close_arr, fastperiod, slowperiod, signalperiod) :
     macdDIFF, macdDEA, macd = ta.MACDEXT(close_arr, fastperiod=fastperiod, fastmatype=1, slowperiod=slowperiod, slowmatype=1, signalperiod=signalperiod, signalmatype=1)

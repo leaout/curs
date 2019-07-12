@@ -13,7 +13,7 @@ import datetime
 from matplotlib.pylab import date2num
 from curs.api import *
 import matplotlib.ticker as ticker
-
+from .indicator import *
 
 def candles_plot(df,order_book_id):
     df = df.dropna()
@@ -27,13 +27,13 @@ def candles_plot(df,order_book_id):
     df['60'] = df.close.rolling(60).mean()
 
     date_tickers = df.time
-
-    fig, (ax1,ax2) = plt.subplots(2, sharex=True,figsize=(1200 / 72, 480 / 72))
+    #图层
+    fig, (ax1, ax2, ax3) = plt.subplots(3, sharex=True,figsize=(1200 / 72, 480 / 72))
 
     def format_date(x, pos=None):
         # if x < 0 or x > len(date_tickers) - 1:
         #     return ''
-        if x%5 != 0:
+        if x%5 != 0 or x > len(date_tickers) - 1:
             return ''
         return date_tickers[int(x)]
     #k线图
@@ -49,14 +49,34 @@ def candles_plot(df,order_book_id):
     for ma in ['5', '20', '30', '60']:
         ax1.plot(df['indexxx'], df[ma])
     ax1.legend()
+
     #成交量
     # ax2.xaxis.set_major_formatter(ticker.FuncFormatter(format_date))
     df['up'] = df.apply(lambda row: 1 if row['close'] >= row['open'] else 0, axis=1)
-    ax2.bar(df.query('up == 1')['indexxx'], df.query('up == 1')['volume'], color='r', alpha=0.7)
-    ax2.bar(df.query('up == 0')['indexxx'], df.query('up == 0')['volume'], color='g', alpha=0.7)
+    ax2.bar(df.query('up == 1')['indexxx'], df.query('up == 1')['volume'], color='r', alpha=0.7,width = 0.8)
+    ax2.bar(df.query('up == 0')['indexxx'], df.query('up == 0')['volume'], color='g', alpha=0.7,width = 0.8)
     # plt.bar(df.volume,height = 1, width=0.5)
     ax2.set_ylabel('Volume')
     ax2.grid(True)
+
+    #Macd
+    wDif, wDea, wMacd = macd_cn(df.close, 12, 26, 9)
+    wMacd = wMacd.fillna(0)
+    wDea = wDea.fillna(0)
+    wDif = wDif.fillna(0)
+    # print(wDif)
+    # print(df['indexxx'])
+    df['macdup'] = wMacd.apply(lambda row: 1 if row > 0 else 0)
+    df['macd'] = wMacd
+    ax3.plot(df['indexxx'], wDif)
+    ax3.plot(df['indexxx'], wDea)
+    # ax3.bar(df['indexxx'], wMacd,width = 0.2)
+    ax3.bar(df.query('macdup == 1')['indexxx'], df.query('macdup == 1')['macd'], color='r',width=0.2)
+    ax3.bar(df.query('macdup == 0')['indexxx'], df.query('macdup == 0')['macd'], color='g',width=0.2)
+    ax3.set_ylabel('Macd')
+    ax3.grid(True)
+    ax3.legend()
+
     plt.show()
 
 

@@ -88,7 +88,8 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
             if sub_counts == 0:
                 np_arr = real_min
             elif sub_counts < 0:
-                np_arr = real_min[(240 - bar_count):]
+                #只从当天分钟线中取数据
+                np_arr = real_min[(real_len - bar_count):]
             else:
                 sub_counts += 1
                 # print(len(buddle[-sub_counts:-1]))
@@ -101,7 +102,7 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
                 np_arr = buddle[:]
             else:
                 np_arr = buddle[-bar_count:-1]
-
+        # print(len(np_arr))
         ret_df = pd.DataFrame(np_arr)
         ret_df.columns = pd_names
         #同一周期时间 改为相同时间
