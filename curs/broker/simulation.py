@@ -225,6 +225,17 @@ class Matcher(object):
             if  order.price > deal_price:
                 #成交
                 order.fill(td)
+            #update account
+            # if not account._positions.has_key(order_book_id):
+            if   order_book_id not in  account._positions.keys():
+                account._positions[order.order_book_id] = Position()
+            account._positions[order.order_book_id].sid = order.order_book_id
+            account._positions[order.order_book_id].avg_price = order._avg_price
+            #account._positions[order.order_book_id].quantity = 0
+            # quantity = account._positions[order.order_book_id].quantity
+            # print(quantity)
+            account._positions[order.order_book_id].quantity += order.filled_quantity
+            account._total_cash -= (order._avg_price * order.filled_quantity)
 
     def get_last_price(self,order_book_id):
         #获取最新价
@@ -288,6 +299,7 @@ def main():
     od.set_state(order_dict)
     orders = (acct,od)
     simu.add_order(orders)
+    print(acct.__dict__)
     # print(orders)
     # simu.
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ class Position(dict):
     '''
     持仓 id 成本均价 数量 当前价格
     '''
-    def __init__(self,sid, cost_price):
+    def __init__(self):
         self._sid = 0
         self._avg_price = 0
         self._quantity = 0
@@ -32,7 +32,7 @@ class Position(dict):
     def quantity(self):
         return self._quantity
 
-    @avg_price.setter
+    @quantity.setter
     def quantity(self, quantity):
         if quantity < 0:
             raise ValueError('invalid avg_price')
