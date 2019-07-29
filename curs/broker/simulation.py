@@ -119,7 +119,7 @@ class Order(object):
         }
 
     @classmethod
-    def __from_create__(cls, order_book_id, quantity, side,  position_effect):
+    def __from_create__(cls, order_book_id, quantity, side,  frozen_price):
         # env = Environment.get_instance()
         order = cls()
         order._order_id = next(order.order_id_gen)
@@ -128,12 +128,12 @@ class Order(object):
         order._quantity = quantity
         order._order_book_id = order_book_id
         order._side = side
-        order._position_effect = position_effect
+        order._position_effect = None
         order._message = ""
         order._filled_quantity = 0
         order._status = ORDER_STATUS.PENDING_NEW
 
-        order._frozen_price = 0.
+        order._frozen_price = frozen_price
         order._type = ORDER_TYPE.MARKET
         order._avg_price = 0
         order._transaction_cost = 0
@@ -219,18 +219,22 @@ class Matcher(object):
             deal_price = self.get_last_price(order_book_id)
             # print(deal_price)
             td = Trade
-            td.last_quantity = 100
-            td.last_price = 13
-            print("id[%s] price[%f]"%(order_book_id,deal_price))
+            td.last_quantity = order.quantity
+            td.last_price = deal_price
+
             if  order.price > deal_price:
                 #成交
                 order.fill(td)
+            else:
+                return
             #update account
             # if not account._positions.has_key(order_book_id):
             if   order_book_id not in  account._positions.keys():
                 account._positions[order.order_book_id] = Position()
+
             account._positions[order.order_book_id].sid = order.order_book_id
             account._positions[order.order_book_id].avg_price = order._avg_price
+            print(account._positions)
             #account._positions[order.order_book_id].quantity = 0
             # quantity = account._positions[order.order_book_id].quantity
             # print(quantity)
@@ -277,28 +281,29 @@ def main():
     mer = Matcher()
     simu = Simulation(mer)
     acct = Account(100000)
-    od = Order()
-    order_dict = {
-        'order_id':123,
-        'calendar_dt':None,
-        'trading_dt': 20190602,
-        'order_book_id':'600000.XSHG',
-        'quantity': 100,
-        'side': SIDE.BUY,
-        'filled_quantity':0,
-        'message': None,
-        'secondary_order_id': None,
-        'status': None,
-        'frozen_price': 13,
-        'type': None,
-        'transaction_cost': None,
-        'avg_price': 13,
-        'position_effect': None,
-
-    }
-    od.set_state(order_dict)
+    od = Order.__from_create__('600000.XSHG',100,SIDE.BUY,13)
+    # order_dict = {
+    #     'order_id':123,
+    #     'calendar_dt':None,
+    #     'trading_dt': 20190602,
+    #     'order_book_id':'600000.XSHG',
+    #     'quantity': 100,
+    #     'side': SIDE.BUY,
+    #     'filled_quantity':0,
+    #     'message': None,
+    #     'secondary_order_id': None,
+    #     'status': None,
+    #     'frozen_price': 13,
+    #     'type': None,
+    #     'transaction_cost': None,
+    #     'avg_price': 13,
+    #     'position_effect': None,
+    #
+    # }
+    # od.set_state(order_dict)
     orders = (acct,od)
     simu.add_order(orders)
+    print(acct.positions['600000.XSHG'].__dict__ )
     print(acct.__dict__)
     # print(orders)
     # simu.
