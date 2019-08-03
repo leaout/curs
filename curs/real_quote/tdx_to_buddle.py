@@ -162,14 +162,21 @@ def day_quote_to_buddle(root_dir):
         logger.info("security day quote:"+k)
         dtdb.append(k,arr)
 
+import click
+@click.command()
+@click.option('--day_path', default="E:/buddles/day", help='day bar data path.')
+@click.option('--min_path', default='E:/buddles/min',help='min bar data path.')
+def data_persist(day_path,min_path):
+    day_quote_to_buddle(day_path)
+    min_quote_to_buddle(min_path)
+
 def main():
     # stock_list,index_list = get_securities()
     # print(len(stock_list))
-    day_quote_to_buddle("E:/buddles/day")
-    min_quote_to_buddle("E:/buddles/min")
+
     # df = get_index_kline("000001.XSHG", 480)
     # print(df["datetime"])
     pass
 
 if __name__ == "__main__":
-    main()
+    data_persist()

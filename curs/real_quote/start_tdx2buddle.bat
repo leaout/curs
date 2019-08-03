@@ -1,10 +1,10 @@
 @echo off
-set curs_path=E:\Quant.Pro\curs\curs
-set script_path=%curs_path%\real_quote
+REM set curs_path=E:\Quant.Pro\curs\curs
+REM set script_path=%curs_path%\real_quote
 
-echo start tdx_to_buddle
-cd /d %script_path%
-python tdx_to_buddle.py
+REM echo start tdx_to_buddle
+REM cd /d %script_path%
+python tdx_to_buddle.py --day_path D:/buddles/day --min_path D:/buddles/min
 echo done.
 
 pause
