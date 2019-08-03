@@ -9,3 +9,5 @@ arrow
 xlrd
 pytdx==1.67
 bcolz
+mpl_finance
+talib

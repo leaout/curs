@@ -4,13 +4,6 @@ from curs.real_quote import *
 from curs.cursglobal import *
 from curs.strategy import *
 
-
-def hanle_tick(data):
-    s1="603520.XSHG"
-    # for k in c_global.stock_map:
-    #     print(k)
-    quote = CursGlobal.get_instance().stock_map[s1]
-    print(quote)
 def main():
     #event
     event_bus = EventBus()
