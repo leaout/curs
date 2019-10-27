@@ -22,7 +22,7 @@ def main():
     q_engine.start()
 
     #load strategy
-    str = "E:/Quant.Pro/curs/curs/strategy/test_strategy.py"
+    str = "D:/git/quant/curs/curs/strategy/test_strategy.py"
     load_strategy(str, event_bus)
     # print(quotes)
     # data = load_yaml("config.yml")

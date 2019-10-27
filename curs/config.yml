@@ -4,7 +4,7 @@ version: 0.1.0
 
 base:
   # 数据源所存储的文件路径
-  data_bundle_path: E:/buddles
+  data_bundle_path: D:/buddles
   # 启动的策略文件路径
   strategy_path: ~/strategy
   # 运行类型，`b` 为回测，`p` 为模拟交易, `r` 为实盘交易。
