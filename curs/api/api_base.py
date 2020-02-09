@@ -95,7 +95,7 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
             np_arr = real_min[(real_len - bar_count):]
         else:
             sub_counts += 1
-            # print(len(buddle[-sub_counts:-1]))
+
             if real_min is not None:
                 np_arr = np.concatenate([buddle[-sub_counts:-1], real_min])
             else:
@@ -105,7 +105,7 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
             np_arr = buddle[:]
         else:
             np_arr = buddle[-bar_count:-1]
-    # print(len(np_arr))
+
     ret_df = pd.DataFrame(np_arr)
     ret_df.columns = pd_names
     # 同一周期时间 改为相同时间
@@ -114,12 +114,11 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
         s) else s))
 
     ret_df['time'] = ret_df['time'].map(unix_to_timestamp)
-    ret_df = ret_df.set_index("time")
-    # print(ret_df)
+
     # index 需要转成 datetime 类型
     ret_df.index = pd.to_datetime(ret_df.index)
     # TODO 15:00 无法归并到前一分钟  Done
-    # print(ret_df)
+
     ret_df = ret_df.groupby('time').agg({'open': lambda s: s[0],
                                          'close': lambda s: s[-1],
                                          'high': lambda s: s.max(),
@@ -127,11 +126,11 @@ def history_bars(order_book_id, bar_count, frequency="1m", fields=None):
                                          'volume': lambda s: s.sum(),
                                          'money': lambda s: s.sum()})
 
-    # ret_df.dropna(axis=0, how='any', inplace=True)
     return ret_df
+
 # except Exception as e:
-#     logger.error(e)
-#     return None
+# logger.error(e)
+# return None
 
 
 def subscribe_min(order_book_id):
