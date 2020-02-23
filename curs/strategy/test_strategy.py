@@ -46,8 +46,8 @@ def handle_tick(context,tick):
     logger.info("len:%d"%len(m1_data))
     logger.info(m1_data.columns)
 
-    logger.info("Now time:"+CursGlobal.get_instance().real_dt.strftime("%Y-%m-%d %H:%M:%S"))
-    logger.info(CursGlobal.get_instance().stock_map[context.s1]["quote"])
+    # logger.info("Now time:"+CursGlobal.get_instance().real_dt.strftime("%Y-%m-%d %H:%M:%S"))
+    # logger.info(CursGlobal.get_instance().stock_map[context.s1]["quote"])
 
     # m5_data = history_bars("000001.XSHE", 200, "5m")
     # candles_plot(m5_data,"000001.XSHE")
