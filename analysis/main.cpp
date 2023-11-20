@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include "csvparser/BaseDriver.h"
 using namespace std;
 
 struct Buddle{
@@ -30,13 +31,17 @@ private:
     map<pair<uint64_t,Period>,vector<Buddle>> m_data;
 };
 class DataManager{
+    MemoryBuddle m_buddles;
 public:
-    void buddle_loader(){
+    void csv_loader(){
 
     }
 };
 
 int main() {
+    shared_ptr<BaseSeoratorParser::BaseDriver> m_base_driver;
+    m_base_driver = make_shared<BaseSeoratorParser::BaseDriver>(",", "a.txt",  10000, 0, 0, -1);
+    m_base_driver->start();
     std::cout << "hello quant!" << std::endl;
     return 0;
 }
