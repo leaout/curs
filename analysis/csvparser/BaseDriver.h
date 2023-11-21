@@ -26,10 +26,11 @@ namespace BaseSeoratorParser {
             if (file_offset > 0) {
                 m_scan_line_count = 1;
             }
+            m_file_stream.open(m_file);
         }
 
         bool start();
-
+        bool next(vector<pair<size_t,Row>>& row_values);
     public:
         class SepratorScanner *seprator_lexer = NULL;
 

@@ -18,16 +18,23 @@ namespace BaseSeoratorParser {
     }
 
     bool BaseDriver::start() {
-        bool result = false;
-        try {
-            m_file_stream.open(m_file);
-            result = parse_stream(m_file_stream, "csv");
-        } catch (boost::thread_interrupted &) {
-            cout << "stop parse ..." << endl;
-        }
+//        m_file_stream.open(m_file);
+        bool result = parse_stream(m_file_stream, "csv");
+
         return result;
     }
-
+    bool BaseDriver::next(vector<pair<size_t,Row>>& row_values){
+        if(!m_file_stream.is_open()){
+            return false;
+        }
+        bool result = parse_stream(m_file_stream, "csv");
+        if(result && m_csv_impl->lines().size()) {
+            m_csv_impl->lines().swap(row_values);
+            return result;
+        } else{
+            return false;
+        }
+    }
     bool BaseDriver::parse_stream(std::istream& in, const std::string& sname)
     {
         // clear the error msg in every begining
@@ -50,7 +57,7 @@ namespace BaseSeoratorParser {
             return false;
         }
 
-        return ret;
+        return ret==0;
 
     }
 
@@ -59,7 +66,6 @@ namespace BaseSeoratorParser {
     }
 
     bool BaseDriver::push_line() {
-        boost::this_thread::interruption_point();
         // 跳过前skip行 从skip+1行开始
         m_scan_line_count++;
         if(m_scan_line_count <= m_skip) {
