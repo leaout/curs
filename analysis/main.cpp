@@ -28,14 +28,12 @@ enum class Period {
 };
 class MemoryBuddle {
 public:
-
-private:
     map<pair<uint64_t, Period>, vector<Buddle>> m_data;
 };
 
 class DataManager {
-    MemoryBuddle m_buddles;
 public:
+    MemoryBuddle m_buddles;
     void csv_loader() {
 
     }
@@ -55,22 +53,55 @@ struct Order{
 };
 struct IndicatorOut{
     vector<double> outs;
-    Order order;
 };
 class Indicator {
 protected:
     DataManager *m_data_mgr;
 public:
+    virtual ~Indicator(){}
     Indicator(DataManager *intor) : m_data_mgr(intor) {
 
     }
     virtual size_t OutParamCount() = 0;
     virtual void get_indicator(vector<IndicatorOut>& intor_outs) = 0;
 };
-
-class Engine{
+class Context{
 public:
 
+};
+class Strategy{
+protected:
+    Context *m_ctx;
+public:
+    virtual ~Strategy(){}
+    virtual void init( Context *ctx){
+        m_ctx = ctx;
+    }
+    virtual void handle_tick(){
+
+    }
+    virtual void handle_bar(const Buddle& bar){
+
+    }
+    virtual void handle_end(){
+
+    }
+};
+class Engine{
+    std::shared_ptr<DataManager> m_data_mgr;
+public:
+    void init(std::shared_ptr<DataManager> data_mgr){
+        m_data_mgr = data_mgr;
+    }
+    void run(Strategy* stg, int thread_num = 1){
+        auto& his_data = m_data_mgr->m_buddles.m_data;
+        for(auto&stock : his_data){
+            for(auto& buddle : stock.second){
+                stg->handle_bar(buddle);
+            }
+            stg->handle_end();
+        }
+    }
 };
 
 int main() {
