@@ -2,6 +2,7 @@
 #include <map>
 #include <vector>
 #include "csvparser/BaseDriver.h"
+#include "storage/MyRocks.h"
 
 using namespace std;
 
@@ -112,6 +113,9 @@ int main() {
         std::cout << "row size:" << data.size() << std::endl;
     }
     std::cout << "hello quant!" << std::endl;
+
+
+    MyRocks my_rocks;
     return 0;
 }
 
