@@ -11,7 +11,3 @@ pytdx==1.67
 bcolz
 mpl_finance
 talib
-
-bash build.sh beta.4.3.33-b4.3.0-tv-ui-arm arm htap
-
-5b1e88ea28de51a153445b8c442eb644
