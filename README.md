@@ -1,6 +1,8 @@
 # curs
 curs helps u know economic world well
-
+python 3.8/3.9 recommended!
+pip install -r requirements.txt
+python setup.py install 
 ## 模块
 
 collection   数据采集

@@ -3,7 +3,7 @@ pytz
 pandas
 requests
 logbook
-
+yaml
 aiohttp
 arrow
 xlrd
