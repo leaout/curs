@@ -4,10 +4,11 @@ pandas
 requests
 logbook
 yaml
-aiohttp
+aiohttp==3.9
 arrow
 xlrd
 pytdx==1.67
 bcolz
 mpl_finance
 talib
+retrying
