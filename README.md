@@ -6,9 +6,9 @@ python 3.8/3.9 recommended!
 pip install -r requirements.txt
 ```
 ```bash
-python 3.8/3.9 recommended!
-```
 python setup.py install 
+```
+
 
 ## Module
 
