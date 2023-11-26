@@ -1,7 +1,16 @@
 # curs
-curs helps u know economic world well
+Curs is an personal automated quantitative investment platform.
+# Install
+python 3.8/3.9 recommended!
+```bash
+pip install -r requirements.txt
+```
+```bash
+python setup.py install 
+```
 
-## 模块
+
+## Module
 
 collection   数据采集
 
