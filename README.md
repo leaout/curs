@@ -22,10 +22,10 @@ real_quote    实时行情
 
 utils		公共包
 
-
 strategy_loader   策略热加载
 
 main			主程序逻辑  
-
+## Back trader 
+![Back trader](back_trade.jpg)
 ## 交易接口接入
 realtrader
