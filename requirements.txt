@@ -3,12 +3,13 @@ pytz
 pandas
 requests
 logbook
-yaml
-aiohttp==3.9
+pyyaml
+aiohttp==3.8
 arrow
 xlrd
 pytdx==1.67
+backtrader
 bcolz
 mpl_finance
-talib
+ta-lib
 retrying
