@@ -5,11 +5,12 @@ from tensorflow.keras.layers import Dense, LSTM
 from tensorflow.keras.callbacks import EarlyStopping
 
 # 读取历史数据
-df = pd.read_csv('stock_data.csv')
-
+df = pd.read_csv('../../analysis/600519.txt', header=None)
+custom_headers = ['datetime',  'open','high', 'low',  'close',  'volume','amt'  ]
+df.columns = custom_headers
 # 选择要操作的股票代码
-stock_code = 'AAPL'
-df = df[df['code'] == stock_code].reset_index(drop=True)
+# stock_code = 'AAPL'
+# df = df[df['code'] == stock_code].reset_index(drop=True)
 
 # 构造训练集和测试集
 train_size = int(len(df) * 0.8)
