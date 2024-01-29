@@ -4,7 +4,7 @@ pandas
 requests
 logbook
 pyyaml
-aiohttp==3.8
+aiohttp==3.9.2
 arrow
 xlrd
 pytdx==1.67
