@@ -1,34 +1,27 @@
 from random import randrange
 
-from flask import Flask,request,render_template_string
+from flask import Flask,request,render_template_string,render_template
 from jinja2 import Markup, Environment, FileSystemLoader
 from pyecharts import options as opts
 from pyecharts.charts import Kline, Line, Bar, Grid
 from pyecharts.globals import ThemeType
 import pandas as pd
 import requests
+import datetime
 
 app = Flask(__name__, static_folder="templates")
 
-
-def bar_base() -> Bar:
-    c = (
-        Bar()
-        .add_xaxis(["衬衫", "羊毛衫", "雪纺衫", "裤子", "高跟鞋", "袜子"])
-        .add_yaxis("商家A", [randrange(0, 100) for _ in range(6)])
-        .add_yaxis("商家B", [randrange(0, 100) for _ in range(6)])
-        .set_global_opts(title_opts=opts.TitleOpts(title="Bar-基本示例", subtitle="我是副标题"))
-    )
-    return c
-
 def kline_base(code,period,start_time,end_time):
-    req_str = 'http://10.42.7.40:10411/query/futureKline?'
+    req_str = 'http://10.42.7.55:10411/query/futureKline?'
     #将入参拼接到url中
     req_str = req_str + '&code=' + code + '&period=' + period + '&start_time=' + start_time + '&end_time=' + end_time
     response = requests.get(req_str)
 
     # 解析返回的JSON数据
     data = response.json()
+    #判断返回的数据是否为空
+    if not data:
+        return Grid()
     # print(data)
     # json 转data frame
 
@@ -166,43 +159,16 @@ def kline_base(code,period,start_time,end_time):
 
     return grid_chart
 
+@app.route('/')
+def index():
+    # 获取参数
+    code = request.args.get('code', 'RB2410')
+    period = request.args.get('period', '0')  # 默认值为 '0' 对应 '1min'
+    start_time = request.args.get('start_time', '20230101000000')
+    end_time = request.args.get('end_time', '20231231235959')
 
-# @app.route("/")
-# def get_kline_chart():
-#     c = kline_base()
-#     return Markup(c.render_embed())
-
-@app.route("/", methods=["GET", "POST"])
-def home():
-    # 如果是POST请求，获取用户输入
-    if request.method == "POST":
-        code = request.form["code"]
-        period = request.form["period"]
-        start_time = request.form["start_time"]
-        end_time = request.form["end_time"]
-        # 处理用户输入
-        c = kline_base(code, period, start_time, end_time);
-        return Markup(c.render_embed())
-    else:
-        # kline_chart_html = kline_base().render_notebook()
-        # 渲染K线图表和表单
-        return render_template_string("""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-            </head>
-            <body>
-                <form method="post">
-                    <input type="text" name="code">
-                    <input type="text" name="period">
-                    <input type="text" name="start_time">
-                    <input type="text" name="end_time">
-                    <input type="submit" value="Submit">
-                </form>
-            </body>
-            </html>
-        """)
+    kline = kline_base(code, period, start_time, end_time)
+    return render_template('index.html', kline_chart=kline.render_embed())
 
 if __name__ == "__main__":
     app.run()

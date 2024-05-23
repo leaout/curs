@@ -1,27 +1,118 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Awesome-pyecharts</title>
-    <script src="https://cdn.bootcss.com/jquery/3.0.0/jquery.min.js"></script>
-    <script type="text/javascript" src="https://assets.pyecharts.org/assets/echarts.min.js"></script>
+    <title>K 线图</title>
+    <!-- 导入 echarts.js -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+    <!-- 导入 Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- 导入 Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+        }
+        .content {
+            display: flex;
+            width: 80%;
+            max-width: 1200px;
+            margin: 20px auto;
+        }
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-right: 20px;
+            width: 300px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="datetime-local"],
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #kline_chart {
+            flex-grow: 1;
+            height: 600px;
+        }
+    </style>
 </head>
 <body>
-    <div id="bar" style="width:1000px; height:600px;"></div>
+    <h1>K 线数据测试</h1>
+
+    <div class="content">
+        <form action="/" method="get">
+            <label for="code">股票代码:</label>
+            <input type="text" id="code" name="code" required>
+            <br>
+            <label for="period">周期:</label>
+            <select id="period" name="period">
+                <option value="0">1m</option>
+                <option value="1">5m</option>
+                <option value="2">10m</option>
+                <option value="3">15m</option>
+                <option value="4">30m</option>
+                <option value="5">1h</option>
+                <option value="6">2h</option>
+                <option value="7">4h</option>
+                <option value="8">day</option>
+                <option value="9">week</option>
+                <option value="10">month</option>
+            </select>
+            <br>
+            <label for="start_time">开始时间:</label>
+            <input type="text" id="start_time" name="start_time" class="datetime-picker" required>
+            <br>
+            <label for="end_time">结束时间:</label>
+            <input type="text" id="end_time" name="end_time" class="datetime-picker" required>
+            <br>
+            <button type="submit">生成 K 线图</button>
+        </form>
+
+        <div id="kline_chart">
+                {{ kline_chart | safe }}
+        </div>
+    </div>
+
+    <!-- 初始化 Flatpickr -->
     <script>
-        $(
-            function () {
-                var chart = echarts.init(document.getElementById('kline'), 'white', {renderer: 'canvas'});
-                $.ajax({
-                    type: "GET",
-                    url: "http://127.0.0.1:5000/klineChart",
-                    dataType: 'json',
-                    success: function (result) {
-                        chart.setOption(result);
-                    }
-                });
-            }
-        )
+        flatpickr(".datetime-picker", {
+            enableTime: true,
+            dateFormat: "YmdHiS",
+            time_24hr: true
+        });
     </script>
 </body>
 </html>
