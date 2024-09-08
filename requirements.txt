@@ -1,16 +1,16 @@
-numpy==1.23.4
+numpy
 pytz
 pandas
 requests
 logbook
 pyyaml
-aiohttp==3.8
+aiohttp
 arrow
 xlrd
 pytdx==1.67
 backtrader_plotting
 backtrader
-bcolz
+# bcolz
 mpl_finance
-ta-lib
+# ta-lib
 retrying

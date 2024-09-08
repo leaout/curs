@@ -132,15 +132,36 @@ def for_sh(code):
         return 'bond_cn'
     else:
         return 'undefined'
+    
+def fetch_security_data():
+    try:
+        data_list = []
+        for j in range(2):  # 遍历市场（0 表示深圳，1 表示上海）
+            for i in range(int(api.get_security_count(j) / 1000) + 1):  # 分批次获取数据
+                data = api.get_security_list(j, i * 1000)
+                if data is None or len(data) == 0:
+                    continue
+                df = api.to_df(data)
+                df = df.assign(sse='sz' if j == 0 else 'sh')
+                df = df.set_index(['code', 'sse'], drop=False)
+                data_list.append(df)
+        
+        data = pd.concat(data_list, axis=0)
+        return data
+    except Exception as e:
+        print(f"获取数据时发生错误: {e}")
+        return None
 #type stock 股票 index 指数 etf
 @retry(stop_max_attempt_number=3, wait_random_min=50, wait_random_max=100)
 def get_security_list(type_='stock'):
     if not connect_server() :
         return None
-    data = pd.concat(
-        [pd.concat([api.to_df(api.get_security_list(j, i * 1000)).assign(sse='sz' if j == 0 else 'sh').set_index(
-            ['code', 'sse'], drop=False) for i in range(int(api.get_security_count(j) / 1000) + 1)], axis=0) for j
-            in range(2)], axis=0)
+    
+    data = fetch_security_data()
+    if data is None:
+        print("获取数据失败，返回 None")
+        return None
+    
     sz = data.query('sse=="sz"')
     sh = data.query('sse=="sh"')
 

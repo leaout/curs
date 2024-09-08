@@ -1,5 +1,5 @@
 # coding: utf-8
-from curs.utils.config import *
+from curs.utils.config import load_yaml
 from curs.real_quote import *
 from curs.cursglobal import *
 from curs.strategy import *
@@ -12,9 +12,9 @@ def main():
     # min_buddle = DataBuddle("E:\\buddles\\min", "r")
     # min_buddle.open()
     #config
-    conf = load_yaml("config.yml")
+    # conf = load_yaml("config.yml")
 
-    cgbl = CursGlobal(event_bus,conf)
+    cgbl = CursGlobal(event_bus)
     cgbl.load_buddles()
     # cgbl.set_data_source(min_buddle)
 
@@ -22,7 +22,7 @@ def main():
     q_engine.start()
 
     #load strategy
-    str = "D:/git/quant/curs/curs/strategy/test_strategy.py"
+    str = "./curs/strategy/test_strategy.py"
     load_strategy(str, event_bus)
     # print(quotes)
     # data = load_yaml("config.yml")

@@ -1,6 +1,9 @@
 # coding: utf-8
-from .tdx_to_buddle import *
+# from .tdx_to_buddle import *
+from curs.const import *
 from curs.events import *
+from curs.real_quote import *
+import numpy as np
 
 def get_security_type(order_book_id):
     '''
@@ -17,6 +20,51 @@ def get_security_type(order_book_id):
     if list[1] == "XSHE" and int(list[0]) >= 399001:
         return SECURITY_TYPE.INDEX
     return SECURITY_TYPE.STOCK
+
+def df_to_securitylist(stockdf):
+    flist = []
+    if stockdf is None:
+        return  flist
+    stocklist = stockdf.index.tolist()
+
+    for k in stocklist:
+        market = "XSHG" if (k[1] == "sh") else "XSHE"
+        bookid = k[0] + '.' + market
+        flist.append(bookid)
+
+    return flist
+
+def get_securities():
+    #stock
+    stockdf = get_security_list()
+    stocklist = df_to_securitylist(stockdf)
+    #index
+    indexdf = get_security_list("index")
+    indexlist = df_to_securitylist(indexdf)
+
+    return (stocklist,indexlist)
+
+def get_real_min(code, type):
+    '''
+    获取当日分钟线
+    type index stock
+    :param code:"600004.XSHG"
+    :return: 返回 np.array
+    '''
+    k_counts = get_today_kline_counts()
+    if k_counts is None:
+        return None
+    if type == SECURITY_TYPE.STOCK:
+        df = get_security_kline(code, k_counts)
+    elif type == SECURITY_TYPE.INDEX:
+        df = get_index_kline(code, k_counts)
+    if df.empty or df is None :
+        return None
+
+    df = reset_col(df)
+    if df is None:
+        return None
+    return np.array(df)
 
 class QuoteEngine:
     def __init__(self,event_bus,cursglobal):
@@ -95,10 +143,10 @@ class QuoteEngine:
             # get full market quote
             self.get_full_quote()
             # get today min klines
-            self.get_sub_min_klines()
+            # self.get_sub_min_klines()
 
-            event = Event(EVENT.TICK, tick=1)
-            self.__event_bus.put_event(event)
+            # event = Event(EVENT.TICK, tick=1)
+            # self.__event_bus.put_event(event)
             time.sleep(3)
 
     def start(self):

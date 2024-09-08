@@ -1,6 +1,6 @@
 # coding: utf-8
 from curs.events import *
-from curs.data_source.data_buddle import *
+# from curs.data_source.data_buddle import *
 
 class CursGlobal:
     def __init__(self,event_bus,config = None):
@@ -46,10 +46,11 @@ class CursGlobal:
         self._index_map = index_map
 
     def load_buddles(self):
-        self.min_buddles = DataBuddle(self.__config["base"]["data_bundle_path"] + "/min", "r")
-        self.min_buddles.open()
-        self.day_buddles = DataBuddle(self.__config["base"]["data_bundle_path"] + "/day", "r")
-        self.day_buddles.open()
+        return None
+        # self.min_buddles = DataBuddle(self.__config["base"]["data_bundle_path"] + "/min", "r")
+        # self.min_buddles.open()
+        # self.day_buddles = DataBuddle(self.__config["base"]["data_bundle_path"] + "/day", "r")
+        # self.day_buddles.open()
 
     def set_data_source(self, data_source):
         self.data_source = data_source
