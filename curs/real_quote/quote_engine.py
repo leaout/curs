@@ -115,7 +115,7 @@ class QuoteEngine:
         # self.__cursglobal.stock_map = stock_map
         # self.__cursglobal.index_map = index_map
 
-    def get_security_map(self):
+    def init_security_map(self):
         self.__stocks, self.__indexs = get_securities()
         #init stock map
         for k in self.__stocks:
@@ -150,7 +150,7 @@ class QuoteEngine:
             time.sleep(3)
 
     def start(self):
-        self.get_security_map()
+        self.init_security_map()
         self.__is_runing = True
         handle_thread = Thread(target=self.__process, name="QuoteEngine")
         handle_thread.start()
