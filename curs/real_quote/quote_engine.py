@@ -86,7 +86,7 @@ class QuoteEngine:
         """
         if QuoteEngine._quote_engine is None:
             raise RuntimeError(
-                _(u"Environment has not been created. Please Use `QuoteEngine.get_instance()` after Curs init"))
+                (u"Environment has not been created. Please Use `QuoteEngine.get_instance()` after Curs init"))
         return QuoteEngine._quote_engine
 
     def get_full_quote(self):
