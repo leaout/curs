@@ -5,8 +5,8 @@ import time
 import numpy as np
 import pandas as pd
 from xtquant import xtdata
-
-
+from functools import partial
+from curs.events import *
 # https://dict.thinktrader.net/nativeApi/start_now.html?id=e2M5nZ
 
 logger = logging.getLogger(__name__)
@@ -38,16 +38,19 @@ def download_capital_data():
 
 
 
-def on_data(datas):
+def on_data(event_bus, datas):
     print("reviced data")
+    print(datas.keys())
+    event_bus.put_event(Event(EVENT.TICK, tick=datas)) 
     pass
     # for stock_code in datas:
     #     	print(stock_code, datas[stock_code])
          
-def record_tick():
-    stocks = get_qmt_stocks()
-    print(stocks)
-    sid = xtdata.subscribe_whole_quote(stocks, callback=on_data)
+def record_tick(event_bus):
+    # stocks = get_qmt_stocks()
+    # print(stocks)
+    callback = partial(on_data, event_bus)
+    sid = xtdata.subscribe_whole_quote(['SH', 'SZ'], callback=callback)
 
     """阻塞线程接收行情回调"""
     import time

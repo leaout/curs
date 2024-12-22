@@ -10,7 +10,7 @@ from curs.utils import *
 def init(context):
     logger.info("init")
     context.s1 = "000001.XSHE"
-    subscribe_min(context.s1)
+    # subscribe_min(context.s1)
     # QuoteEngine.add_min_subcriber("000001.XSHE")
 
 def before_trading(context):
@@ -34,17 +34,17 @@ def handle_bar(context, bar_dict):
 
 def handle_tick(context,tick):
     logger.info("handle_tick")
-    s1="603520.XSHG"
-    # for k in c_global.stock_map:
-    #     print(k)
-    m1_data = history_bars(context.s1,20,"5m")
-    if m1_data is None:
-        return
-    logger.info(m1_data.close)
-    # m1_data["close"].plot(kind='line')
-    # plt.show()
-    logger.info("len:%d"%len(m1_data))
-    logger.info(m1_data.columns)
+    s1="603520.SH"
+    # # for k in c_global.stock_map:
+    # #     print(k)
+    # m1_data = history_bars(context.s1,20,"5m")
+    # if m1_data is None:
+    #     return
+    # logger.info(m1_data.close)
+    # # m1_data["close"].plot(kind='line')
+    # # plt.show()
+    # logger.info("len:%d"%len(m1_data))
+    # logger.info(m1_data.columns)
 
     # logger.info("Now time:"+CursGlobal.get_instance().real_dt.strftime("%Y-%m-%d %H:%M:%S"))
     # logger.info(CursGlobal.get_instance().stock_map[context.s1]["quote"])

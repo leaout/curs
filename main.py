@@ -15,10 +15,14 @@ def main():
     config_file_path = os.path.join(current_dir, "config.yml")
     config = load_yaml(config_file_path)
     
+
     global_instance = CursGlobal(event_bus,config)
     
     engine = QuoteEngine(event_bus, global_instance)
+    
+    load_strategy(current_dir+"/curs/strategy/test_strategy.py", event_bus)
     engine.start()
+    
 
     while 1 :
         time.sleep(3)

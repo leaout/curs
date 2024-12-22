@@ -43,7 +43,7 @@ class QuoteEngine:
 
     def __process(self):
         while self.__is_runing:
-            record_tick()
+            record_tick(self.__event_bus)
             time.sleep(3)
 
     def start(self):
