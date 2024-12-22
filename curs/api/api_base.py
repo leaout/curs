@@ -1,4 +1,4 @@
-from curs.real_quote import *
+from curs.engine import *
 from curs.cursglobal import *
 from curs.const import *
 

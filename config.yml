@@ -14,5 +14,8 @@ base:
     # 如果想设置使用某个账户，只需要增加对应的初始资金即可
     stock: ~
     future: ~
+    qmt_path: E:\qmt\userdata_mini
+    qmt_account_id: 000001
+    qmt_trader_name: curs
 
 

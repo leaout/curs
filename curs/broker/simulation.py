@@ -1,5 +1,5 @@
 # coding: utf-8
-from curs.real_quote import *
+from curs.engine import *
 from curs.const import *
 from curs.broker.account import *
 from curs.utils import *

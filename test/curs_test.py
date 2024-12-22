@@ -1,5 +1,5 @@
 # coding: utf-8
-from curs.real_quote import *
+from curs.engine import *
 from curs.data_source import *
 from curs.utils import *
 import tushare as ts

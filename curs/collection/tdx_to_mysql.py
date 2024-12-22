@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import datetime
-from curs.real_quote.quote_from_tdx import *
+from curs.engine.quote_from_tdx import *
 from sqlalchemy import Column,Integer,String
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine,BIGINT,MetaData,Table
