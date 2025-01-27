@@ -20,7 +20,8 @@ def main():
     
     engine = QuoteEngine(event_bus, global_instance)
     
-    load_strategy(current_dir+"/curs/strategy/test_strategy.py", event_bus)
+    # load_strategy(current_dir+"/curs/strategy/test_strategy.py", event_bus)
+    load_strategy(config["base"]["strategy_path"], event_bus)
     engine.start()
     
 
@@ -30,12 +31,17 @@ def main():
 
 
 def load_strategy(strategy_path, event_bus):
-    s_loader = FileStrategyLoader(strategy_path)
-    scop = {}
-    s_loader.load(scop)
-    strategy_context = StrategyContext()
-    strategy = Strategy(event_bus, scop, strategy_context)
-    strategy.init()
+    #遍历文件夹strategy_path，load strategy
+    for root, dirs, files in os.walk(strategy_path):
+        for file in files:
+            if file.endswith(".py"):
+                strategy_file_path = os.path.join(root, file)
+                s_loader = FileStrategyLoader(strategy_file_path)
+                scop = {}
+                s_loader.load(scop)
+                strategy_context = StrategyContext()
+                strategy = Strategy(event_bus, scop, strategy_context)
+                strategy.init()
 
 
 if __name__ == "__main__":

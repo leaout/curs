@@ -317,7 +317,27 @@ class QmtStockAccount():
     def query_trades(self):
         trades = self.xt_trader.query_stock_trades(self.account)
         return trades
-            
+    def adjust_position(self,buy_stocks):
+        positions = self.get_positions()
+        for position in positions:
+            if position.stock_code not in buy_stocks:
+                log.info("stock [%s] in position is not buyable" %(position.stock_code))
+                self.sell_all(position.stock_code)
+            else:
+                log.info("stock [%s] is already in position" %(position.stock_code))
+
+        # 根据股票数量分仓
+        # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
+        position_count = len(positions)
+        buy_stock_count = 4
+        if buy_stock_count > position_count:
+            asset = self.get_current_account()
+            value = asset.cash / (buy_stock_count - position_count)
+
+            for stock in buy_stocks:
+                if self.buy(stock, value):
+
+  
             
 if __name__ == "__main__":
     account = QmtStockAccount(path=r"E:\qmt\userdata_mini", account_id="99",trader_name="test")

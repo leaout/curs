@@ -42,7 +42,7 @@ class UserFuncStrategyLoader():
 
 
 def main():
-    s_loader = FileStrategyLoader("E:/Quant.Pro/curs/curs/strategy/test_strategy.py")
+    s_loader = FileStrategyLoader("./test_strategy.py")
     scop = {}
     s_loader.load(scop)
     print(scop.keys())

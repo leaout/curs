@@ -1,7 +1,7 @@
 # curs
 Curs is an personal automated quantitative investment platform.
 # Install
-python 3.8/3.9 recommended!
+python 3.10 recommended!
 ```bash
 pip install -r requirements.txt
 ```
@@ -26,6 +26,6 @@ strategy_loader   策略热加载
 
 main			主程序逻辑  
 ## Back trader 
-![Back trader](back_trade.jpg)
+
 ## 交易接口接入
-realtrader
+- miniqmt

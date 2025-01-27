@@ -6,7 +6,7 @@ base:
   # 数据源所存储的文件路径
   data_bundle_path: D:/buddles
   # 启动的策略文件路径
-  strategy_path: ~/strategy
+  strategy_path: ./strategies
   # 运行类型，`b` 为回测，`p` 为模拟交易, `r` 为实盘交易。
   run_type: p
 
@@ -15,7 +15,7 @@ base:
     stock: ~
     future: ~
     qmt_path: E:\qmt\userdata_mini
-    qmt_account_id: 000001
+    qmt_account_id: 8886692024
     qmt_trader_name: curs
 
 
