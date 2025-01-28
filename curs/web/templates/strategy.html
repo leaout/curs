@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>策略管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            display: flex;
+            width: 90%;
+            max-width: 1600px;
+            gap: 20px;
+        }
+        .sidebar {
+            width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .main-content {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .strategy-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .strategy-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .strategy-item:hover {
+            background: #f5f5f5;
+        }
+        .strategy-item.active {
+            background: #e3f2fd;
+        }
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .metric-label {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>策略管理系统</h1>
+    
+    <div class="container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <h3>策略列表</h3>
+            <div class="strategy-list">
+                <div class="strategy-item active">
+                    <div class="strategy-name">涨停板策略</div>
+                    <div class="strategy-status">运行中</div>
+                </div>
+                <div class="strategy-item">
+                    <div class="strategy-name">均值回归策略</div>
+                    <div class="strategy-status">已停止</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <div class="strategy-header">
+                <h2>涨停板策略</h2>
+                <div class="strategy-actions">
+                    <button>启动</button>
+                    <button>停止</button>
+                    <button>编辑</button>
+                </div>
+            </div>
+
+            <!-- 指标卡片 -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">15.6%</div>
+                    <div class="metric-label">累计收益率</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">-3.2%</div>
+                    <div class="metric-label">最大回撤</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">1.25</div>
+                    <div class="metric-label">夏普比率</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">58%</div>
+                    <div class="metric-label">胜率</div>
+                </div>
+            </div>
+
+            <!-- 图表区域 -->
+            <div class="chart-container" id="strategy-chart"></div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化ECharts
+        const chartDom = document.getElementById('strategy-chart');
+        const myChart = echarts.init(chartDom);
+
+        const option = {
+            title: {
+                text: '策略收益曲线'
+            },
+            tooltip: {
+                trigger: 'axis'
+            },
+            xAxis: {
+                type: 'category',
+                data: ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05']
+            },
+            yAxis: {
+                type: 'value'
+            },
+            series: [{
+                data: [0, 5, 10, 8, 15],
+                type: 'line',
+                smooth: true
+            }]
+        };
+
+        myChart.setOption(option);
+    </script>
+</body>
+</html>
