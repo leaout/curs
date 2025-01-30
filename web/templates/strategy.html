@@ -131,8 +131,60 @@
 
             <!-- 图表区域 -->
             <div class="chart-container" id="strategy-chart"></div>
+
+            <!-- 持仓历史 -->
+            <div class="position-history">
+                <h3>持仓历史</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>股票代码</th>
+                            <th>持仓成本</th>
+                            <th>持仓数量</th>
+                            <th>股票现价</th>
+                            <th>收益</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for position in strategy.positions %}
+                        <tr style="color: {% if position.profit >= 0 %}red{% else %}green{% endif %};">
+                            <td>{{ position.date }}</td>
+                            <td>{{ position.symbol }}</td>
+                            <td>{{ position.cost }}</td>
+                            <td>{{ position.quantity }}</td>
+                            <td>{{ position.current_price }}</td>
+                            <td>{{ position.profit }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+
+    <style>
+        .position-history {
+            margin-top: 30px;
+        }
+        .position-history table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .position-history th,
+        .position-history td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .position-history th {
+            background-color: #f5f5f5;
+        }
+        .position-history tr:hover {
+            background-color: #f9f9f9;
+        }
+    </style>
 
     <script>
         // 初始化ECharts
