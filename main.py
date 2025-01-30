@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from curs.engine.quote_engine import QuoteEngine
+from curs.core.engine import Engine
 from curs.utils.config import load_yaml
 from curs.cursglobal import *
 from curs.strategy import *
@@ -18,7 +18,7 @@ def main():
 
     global_instance = CursGlobal(event_bus,config)
     
-    engine = QuoteEngine(event_bus, global_instance)
+    engine = Engine(event_bus, global_instance)
     
     # load_strategy(current_dir+"/curs/strategy/test_strategy.py", event_bus)
     load_strategy(config["base"]["strategy_path"], event_bus)

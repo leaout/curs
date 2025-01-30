@@ -1,4 +1,4 @@
-from curs.engine import *
+from curs.core import *
 from curs.cursglobal import *
 from curs.const import *
 
@@ -139,7 +139,7 @@ def subscribe_min(order_book_id):
     :param order_book_id:
     :return:
     '''
-    q_engine = QuoteEngine.get_instance()
+    q_engine = Engine.get_instance()
     q_engine.add_min_subcriber(order_book_id)
 
 

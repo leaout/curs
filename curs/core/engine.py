@@ -6,29 +6,25 @@ from curs.events import *
 import numpy as np
 import datetime
 from curs.broker.qmt_quote import *
+from curs.core.schedule import EventsScheduler
 
-class QuoteEngine:
+class Engine:
     def __init__(self,event_bus,cursglobal):
-        QuoteEngine._quote_engine = self
+        Engine._quote_engine = self
         self.__event_bus = event_bus
         self.__is_runing = False
         self.__cursglobal = cursglobal
-        #股票代码
-        self.__stocks = []
-        #指数代码
-        self.__indexs = []
-        # 订阅当日分钟线的股票
-        self._min_substocks = []
+        self.__scheduler = EventsScheduler(event_bus)
 
     @classmethod
     def get_instance(cls):
         """
         返回已经创建的 CursGlobal 对象
         """
-        if QuoteEngine._quote_engine is None:
+        if Engine._quote_engine is None:
             raise RuntimeError(
                 (u"Environment has not been created. Please Use `QuoteEngine.get_instance()` after Curs init"))
-        return QuoteEngine._quote_engine
+        return Engine._quote_engine
 
     def get_full_quote(self):
         pass
@@ -49,6 +45,7 @@ class QuoteEngine:
     def start(self):
         self.init_security_map()
         self.__is_runing = True
+        self.__scheduler.start()
         handle_thread = Thread(target=self.__process, name="QuoteEngine")
         handle_thread.start()
 
