@@ -1,26 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>策略管理</title>
+    <title>策略管理系统</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #f2f2f2;
             margin: 0;
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
         .container {
             display: flex;
-            width: 90%;
-            max-width: 1600px;
             gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
         }
         .sidebar {
             width: 300px;
@@ -77,93 +73,6 @@
         .metric-label {
             color: #666;
         }
-    </style>
-</head>
-<body>
-    <h1>策略管理系统</h1>
-    
-    <div class="container">
-        <!-- 侧边栏 -->
-        <div class="sidebar">
-            <h3>策略列表</h3>
-            <div class="strategy-list">
-                <div class="strategy-item active">
-                    <div class="strategy-name">涨停板策略</div>
-                    <div class="strategy-status">运行中</div>
-                </div>
-                <div class="strategy-item">
-                    <div class="strategy-name">均值回归策略</div>
-                    <div class="strategy-status">已停止</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 主内容区 -->
-        <div class="main-content">
-            <div class="strategy-header">
-                <h2>涨停板策略</h2>
-                <div class="strategy-actions">
-                    <button>启动</button>
-                    <button>停止</button>
-                    <button>编辑</button>
-                </div>
-            </div>
-
-            <!-- 指标卡片 -->
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-value">15.6%</div>
-                    <div class="metric-label">累计收益率</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">-3.2%</div>
-                    <div class="metric-label">最大回撤</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">1.25</div>
-                    <div class="metric-label">夏普比率</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">58%</div>
-                    <div class="metric-label">胜率</div>
-                </div>
-            </div>
-
-            <!-- 图表区域 -->
-            <div class="chart-container" id="strategy-chart"></div>
-
-            <!-- 持仓历史 -->
-            <div class="position-history">
-                <h3>持仓历史</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>日期</th>
-                            <th>股票代码</th>
-                            <th>持仓成本</th>
-                            <th>持仓数量</th>
-                            <th>股票现价</th>
-                            <th>收益</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for position in strategy.positions %}
-                        <tr style="color: {% if position.profit >= 0 %}red{% else %}green{% endif %};">
-                            <td>{{ position.date }}</td>
-                            <td>{{ position.symbol }}</td>
-                            <td>{{ position.cost }}</td>
-                            <td>{{ position.quantity }}</td>
-                            <td>{{ position.current_price }}</td>
-                            <td>{{ position.profit }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <style>
         .position-history {
             margin-top: 30px;
         }
@@ -185,34 +94,177 @@
             background-color: #f9f9f9;
         }
     </style>
+</head>
+<body>
+    <h1>策略管理系统</h1>
+    
+    <div class="container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <h3>策略列表</h3>
+            <div class="strategy-list" id="strategy-list">
+                <!-- 动态加载策略列表 -->
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <div class="strategy-header">
+                <h2 id="strategy-name">请选择策略</h2>
+                <div class="strategy-actions">
+                    <button onclick="startStrategy()">启动</button>
+                    <button onclick="stopStrategy()">停止</button>
+                </div>
+            </div>
+
+            <!-- 指标卡片 -->
+            <div class="metrics-grid" id="metrics-grid">
+                <!-- 动态加载策略指标 -->
+            </div>
+
+            <!-- 图表区域 -->
+            <div class="chart-container" id="strategy-chart"></div>
+
+            <!-- 持仓历史 -->
+            <div class="position-history">
+                <h3>持仓历史</h3>
+                <table id="position-history">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>股票代码</th>
+                            <th>持仓成本</th>
+                            <th>持仓数量</th>
+                            <th>股票现价</th>
+                            <th>收益</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 动态加载持仓历史 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <script>
         // 初始化ECharts
         const chartDom = document.getElementById('strategy-chart');
         const myChart = echarts.init(chartDom);
 
-        const option = {
-            title: {
-                text: '策略收益曲线'
-            },
-            tooltip: {
-                trigger: 'axis'
-            },
-            xAxis: {
-                type: 'category',
-                data: ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05']
-            },
-            yAxis: {
-                type: 'value'
-            },
-            series: [{
-                data: [0, 5, 10, 8, 15],
-                type: 'line',
-                smooth: true
-            }]
-        };
+        // 获取策略列表
+        async function loadStrategies() {
+            try {
+                const response = await axios.get('/api/strategies');
+                const strategies = response.data.strategies;
+                const strategyList = document.getElementById('strategy-list');
+                
+                strategyList.innerHTML = strategies.map(strategy => `
+                    <div class="strategy-item" onclick="loadStrategy('${strategy.id}')">
+                        <div class="strategy-name">${strategy.name}</div>
+                        <div class="strategy-status">${strategy.returns}</div>
+                    </div>
+                `).join('');
+                
+                if (strategies.length > 0) {
+                    loadStrategy(strategies[0].id);
+                }
+            } catch (error) {
+                console.error('加载策略列表失败:', error);
+            }
+        }
 
-        myChart.setOption(option);
+        // 加载策略详情
+        async function loadStrategy(strategyId) {
+            try {
+                const response = await axios.get(`/api/strategies/${strategyId}`);
+                const strategy = response.data;
+
+                // 更新策略名称
+                document.getElementById('strategy-name').textContent = strategy.name;
+
+                // 更新指标卡片
+                const metricsGrid = document.getElementById('metrics-grid');
+                metricsGrid.innerHTML = `
+                    <div class="metric-card">
+                        <div class="metric-value">${strategy.returns}</div>
+                        <div class="metric-label">累计收益率</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${strategy.details}</div>
+                        <div class="metric-label">交易详情</div>
+                    </div>
+                `;
+
+                // 更新图表
+                const chartOption = {
+                    title: {
+                        text: '策略收益曲线'
+                    },
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: strategy.return_curve.map((_, i) => `第${i + 1}天`)
+                    },
+                    yAxis: {
+                        type: 'value'
+                    },
+                    series: [{
+                        data: strategy.return_curve,
+                        type: 'line',
+                        smooth: true
+                    }]
+                };
+                myChart.setOption(chartOption);
+
+                // 更新持仓历史
+                const positionHistory = document.getElementById('position-history').querySelector('tbody');
+                positionHistory.innerHTML = strategy.positions.map(position => `
+                    <tr style="color: ${position.profit >= 0 ? 'red' : 'green'};">
+                        <td>${position.date}</td>
+                        <td>${position.symbol}</td>
+                        <td>${position.cost}</td>
+                        <td>${position.quantity}</td>
+                        <td>${position.current_price}</td>
+                        <td>${position.profit}</td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('加载策略详情失败:', error);
+            }
+        }
+
+        // 启动策略
+        async function startStrategy() {
+            const strategyId = document.querySelector('.strategy-item.active')?.dataset.id;
+            if (strategyId) {
+                try {
+                    await axios.post(`/strategy/${strategyId}/start`);
+                    alert('策略启动成功');
+                } catch (error) {
+                    alert('策略启动失败');
+                }
+            }
+        }
+
+        // 停止策略
+        async function stopStrategy() {
+            const strategyId = document.querySelector('.strategy-item.active')?.dataset.id;
+            if (strategyId) {
+                try {
+                    await axios.post(`/strategy/${strategyId}/stop`);
+                    alert('策略停止成功');
+                } catch (error) {
+                    alert('策略停止失败');
+                }
+            }
+        }
+
+        // 页面加载时初始化
+        loadStrategies();
     </script>
 </body>
 </html>

@@ -2,7 +2,8 @@
 from curs.log_handler.logger import logger
 from curs.cursglobal import *
 from curs.api import *
-from curs.broker.account import Account,Position
+from curs.broker.account import Account, Position
+import time
 import json
 import os
 import random
@@ -125,36 +126,11 @@ def handle_tick(context, ticks):
 
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
-    # logger.info(f"涨停板买入：{stock_code}，价格：{price}")
-    # 获取账户信息
-    # account = context.account
-    
-    # 计算可买数量
-    # available_cash = 10000
-    # buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
-    
-    # if buy_volume > 0:
-    #     # 下单
-    #     # order_id = account.buy(stock_code, price, buy_volume)
-    #     order_id = random.randint(1000000, 9999999)  # 模拟订单号
-    #     logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}，订单号：{order_id}")
-        
-    #     # 记录交易
-    #     trade_record = {
-    #         'date': time.strftime("%Y-%m-%d %H:%M:%S"),
-    #         'stock': stock_code,
-    #         'price': price,
-    #         'volume': buy_volume,
-    #         'order_id': order_id
-    #     }
-    #     context.daily_trades.append(trade_record)
-    #     context.total_count += 1
-
     # 获取账户信息
     account = context.account
     
     # 计算可买数量
-    available_cash = 10000
+    available_cash = account.cash
     buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
     
     if buy_volume > 0:
