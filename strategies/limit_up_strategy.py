@@ -2,8 +2,7 @@
 from curs.log_handler.logger import logger
 from curs.cursglobal import *
 from curs.api import *
-from curs.broker import *
-import time
+from curs.broker.account import Account,Position
 import json
 import os
 import random
@@ -12,6 +11,8 @@ import random
 def init(context):
     """初始化涨停板策略"""
     logger.info("初始化涨停板策略")
+    # 初始化账户
+    context.account = Account(total_cash=100000)  # 初始资金为10万元
     # 存储每只股票的上次挂单量
     context.last_order_volumes = {}
     # 监控间隔时间（秒）
@@ -129,25 +130,50 @@ def buy_at_limit_up(context, stock_code, price):
     # account = context.account
     
     # 计算可买数量
+    # available_cash = 10000
+    # buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
+    
+    # if buy_volume > 0:
+    #     # 下单
+    #     # order_id = account.buy(stock_code, price, buy_volume)
+    #     order_id = random.randint(1000000, 9999999)  # 模拟订单号
+    #     logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}，订单号：{order_id}")
+        
+    #     # 记录交易
+    #     trade_record = {
+    #         'date': time.strftime("%Y-%m-%d %H:%M:%S"),
+    #         'stock': stock_code,
+    #         'price': price,
+    #         'volume': buy_volume,
+    #         'order_id': order_id
+    #     }
+    #     context.daily_trades.append(trade_record)
+    #     context.total_count += 1
+
+    # 获取账户信息
+    account = context.account
+    
+    # 计算可买数量
     available_cash = 10000
     buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
     
     if buy_volume > 0:
         # 下单
-        # order_id = account.buy(stock_code, price, buy_volume)
-        order_id = random.randint(1000000, 9999999)  # 模拟订单号
-        logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}，订单号：{order_id}")
-        
-        # 记录交易
-        trade_record = {
-            'date': time.strftime("%Y-%m-%d %H:%M:%S"),
-            'stock': stock_code,
-            'price': price,
-            'volume': buy_volume,
-            'order_id': order_id
-        }
-        context.daily_trades.append(trade_record)
-        context.total_count += 1
+        if account.buy(stock_code, price, buy_volume):
+            logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}")
+            
+            # 记录交易
+            trade_record = {
+                'date': time.strftime("%Y-%m-%d %H:%M:%S"),
+                'stock': stock_code,
+                'price': price,
+                'volume': buy_volume,
+                'order_id': random.randint(1000000, 9999999)  # 模拟订单号
+            }
+            context.daily_trades.append(trade_record)
+            context.total_count += 1
+        else:
+            logger.error(f"买入失败：{stock_code}，价格：{price}，数量：{buy_volume}")
 
 def save_historical_trades(context):
     """保存历史交易数据"""
@@ -163,8 +189,10 @@ def check_trade_outcomes(context):
     account = context.account
     for trade in context.daily_trades:
         # 获取当前价格
-        current_price = account.get_position(trade['stock']).price
+        position = account.positions.get(trade['stock'], Position())
+        current_price = position._last_price if position.quantity > 0 else 0
         trade['current_price'] = current_price
+        
         # 如果当前价格大于等于买入价，视为成功
         if current_price >= trade['price']:
             context.success_count += 1

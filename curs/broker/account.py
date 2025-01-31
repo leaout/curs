@@ -106,3 +106,23 @@ class Account(object):
         self.positions[order_book_id].update(quantity,avg_price)
 
         pass
+    def buy(self, stock_code, price, volume):
+        """买入股票"""
+        if self.cash >= price * volume:
+            # 更新持仓
+            self.update_account(stock_code, volume, price)
+
+            return True
+        else:
+            return False
+
+    def sell(self, stock_code, price, volume):
+        """卖出股票"""
+        if stock_code in self._positions and self._positions[stock_code].quantity >= volume:
+            # 更新持仓
+            self.update_account(stock_code, -volume, price)
+            # 更新资金
+            self._total_cash += price * volume
+            return True
+        else:
+            return False

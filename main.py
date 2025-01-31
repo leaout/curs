@@ -20,7 +20,7 @@ def main():
     
     engine = Engine(event_bus, global_instance)
     
-    # load_strategy(current_dir+"/curs/strategy/test_strategy.py", event_bus)
+
     load_strategy(config["base"]["strategy_path"], event_bus)
     engine.start()
     

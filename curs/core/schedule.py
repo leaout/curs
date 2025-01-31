@@ -16,14 +16,14 @@ class EventsScheduler:
         schedule.every().day.at("15:15").do(self.after_trading)
 
     def before_trading(self):
-        print(f"{datetime.now()}: {EVENT.EVENT_BEFORE_TRADING} 触发")
+        print(f"{datetime.now()}: {EVENT.BEFORE_TRADING} 触发")
         # 在这里添加策略的预处理逻辑
-        self.event_bus.publish(EVENT.EVENT_BEFORE_TRADING)
+        self.event_bus.publish(EVENT.BEFORE_TRADING)
 
     def after_trading(self):
-        print(f"{datetime.now()}: {EVENT.EVENT_AFTER_TRADING} 触发")
+        print(f"{datetime.now()}: {EVENT.AFTER_TRADING} 触发")
         # 在这里添加策略的后处理逻辑
-        self.event_bus.publish(EVENT.EVENT_AFTER_TRADING)
+        self.event_bus.publish(EVENT.AFTER_TRADING)
 
     def run(self):
         while True:
