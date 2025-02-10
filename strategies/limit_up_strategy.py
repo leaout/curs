@@ -29,7 +29,7 @@ def init(context):
     # 数据存储路径
     context.data_dir = os.path.join(os.getcwd(), 'data')
     os.makedirs(context.data_dir, exist_ok=True)
-    context.data_file = os.path.join(context.data_dir, 'limit_up_trades.json')
+    context.data_file = os.path.join(context.data_dir, 'strategy_records/limit_up_strategy_trades.json')
     # 加载历史数据
     load_historical_trades(context)
     # 获取股票基本信息
@@ -68,13 +68,6 @@ def before_trading(context):
         success_rate = total_success / total_trades * 100
         logger.info(f"历史交易成功率：{success_rate:.2f}% （成功：{total_success}，总交易：{total_trades}）")
     
-    # 保存并重置每日记录
-    if context.daily_trades:
-        # 标记交易是否成功
-        for trade in context.daily_trades:
-            trade['success'] = trade.get('current_price', 0) >= trade['price']
-        context.historical_trades.extend(context.daily_trades)
-        save_historical_trades(context)
         
     context.daily_trades = []
     context.success_count = 0
@@ -85,11 +78,16 @@ def before_trading(context):
 def handle_tick(context, ticks):
     """处理tick数据"""
     for stock_code, tick in ticks.items():
+#         'time' =
+# 1739170800000
+        current_time = tick.get('time', 0)
+        if current_time < 930000000000 or current_time > 1457000000000 :
+            continue
         # 过滤ST股票 name中含有ST或st
         stock_name = context.stock_base_info[stock_code].get('name', '')
         if 'ST' in stock_name or 'st' in stock_name:
             continue
-            
+
         # 过滤昨日涨停的股票
         # if tick.get('pre_close', 0) == tick.get('limit_up_price', 0):
         #     continue
@@ -153,6 +151,12 @@ def buy_at_limit_up(context, stock_code, price):
 
 def save_historical_trades(context):
     """保存历史交易数据"""
+    # 保存并重置每日记录
+    if context.daily_trades:
+        # 标记交易是否成功
+        for trade in context.daily_trades:
+            trade['success'] = trade.get('current_price', 0) >= trade['price']
+        context.historical_trades.extend(context.daily_trades)
     try:
         with open(context.data_file, 'w', encoding='utf-8') as f:
             json.dump(context.historical_trades, f, ensure_ascii=False, indent=2)
@@ -177,4 +181,5 @@ def after_trading(context):
     """盘后处理"""
     # 检查当日交易结果
     check_trade_outcomes(context)
+    save_historical_trades(context)
     logger.info(f"当日交易记录：{context.daily_trades}")

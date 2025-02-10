@@ -101,7 +101,7 @@ class Account(object):
 
     def update_account(self,order_book_id,quantity,avg_price):
         if order_book_id not in self.positions:
-            self.positions[order_book_id]
+            self.positions[order_book_id] = Position()
         #update position
         self.positions[order_book_id].update(quantity,avg_price)
 
