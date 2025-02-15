@@ -69,7 +69,7 @@ class Account(object):
         """
         [float] 市值
         """
-        return sum(position.market_value for position in six.itervalues(self._positions))
+        return sum(position.market_value() for position in six.itervalues(self._positions))
 
     @property
     def cash(self):
@@ -126,3 +126,33 @@ class Account(object):
             return True
         else:
             return False
+
+    def save_daily_account_info(self,strategy_name):
+        """每日盘后存储账户信息"""
+        import json
+        from datetime import datetime
+        import os
+
+        # 创建账户信息字典
+        account_info = {
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'total_cash': self._total_cash,
+            'frozen_cash': self._frozen_cash,
+            'market_value': self.market_value,
+            'positions': {
+                code: {
+                    'quantity': pos.quantity,
+                    'avg_price': pos.avg_price,
+                    'market_value': pos.market_value()
+                }
+                for code, pos in self._positions.items()
+            }
+        }
+
+        # 确保目录存在
+        os.makedirs('data/account_records', exist_ok=True)
+
+        # 保存到JSON文件
+        filename = f"data/account_records/"+strategy_name+"_{datetime.now().strftime('%Y%m%d')}_account.json"
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(account_info, f, ensure_ascii=False, indent=2)

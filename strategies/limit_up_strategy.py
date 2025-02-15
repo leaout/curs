@@ -40,6 +40,7 @@ def init(context):
     context.stock_base_info = map_info
     # 存储每日已触发信号的股票
     context.daily_signaled_stocks = set()
+    context.current_time = None
 
 def load_historical_trades(context):
     """加载历史交易数据"""
@@ -80,9 +81,14 @@ def handle_tick(context, ticks):
     for stock_code, tick in ticks.items():
 #         'time' =
 # 1739170800000
-        current_time = tick.get('time', 0)
-        if current_time < 930000000000 or current_time > 1457000000000 :
-            continue
+        # unix time to datetime,精确到毫秒
+        current_time = datetime.fromtimestamp(tick.get('time', 0) / 1000)
+        context.current_time= current_time
+        # 过滤时间段:9:30-14:57
+        if current_time.hour < 9 or (current_time.hour == 9 and current_time.minute < 30) or \
+           current_time.hour > 14 or (current_time.hour == 14 and current_time.minute >= 57):
+             continue
+        
         # 过滤ST股票 name中含有ST或st
         stock_name = context.stock_base_info[stock_code].get('name', '')
         if 'ST' in stock_name or 'st' in stock_name:
@@ -108,7 +114,8 @@ def handle_tick(context, ticks):
             # 获取涨停价对应的卖单量
             limit_up_index = ask_prices.index(upper_limit)
             current_volume = ask_volumes[limit_up_index] if limit_up_index < len(ask_volumes) else 0
-            
+            if current_volume == 0:
+                continue
             # 获取上次挂单量
             last_volume = context.last_order_volumes.get(stock_code, current_volume)
                                                     
@@ -134,7 +141,7 @@ def buy_at_limit_up(context, stock_code, price):
     if buy_volume > 0:
         # 下单
         if account.buy(stock_code, price, buy_volume):
-            logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}")
+            logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}, 时间：{context.current_time}")
             
             # 记录交易
             trade_record = {
@@ -182,4 +189,5 @@ def after_trading(context):
     # 检查当日交易结果
     check_trade_outcomes(context)
     save_historical_trades(context)
+    context.account.save_daily_account_info('limit_up_strategy')
     logger.info(f"当日交易记录：{context.daily_trades}")
