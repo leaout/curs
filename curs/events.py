@@ -94,7 +94,7 @@ def test_put_event(event_bus):
         i+=1
         event = Event(100,data=i)
         event_bus.put_event(event)
-        time.sleep(1)
+        time.sleep(0.1)
 
 def test_get_event(data):
     print(data)
@@ -106,8 +106,8 @@ def main():
 
     handle_thread = Thread(target=test_put_event, name="put_event", args=(ev_bus,))
     handle_thread.start()
-    time.sleep(3)
-    # ev_bus.del_listener(100, test_get_event)
+    time.sleep(10)
+    ev_bus.del_listener(100, test_get_event)
     handle_thread.join()
     pass
 if __name__ == '__main__':

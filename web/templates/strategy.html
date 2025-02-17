@@ -224,9 +224,9 @@
                 positionHistory.innerHTML = strategy.positions.map(position => `
                     <tr style="color: ${position.profit >= 0 ? 'red' : 'green'};">
                         <td>${position.date}</td>
-                        <td>${position.symbol}</td>
-                        <td>${position.cost}</td>
-                        <td>${position.quantity}</td>
+                        <td>${position.stock}</td>
+                        <td>${position.price}</td>
+                        <td>${position.volume}</td>
                         <td>${position.current_price}</td>
                         <td>${position.profit}</td>
                     </tr>

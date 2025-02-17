@@ -44,6 +44,17 @@ class Strategy(object):
         if not self._init:
             return
         self._init(self._user_context)
+        
+    def unregister_event(self,event_bus):
+        if self._before_trading is not None:
+            event_bus.del_listener(EVENT.BEFORE_TRADING, self.before_trading)
+        if self._handle_bar is not None:
+            event_bus.del_listener(EVENT.BAR, self.handle_bar)
+        if self._handle_tick is not None:
+            event_bus.del_listener(EVENT.TICK, self.handle_tick)
+        if self._after_trading is not None:
+            event_bus.del_listener(EVENT.AFTER_TRADING, self.after_trading)
+        
 
     def before_trading(self, event):
         self._force_run_before_trading = False

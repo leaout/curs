@@ -153,6 +153,6 @@ class Account(object):
         os.makedirs('data/account_records', exist_ok=True)
 
         # 保存到JSON文件
-        filename = f"data/account_records/"+strategy_name+"_{datetime.now().strftime('%Y%m%d')}_account.json"
+        filename = f"data/account_records/{strategy_name}_{datetime.now().strftime('%Y%m%d')}_account.json"
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(account_info, f, ensure_ascii=False, indent=2)

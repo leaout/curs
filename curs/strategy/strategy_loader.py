@@ -2,52 +2,7 @@
 
 import codecs
 import six
-import importlib
-from typing import Dict
 from curs.log_handler.logger import logger
-
-class StrategyManager:
-    """策略管理器"""
-    _instance = None
-    _strategies: Dict[str, object] = {}  # 存储已加载策略
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def load_strategy(self, strategy_id: str):
-        """加载策略"""
-        if strategy_id in self._strategies:
-            return self._strategies[strategy_id]
-            
-        try:
-            strategy_module = importlib.import_module(f'strategies.{strategy_id}')
-            strategy = strategy_module.Strategy()
-            self._strategies[strategy_id] = strategy
-            return strategy
-        except Exception as e:
-            logger.error(f'加载策略{strategy_id}失败: {e}')
-            raise
-
-    def start_strategy(self, strategy_id: str):
-        """启动策略"""
-        strategy = self.load_strategy(strategy_id)
-        if hasattr(strategy, 'start'):
-            strategy.start()
-            logger.info(f'策略{strategy_id}已启动')
-            return True
-        return False
-
-    def stop_strategy(self, strategy_id: str):
-        """停止策略"""
-        if strategy_id in self._strategies:
-            strategy = self._strategies[strategy_id]
-            if hasattr(strategy, 'stop'):
-                strategy.stop()
-                logger.info(f'策略{strategy_id}已停止')
-                return True
-        return False
 
 def compile_strategy(source_code, strategy, scope):
     """编译策略代码"""
