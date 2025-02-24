@@ -17,6 +17,8 @@ def init(context):
     context.account = Account(total_cash=100000)  # 初始资金为10万元
     # 存储每只股票的上次挂单量
     context.last_order_volumes = {}
+    #pre ticks
+    context.pre_ticks = {}
     # 监控间隔时间（秒）
     context.monitor_interval = 3
     # 每日交易记录
@@ -140,6 +142,8 @@ def handle_tick(context, ticks):
                 
             # 更新挂单量 取最大值
             context.last_order_volumes[stock_code] = current_volume
+        #update pre_ticks
+        context.pre_ticks[stock_code] = tick
 
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
@@ -177,7 +181,8 @@ def save_historical_trades(context):
     if context.daily_trades:
         # 标记交易是否成功
         for trade in context.daily_trades:
-            trade['success'] = trade.get('current_price', 0) >= trade['price']
+            current_price = context.pre_ticks[trade["stock"]]['lastPrice']
+            trade['success'] = current_price >= trade['price']
         context.historical_trades.extend(context.daily_trades)
     try:
         with open(context.data_file, 'w', encoding='utf-8') as f:
