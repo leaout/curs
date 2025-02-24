@@ -7,6 +7,7 @@ import time
 import json
 import os
 import random
+from datetime import datetime, timedelta
 
 # 初始化策略
 def init(context):
@@ -41,6 +42,17 @@ def init(context):
     # 存储每日已触发信号的股票
     context.daily_signaled_stocks = set()
     context.current_time = None
+    #读取昨天zt_list 
+    context.pre_limit_up_stocks = set()
+    #获取昨天日期
+    
+    date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    file_name = "/zt_list_pre.txt"
+    file_name = context.data_dir+"/"+file_name
+    with open(file_name,'r') as f:
+        for line in f:
+            context.pre_limit_up_stocks.add(line.strip())
+    
 
 def load_historical_trades(context):
     """加载历史交易数据"""
@@ -131,6 +143,9 @@ def handle_tick(context, ticks):
 
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
+    if context.pre_limit_up_stocks and stock_code in context.pre_limit_up_stocks:
+        logger.info(f"昨日涨停股票：{stock_code}，不再买入")
+        return
     # 获取账户信息
     account = context.account
     

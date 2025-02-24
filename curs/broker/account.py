@@ -143,8 +143,7 @@ class Account(object):
                 code: {
                     'quantity': pos.quantity,
                     'avg_price': pos.avg_price,
-                    'market_value': pos.market_value(),
-                    'last_price': pos._last_price()
+                    'market_value': pos.market_value()
                 }
                 for code, pos in self._positions.items()
             }
