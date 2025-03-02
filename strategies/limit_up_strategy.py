@@ -8,6 +8,7 @@ import json
 import os
 import random
 from datetime import datetime, timedelta
+import math
 
 # 初始化策略
 def init(context):
@@ -46,7 +47,8 @@ def init(context):
     context.current_time = None
     #读取昨天zt_list 
     context.pre_limit_up_stocks = set()
-    #获取昨天日期
+    context.open_time = datetime.strptime("09:30:00", "%H:%M:%S").time()
+    context.close_time = datetime.strptime("14:57:00", "%H:%M:%S").time()
     
     date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
     file_name = "/zt_list_pre.txt"
@@ -54,8 +56,22 @@ def init(context):
     with open(file_name,'r') as f:
         for line in f:
             context.pre_limit_up_stocks.add(line.strip())
+    context.hot_stocks = set()
+    load_stocks_fromfile(context, "/hotstocks.txt")
     
-
+    
+def load_stocks_fromfile(context, file_name):
+    """加载昨日的涨停股列表"""
+    file_path = context.data_dir + file_name
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                context.hot_stocks.add(line.strip())
+    except FileNotFoundError:
+        print(f"文件 {file_path} 未找到，请检查路径和文件名。")
+    except Exception as e:
+        print(f"加载文件时出现错误: {e}")
+        
 def load_historical_trades(context):
     """加载历史交易数据"""
     if os.path.exists(context.data_file):
@@ -98,11 +114,12 @@ def handle_tick(context, ticks):
         # unix time to datetime,精确到毫秒
         current_time = datetime.fromtimestamp(tick.get('time', 0) / 1000)
         context.current_time= current_time
+        current_time_of_day = current_time.time()
         # 过滤时间段:9:30-14:57
-        if current_time.hour < 9 or (current_time.hour == 9 and current_time.minute < 30) or \
-           current_time.hour > 14 or (current_time.hour == 14 and current_time.minute >= 57):
+        if not (context.open_time <= current_time_of_day <= context.close_time):
              continue
-        
+        #update pre_ticks
+        context.pre_ticks[stock_code] = tick
         # 过滤ST股票 name中含有ST或st
         stock_name = context.stock_base_info[stock_code].get('name', '')
         if 'ST' in stock_name or 'st' in stock_name:
@@ -114,6 +131,9 @@ def handle_tick(context, ticks):
             
         # 过滤已经触发过信号的股票
         if stock_code in context.daily_signaled_stocks:
+            continue
+        
+        if stock_code not in context.hot_stocks:
             continue
             
         # 获取5档行情
@@ -142,8 +162,7 @@ def handle_tick(context, ticks):
                 
             # 更新挂单量 取最大值
             context.last_order_volumes[stock_code] = current_volume
-        #update pre_ticks
-        context.pre_ticks[stock_code] = tick
+
 
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
@@ -182,7 +201,10 @@ def save_historical_trades(context):
         # 标记交易是否成功
         for trade in context.daily_trades:
             current_price = context.pre_ticks[trade["stock"]]['lastPrice']
-            trade['success'] = current_price >= trade['price']
+            # trade['success'] = current_price >= trade['price']
+            trade['success'] = math.isclose(current_price, trade['price'])
+            if not trade['success']:
+                logger.error(f"交易失败：{trade['stock']}，trade price：{trade['price']}，current_price：{current_price}")
         context.historical_trades.extend(context.daily_trades)
     try:
         with open(context.data_file, 'w', encoding='utf-8') as f:

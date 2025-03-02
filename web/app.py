@@ -10,7 +10,7 @@ import sys
 import os
 # 将项目根目录添加到PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from curs.strategy.strategy_loader import StrategyManager
+# from curs.strategy.strategy_loader import StrategyManager
 
 app = Flask(__name__)
 
@@ -77,9 +77,9 @@ def strategy(strategy_id):
 def start_strategy(strategy_id):
     """启动策略"""
     try:
-        manager = StrategyManager()
-        if manager.start_strategy(strategy_id):
-            return {'status': 'success', 'message': '策略已启动'}
+        # manager = StrategyManager()
+        # if manager.start_strategy(strategy_id):
+        #     return {'status': 'success', 'message': '策略已启动'}
         return {'status': 'error', 'message': '策略启动失败'}
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
@@ -88,9 +88,9 @@ def start_strategy(strategy_id):
 def stop_strategy(strategy_id):
     """停止策略"""
     try:
-        manager = StrategyManager()
-        if manager.stop_strategy(strategy_id):
-            return {'status': 'success', 'message': '策略已停止'}
+        # manager = StrategyManager()
+        # if manager.stop_strategy(strategy_id):
+        #     return {'status': 'success', 'message': '策略已停止'}
         return {'status': 'error', 'message': '策略停止失败'}
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
