@@ -62,6 +62,8 @@ def init(context):
     
 def load_stocks_fromfile(context, file_name):
     """加载昨日的涨停股列表"""
+    #清空昨日涨停股列表
+    context.hot_stocks.clear()
     file_path = context.data_dir + file_name
     try:
         with open(file_path, 'r') as f:
@@ -142,7 +144,10 @@ def handle_tick(context, ticks):
         
         # 获取涨停价
         upper_limit = context.stock_base_info[stock_code]['limit_up_price']
-        
+        #已经涨停过的股票不再买入，针对涨停之后开板的股票
+        bid_prices = tick.get('bidPrice', [])
+        if upper_limit in bid_prices:
+            context.daily_signaled_stocks.add(stock_code)
         # 检查5档行情中是否有涨停价
         if upper_limit in ask_prices:
             # 获取涨停价对应的卖单量
@@ -159,6 +164,7 @@ def handle_tick(context, ticks):
                 buy_at_limit_up(context, stock_code, upper_limit)
                 # 标记该股票已触发信号
                 context.daily_signaled_stocks.add(stock_code)
+
                 
             # 更新挂单量 取最大值
             context.last_order_volumes[stock_code] = current_volume
