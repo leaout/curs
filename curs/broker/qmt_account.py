@@ -1,6 +1,7 @@
 import logging
 import time
 from typing import List
+from xml.dom.pulldom import parseString
 
 from xtquant import xtconstant, xtdata
 from xtquant.xttrader import XtQuantTrader, XtQuantTraderCallback
@@ -336,6 +337,7 @@ class QmtStockAccount():
 
             for stock in buy_stocks:
                 if self.buy(stock, value):
+                    pass
 
   
             
@@ -351,10 +353,9 @@ if __name__ == "__main__":
         # :param frozen_volume: 冻结数量
         # :param on_road_volume: 在途股份
         # :param yesterday_volume: 昨夜拥股
-        # :param avg_price: 成本价
-        # :param direction: 多空, 股票不需要
+
     for position in posistions:
-        print(position.account_id, position.stock_code, position.volume, position.can_use_volume, position.open_price, position.market_value, position.frozen_volume, position.on_road_volume, position.yesterday_volume, position.avg_price, position.direction)
+        print(position.account_id, position.stock_code, position.volume, position.can_use_volume, position.open_price, position.market_value, position.frozen_volume, position.on_road_volume, position.yesterday_volume)
     asset = account.get_current_account()
     # account_type	int	账号类型，参见数据字典
     # account_id	str	资金账号
