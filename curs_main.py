@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from math import e
 from curs.core.engine import Engine
 from curs.utils.config import load_yaml
 from curs.cursglobal import *
@@ -76,7 +77,10 @@ def stop():
         with open('curs_main.pid', 'r') as f:
             pid = int(f.read())
         # 发送SIGTERM信号终止进程
-        os.kill(pid, signal.SIGTERM)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except Exception as e:
+            print("进程不存在。")
         os.remove('curs_main.pid')
     else:
         print("没有找到运行的进程。")
