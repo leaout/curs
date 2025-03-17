@@ -1,4 +1,4 @@
-# coding: utf-8
+6# coding: utf-8
 
 from math import e
 from curs.core.engine import Engine
