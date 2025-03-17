@@ -218,11 +218,8 @@ class QmtStockAccount():
                 order_remark="order from cly",
         )
         logger.info(f"order result id: {fix_result_order_id}")
-    def sell_by_volume(self, stock_code,volume):
-        print(stock_code)
-        print(self.account)
-        # position = self.xt_trader.query_stock_position(self.account,stock_code)
-        # print(position)
+
+    def sell_market_convert_5_cancel(self, stock_code,volume):
         fix_result_order_id = self.xt_trader.order_stock(
                 account=self.account,
                 stock_code=stock_code,
@@ -234,37 +231,34 @@ class QmtStockAccount():
                 order_remark="order from cly",
         )
         logger.info(f"order result id: {fix_result_order_id}")
-        
-    def sell(self, position_strategy):
-        # account_type	int	账号类型，参见数据字典
-        # account_id	str	资金账号
-        # stock_code	str	证券代码
-        # volume	int	持仓数量
-        # can_use_volume	int	可用数量
-        # open_price	float	开仓价
-        # market_value	float	市值
-        # frozen_volume	int	冻结数量
-        # on_road_volume	int	在途股份
-        # yesterday_volume	int	昨夜拥股
-        # avg_price	float	成本价
-        # direction	int	多空方向，股票不适用；参见数据字典
-        stock_codes = [_to_qmt_code(entity_id) for entity_id in position_strategy.entity_ids]
-        for i, stock_code in enumerate(stock_codes):
-            pct = position_strategy.sell_pcts[i]
-            position = self.xt_trader.query_stock_position(self.account, stock_code)
-            fix_result_order_id = self.xt_trader.order_stock(
+
+    def sell_latest_price(self, stock_code,volume):
+        fix_result_order_id = self.xt_trader.order_stock(
                 account=self.account,
                 stock_code=stock_code,
                 order_type=xtconstant.STOCK_SELL,
-                order_volume=int(position.can_use_volume * pct),
-                price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
+                order_volume=int(volume),
+                price_type=xtconstant.LATEST_PRICE,
                 price=0,
                 strategy_name=self.trader_name,
                 order_remark="order from cly",
-            )
-            logger.info(f"order result id: {fix_result_order_id}")
+        )
+        logger.info(f"order result id: {fix_result_order_id}")
 
-    def buy(self, stock_code,volume):
+    def sell_fix_price(self, stock_code,volume,price):
+        fix_result_order_id = self.xt_trader.order_stock(
+                account=self.account,
+                stock_code=stock_code,
+                order_type=xtconstant.STOCK_SELL,
+                order_volume=int(volume),
+                price_type=xtconstant.FIX_PRICE,
+                price=price,
+                strategy_name=self.trader_name,
+                order_remark="order from cly",
+        )
+        logger.info(f"order result id: {fix_result_order_id}")
+
+    def buy_latest_price(self, stock_code,volume):
 
         fix_result_order_id = self.xt_trader.order_stock(
             account=self.account,
@@ -272,8 +266,22 @@ class QmtStockAccount():
             order_type=xtconstant.STOCK_BUY,
             order_volume=int(volume),
             price_type=xtconstant.LATEST_PRICE,
-            # price_type=xtconstant.FIX_PRICE,
             price=0,
+            strategy_name=self.trader_name,
+            order_remark="order from cly",
+        )
+        logger.info(f"order result id: {fix_result_order_id}")
+        return fix_result_order_id
+    
+    def buy_fix_price(self, stock_code,volume,price):
+
+        fix_result_order_id = self.xt_trader.order_stock(
+            account=self.account,
+            stock_code=stock_code,
+            order_type=xtconstant.STOCK_BUY,
+            order_volume=int(volume),
+            price_type=xtconstant.FIX_PRICE,
+            price=price,
             strategy_name=self.trader_name,
             order_remark="order from cly",
         )
@@ -333,5 +341,5 @@ if __name__ == "__main__":
     # total_asset	float	总资产
     print(asset.account_id, asset.account_type, asset.cash, asset.frozen_cash, asset.market_value, asset.total_asset)
     #
-    # account.sell_by_volume("600228.SH",100)
-    account.buy("002681.SZ",100)
+    # account.sell_market_convert_5_cancel("600228.SH",100)
+    account.buy_latest_price("002681.SZ",100)
