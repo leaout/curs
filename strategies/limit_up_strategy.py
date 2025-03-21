@@ -15,7 +15,7 @@ def init(context):
     """初始化涨停板策略"""
     logger.info("初始化涨停板策略")
     # 初始化账户
-    context.account = Account(total_cash=100000)  # 初始资金为10万元
+    context.account = Account(total_cash=100000,is_live=True)  # 初始资金为10万元
     # 存储每只股票的上次挂单量
     context.last_order_volumes = {}
     #pre ticks
@@ -48,7 +48,7 @@ def init(context):
     #读取昨天zt_list 
     context.pre_limit_up_stocks = set()
     context.open_time = datetime.strptime("09:30:00", "%H:%M:%S").time()
-    context.close_time = datetime.strptime("14:57:00", "%H:%M:%S").time()
+    context.close_time = datetime.strptime("14:00:00", "%H:%M:%S").time()
     
     date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
     file_name = "/zt_list_pre.txt"
@@ -56,12 +56,13 @@ def init(context):
     with open(file_name,'r') as f:
         for line in f:
             context.pre_limit_up_stocks.add(line.strip())
+    logger.info(f"成功加载昨日涨停股列表，共{len(context.pre_limit_up_stocks)}只")
     context.hot_stocks = set()
     load_stocks_fromfile(context, "/hotstocks.txt")
     
     
 def load_stocks_fromfile(context, file_name):
-    """加载昨日的涨停股列表"""
+    """加载昨日的热点股列表"""
     #清空昨日涨停股列表
     context.hot_stocks.clear()
     file_path = context.data_dir + file_name
@@ -69,6 +70,7 @@ def load_stocks_fromfile(context, file_name):
         with open(file_path, 'r') as f:
             for line in f:
                 context.hot_stocks.add(line.strip())
+        logger.info(f"成功加载昨日热点股列表，共{len(context.hot_stocks)}只")
     except FileNotFoundError:
         print(f"文件 {file_path} 未找到，请检查路径和文件名。")
     except Exception as e:
@@ -173,13 +175,13 @@ def handle_tick(context, ticks):
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
     if context.pre_limit_up_stocks and stock_code in context.pre_limit_up_stocks:
-        logger.info(f"昨日涨停股票：{stock_code}，不再买入")
+        # logger.info(f"昨日涨停股票：{stock_code}，不再买入")
         return
     # 获取账户信息
     account = context.account
     
     # 计算可买数量
-    available_cash = account.cash
+    available_cash = 5000
     buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
     
     if buy_volume > 0:

@@ -1,6 +1,6 @@
 # coding: utf-8
 import six
-
+from curs.broker.qmt_account import QmtStockAccount
 class Position(dict):
     '''
     持仓 id 成本均价 数量 当前价格
@@ -59,10 +59,14 @@ class Position(dict):
 
 class Account(object):
 
-    def __init__(self, total_cash):
+    def __init__(self, total_cash,is_live=False):
         self._positions = {}
         self._frozen_cash = 0
         self._total_cash = total_cash
+        #是否实盘
+        self._is_live = is_live
+        if self._is_live:
+            self._qmt_account = QmtStockAccount(path=r"E:\qmt\userdata_mini", account_id="8886692024",trader_name="test")
 
     @property
     def market_value(self):
@@ -111,6 +115,8 @@ class Account(object):
         if self.cash >= price * volume:
             # 更新持仓
             self.update_account(stock_code, volume, price)
+            if self._is_live:
+                self._qmt_account.buy_fix_price(stock_code,volume,price)
 
             return True
         else:
@@ -121,6 +127,8 @@ class Account(object):
         if stock_code in self._positions and self._positions[stock_code].quantity >= volume:
             # 更新持仓
             self.update_account(stock_code, -volume, price)
+            if self._is_live:
+                self._qmt_account.sell_fix_price(stock_code,volume,price)
             # 更新资金
             self._total_cash += price * volume
             return True

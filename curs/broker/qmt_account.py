@@ -87,7 +87,7 @@ class MyXtQuantTraderCallback(XtQuantTraderCallback):
         :param response: XtAccountStatus 对象
         :return:
         """
-        logger.info(status.account_id, status.account_type, status.status)
+        logger.info(f"qmt on_account_status: {vars(status)}")
 
 
 class QmtStockAccount():
@@ -341,5 +341,6 @@ if __name__ == "__main__":
     # total_asset	float	总资产
     print(asset.account_id, asset.account_type, asset.cash, asset.frozen_cash, asset.market_value, asset.total_asset)
     #
-    # account.sell_market_convert_5_cancel("600228.SH",100)
-    account.buy_latest_price("002681.SZ",100)
+    # account.sell_market_convert_5_cancel("002681.SZ",100)
+    account.buy_latest_price("002195.SZ",100)
+    
