@@ -41,6 +41,7 @@ def handle_bar(context, bar_dict):
 
 
 def handle_tick(context,ticks):
+    return
     for stock_code, tick in ticks.items():
         # unix time to datetime,精确到毫秒
         current_time = datetime.fromtimestamp(tick.get('time', 0) / 1000)
@@ -64,6 +65,7 @@ def handle_tick(context,ticks):
         
 
 def after_trading(context):
+    return
     logger.info("after_trading")
     #将zt_list写入文件，并记录日期
     date_str = context.current_time.strftime("%Y-%m-%d")
