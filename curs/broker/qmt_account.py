@@ -1,6 +1,7 @@
 import logging
 import time
 from typing import List
+from xml.dom.pulldom import parseString
 
 from xtquant import xtconstant, xtdata
 from xtquant.xttrader import XtQuantTrader, XtQuantTraderCallback
@@ -86,7 +87,7 @@ class MyXtQuantTraderCallback(XtQuantTraderCallback):
         :param response: XtAccountStatus 对象
         :return:
         """
-        logger.info(status.account_id, status.account_type, status.status)
+        logger.info(f"qmt on_account_status: {vars(status)}")
 
 
 class QmtStockAccount():
@@ -217,100 +218,76 @@ class QmtStockAccount():
                 order_remark="order from cly",
         )
         logger.info(f"order result id: {fix_result_order_id}")
-        
-    def sell(self, position_strategy):
-        # account_type	int	账号类型，参见数据字典
-        # account_id	str	资金账号
-        # stock_code	str	证券代码
-        # volume	int	持仓数量
-        # can_use_volume	int	可用数量
-        # open_price	float	开仓价
-        # market_value	float	市值
-        # frozen_volume	int	冻结数量
-        # on_road_volume	int	在途股份
-        # yesterday_volume	int	昨夜拥股
-        # avg_price	float	成本价
-        # direction	int	多空方向，股票不适用；参见数据字典
-        stock_codes = [_to_qmt_code(entity_id) for entity_id in position_strategy.entity_ids]
-        for i, stock_code in enumerate(stock_codes):
-            pct = position_strategy.sell_pcts[i]
-            position = self.xt_trader.query_stock_position(self.account, stock_code)
-            fix_result_order_id = self.xt_trader.order_stock(
+
+    def sell_market_convert_5_cancel(self, stock_code,volume):
+        fix_result_order_id = self.xt_trader.order_stock(
                 account=self.account,
                 stock_code=stock_code,
                 order_type=xtconstant.STOCK_SELL,
-                order_volume=int(position.can_use_volume * pct),
+                order_volume=int(volume),
                 price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
                 price=0,
                 strategy_name=self.trader_name,
                 order_remark="order from cly",
-            )
-            logger.info(f"order result id: {fix_result_order_id}")
+        )
+        logger.info(f"order result id: {fix_result_order_id}")
 
-    def buy(self, stock_code,volume):
-        # account_type	int	账号类型，参见数据字典
-        # account_id	str	资金账号
-        # cash	float	可用金额
-        # frozen_cash	float	冻结金额
-        # market_value	float	持仓市值
-        # total_asset	float	总资产
-        acc = self.get_current_account()
+    def sell_latest_price(self, stock_code,volume):
+        fix_result_order_id = self.xt_trader.order_stock(
+                account=self.account,
+                stock_code=stock_code,
+                order_type=xtconstant.STOCK_SELL,
+                order_volume=int(volume),
+                price_type=xtconstant.LATEST_PRICE,
+                price=0,
+                strategy_name=self.trader_name,
+                order_remark="order from cly",
+        )
+        logger.info(f"order result id: {fix_result_order_id}")
 
-        # 优先使用金额下单
-        # if buy_parameter.money_to_use:
-        #     money_to_use = buy_parameter.money_to_use
-        #     if acc.cash < money_to_use:
-        #         raise QmtError(f"可用余额不足 {acc.cash} < {money_to_use}")
-        # else:
-        #     # 检查仓位
-        #     if buy_parameter.position_type == PositionType.normal:
-        #         current_pct = round(acc.market_value / acc.total_asset, 2)
-        #         if current_pct >= buy_parameter.position_pct:
-        #             raise PositionOverflowError(f"目前仓位为{current_pct}, 已超过请求的仓位: {buy_parameter.position_pct}")
+    def sell_fix_price(self, stock_code,volume,price):
+        fix_result_order_id = self.xt_trader.order_stock(
+                account=self.account,
+                stock_code=stock_code,
+                order_type=xtconstant.STOCK_SELL,
+                order_volume=int(volume),
+                price_type=xtconstant.FIX_PRICE,
+                price=price,
+                strategy_name=self.trader_name,
+                order_remark="order from cly",
+        )
+        logger.info(f"order result id: {fix_result_order_id}")
 
-        #         money_to_use = acc.total_asset * (buy_parameter.position_pct - current_pct)
-        #     elif buy_parameter.position_type == PositionType.cash:
-        #         money_to_use = acc.cash * buy_parameter.position_pct
-        #     else:
-        #         assert False
+    def buy_latest_price(self, stock_code,volume):
 
-        # stock_codes = [_to_qmt_code(entity_id) for entity_id in buy_parameter.entity_ids]
-        ticks = xtdata.get_full_tick(code_list=[stock_code])
-        try_price = ticks[stock_code]["askPrice"][2]
-        print(ticks)
         fix_result_order_id = self.xt_trader.order_stock(
             account=self.account,
             stock_code=stock_code,
             order_type=xtconstant.STOCK_BUY,
             order_volume=int(volume),
-            price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
-            price=try_price,
+            price_type=xtconstant.LATEST_PRICE,
+            price=0,
             strategy_name=self.trader_name,
             order_remark="order from cly",
         )
         logger.info(f"order result id: {fix_result_order_id}")
         return fix_result_order_id
-        # if not buy_parameter.weights:
-        #     stocks_count = len(stock_codes)
-        #     money_for_stocks = [round(money_to_use / stocks_count)] * stocks_count
-        # else:
-        #     weights_sum = sum(buy_parameter.weights)
-        #     money_for_stocks = [round(weight / weights_sum) for weight in buy_parameter.weights]
+    
+    def buy_fix_price(self, stock_code,volume,price):
 
-        # for i, stock_code in enumerate(stock_codes):
-        #     try_price = ticks[stock_code]["askPrice"][3]
-        #     volume = money_for_stocks[i] / try_price
-        #     fix_result_order_id = self.xt_trader.order_stock(
-        #         account=self.account,
-        #         stock_code=stock_code,
-        #         order_type=xtconstant.STOCK_BUY,
-        #         order_volume=volume,
-        #         price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
-        #         price=0,
-        #         strategy_name=self.trader_name,
-        #         order_remark="order from cly",
-        #     )
-        #     logger.info(f"order result id: {fix_result_order_id}")
+        fix_result_order_id = self.xt_trader.order_stock(
+            account=self.account,
+            stock_code=stock_code,
+            order_type=xtconstant.STOCK_BUY,
+            order_volume=int(volume),
+            price_type=xtconstant.FIX_PRICE,
+            price=price,
+            strategy_name=self.trader_name,
+            order_remark="order from cly",
+        )
+        logger.info(f"order result id: {fix_result_order_id}")
+        return fix_result_order_id
+
     def query_orders(self):
         orders = self.xt_trader.query_stock_orders(self.account, False)
         return orders
@@ -336,11 +313,12 @@ class QmtStockAccount():
 
             for stock in buy_stocks:
                 if self.buy(stock, value):
+                    pass
 
   
             
 if __name__ == "__main__":
-    account = QmtStockAccount(path=r"E:\qmt\userdata_mini", account_id="99",trader_name="test")
+    account = QmtStockAccount(path=r"E:\qmt\userdata_mini", account_id="88888888",trader_name="curs")
     posistions = account.get_positions()
         #     :param account_id: 资金账号
         # :param stock_code: 证券代码, 例如"600000.SH"
@@ -351,10 +329,9 @@ if __name__ == "__main__":
         # :param frozen_volume: 冻结数量
         # :param on_road_volume: 在途股份
         # :param yesterday_volume: 昨夜拥股
-        # :param avg_price: 成本价
-        # :param direction: 多空, 股票不需要
+
     for position in posistions:
-        print(position.account_id, position.stock_code, position.volume, position.can_use_volume, position.open_price, position.market_value, position.frozen_volume, position.on_road_volume, position.yesterday_volume, position.avg_price, position.direction)
+        print(position.account_id, position.stock_code, position.volume, position.can_use_volume, position.open_price, position.market_value, position.frozen_volume, position.on_road_volume, position.yesterday_volume)
     asset = account.get_current_account()
     # account_type	int	账号类型，参见数据字典
     # account_id	str	资金账号
@@ -363,3 +340,7 @@ if __name__ == "__main__":
     # market_value	float	持仓市值
     # total_asset	float	总资产
     print(asset.account_id, asset.account_type, asset.cash, asset.frozen_cash, asset.market_value, asset.total_asset)
+    #
+    # account.sell_market_convert_5_cancel("002681.SZ",100)
+    account.buy_latest_price("002195.SZ",100)
+    
