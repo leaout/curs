@@ -2,7 +2,7 @@
 from curs.log_handler.logger import logger
 from curs.cursglobal import *
 from curs.api import *
-from curs.broker.account import Account, Position
+from curs.broker.qmt_account import QmtStockAccount,Position
 import time
 import json
 import os
@@ -15,10 +15,13 @@ def init(context):
     """初始化涨停板策略"""
     logger.info("初始化涨停板策略")
     # 初始化账户
-    context.account = Account(total_cash=100000,is_live=True)  # 初始资金为10万元
+    qmt_path = CursGlobal.get_instance().config["base"]["accounts"]["qmt_path"]
+    account_id = CursGlobal.get_instance().config["base"]["accounts"]["qmt_account_id"]
+    trader_name = CursGlobal.get_instance().config["base"]["accounts"]["qmt_trader_name"]
+    context.account = QmtStockAccount(path=qmt_path,account_id=account_id,trader_name=trader_name, total_cash=100000)  # 初始资金为10万元
     # 存储每只股票的上次挂单量
     context.last_order_volumes = {}
-    #pre ticks
+    #pre ticksFalse
     context.pre_ticks = {}
     # 监控间隔时间（秒）
     context.monitor_interval = 3
@@ -109,9 +112,83 @@ def before_trading(context):
     context.total_count = 0
     
     logger.info("涨停板策略初始化完成")
+# 新增卖出处理函数
+def sell_strategy(context):
+    """次日卖出策略组合"""
+    for stock_code, position in context.account.positions.items():
+        if position.quantity == 0:
+            continue
+            
+        # 获取实时行情
+        tick = get_current_tick(stock_code)
+        buy_price = position.avg_cost
+        current_price = tick['lastPrice']
+        high_price = tick['high']
+        
+        # 策略1：动态止盈止损
+        max_peak = context.trade_records[stock_code]['peak_price']  # 记录当日最高价
+        if current_price > max_peak:
+            max_peak = current_price
+            context.trade_records[stock_code]['peak_price'] = max_peak
+            
+        # 回落2%止损
+        if current_price < max_peak * 0.98:
+            order_volume = position.quantity
+            if context.account.sell(stock_code, current_price, order_volume):
+                log_sale('dynamic_stop', stock_code, order_volume)
+        
+        # 策略2：分时均线跌破
+        ma5 = calculate_ma(stock_code, 5)
+        if current_price < ma5:
+            order_volume = int(position.quantity * 0.5)  # 卖出50%
+            if context.account.sell(stock_code, current_price, order_volume):
+                log_sale('ma_stop', stock_code, order_volume)
+        
+        # 策略3：尾盘强制清仓
+        if context.current_time.time() >= datetime.time(14, 55):
+            if context.account.sell(stock_code, current_price, position.quantity):
+                log_sale('force_close', stock_code, position.quantity)
+
+def log_sale(strategy, code, vol):
+    logger.info(f"[{strategy}] 卖出 {code} 数量 {vol} 时间 {datetime.now()}")
 
 def handle_tick(context, ticks):
     """处理tick数据"""
+     # 全局风险控制 --------------------------
+    # # 1. 单日最大回撤控制
+    # if context.account.total_assets < context.account.init_assets * 0.98:
+    #     logger.warning("触发单日最大回撤2%，停止交易")
+    #     close_all_positions(context)
+    #     return
+    
+    # # 2. 板块风险监控
+    # current_industry = get_stock_industry(stock_code)
+    # if context.industry_risk[current_industry] > 0.05:  # 板块内5%个股跌停
+    #     logger.warning(f"{current_industry}板块出现风险，禁止交易")
+    #     return
+        #     # 新增多维买入条件验证 --------------------------
+        # # 1. 封单强度验证（封单金额/流通市值）
+        # circulation_mv = context.stock_base_info[stock_code].get('circ_mv', 1e8)  # 获取流通市值
+        # upper_limit = context.stock_base_info[stock_code]['limit_up_price']
+        # limit_order_vol = ask_volumes[ask_prices.index(upper_limit)]  # 涨停价挂单量
+        # limit_order_amount = limit_order_vol * upper_limit  # 封单金额
+        # seal_strength_ratio = limit_order_amount / circulation_mv
+        
+        # # 2. 挂单变化速率验证（单位：手/秒）
+        # pre_vol = context.last_order_volumes.get(stock_code, limit_order_vol)
+        # vol_change_speed = (pre_vol - limit_order_vol) / context.monitor_interval
+        
+        # # 3. 市场情绪验证（全市场涨停股数量）
+        # all_zt_count = sum(1 for code in ticks if ticks[code]['lastPrice'] >= ticks[code]['pre_close'] * 1.099)
+        
+        # # 综合买入条件（原条件+新条件）
+        # if (current_volume <= last_volume * 0.75 and 
+        #     seal_strength_ratio > 0.005 and  # 封单强度>0.5%流通市值
+        #     vol_change_speed > 500 and       # 挂单减少速度>500手/秒
+        #     all_zt_count > 30):               # 全市场涨停股>30只
+        #     buy_at_limit_up(context, stock_code, upper_limit)
+        #     context.daily_signaled_stocks.add(stock_code)
+    
     for stock_code, tick in ticks.items():
 #         'time' =
 # 1739170800000
@@ -160,8 +237,8 @@ def handle_tick(context, ticks):
             # 获取上次挂单量
             last_volume = context.last_order_volumes.get(stock_code, current_volume)
                                                     
-            # 判断挂单量是否减少1/4
-            if current_volume <= last_volume * 0.75:
+            # 判断挂单量是否减少0.4
+            if current_volume <= last_volume * 0.6:
                 # 触发买入
                 buy_at_limit_up(context, stock_code, upper_limit)
                 # 标记该股票已触发信号
@@ -170,6 +247,16 @@ def handle_tick(context, ticks):
                 
             # 更新挂单量 取最大值
             context.last_order_volumes[stock_code] = current_volume
+        #已经涨停，判断是否排版
+        if upper_limit in bid_prices:
+            # 获取上次挂单量
+            current_volume = 0
+            last_volume = context.last_order_volumes.get(stock_code, current_volume)
+            if last_volume > 0:
+                # 触发排版买入
+                buy_at_limit_up(context, stock_code, upper_limit)
+                
+                context.last_order_volumes[stock_code] = 0
 
 
 def buy_at_limit_up(context, stock_code, price):
@@ -186,7 +273,7 @@ def buy_at_limit_up(context, stock_code, price):
     
     if buy_volume > 0:
         # 下单
-        if account.buy(stock_code, price, buy_volume):
+        if account.buy_fix_price(stock_code, price, buy_volume):
             logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}, 时间：{context.current_time}")
             
             # 记录交易
