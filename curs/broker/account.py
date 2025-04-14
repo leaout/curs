@@ -40,9 +40,9 @@ class Position(dict):
     def update(self, quantity,avg_price):
         if quantity < 0 or avg_price <0:
             raise ValueError('invalid avg_price')
-
-        self._avg_price = (self.avg_price * self.quantity + quantity * avg_price)/(self.quantity + quantity)
-        self._quantity += quantity
+        if quantity > 0:    
+            self._avg_price = (self.avg_price * self.quantity + quantity * avg_price)/(self.quantity + quantity)
+            self._quantity += quantity
 
     # def get_or_create(self, key):
     #     if key not in self:
@@ -114,7 +114,7 @@ class Account(object):
             return True
         else:
             return False
-
+    
     def sell(self, stock_code, price, volume):
         """卖出股票"""
         if stock_code in self._positions and self._positions[stock_code].quantity >= volume:
@@ -125,7 +125,13 @@ class Account(object):
             return True
         else:
             return False
-
+    def get_position(self, stock_code):
+        """获取持仓"""
+        if stock_code in self._positions:
+            return self._positions[stock_code]
+        else:
+            return None
+        
     def save_daily_account_info(self,strategy_name):
         """每日盘后存储账户信息"""
         import json

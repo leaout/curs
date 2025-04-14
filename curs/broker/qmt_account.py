@@ -125,6 +125,9 @@ class QmtStockAccount(Account):
             logger.error(f"账号订阅失败: {subscribe_result}")
             # raise QmtError(f"账号订阅失败: {subscribe_result}")
         logger.info("账号订阅成功！")
+        positions = self.get_positions()
+        for position in positions:
+            super().update_account(position.stock_code, position.can_use_volume, position.open_price)
 
     def get_positions(self):
         positions: List[XtPosition] = self.xt_trader.query_stock_positions(self.account)

@@ -2,7 +2,7 @@
 from curs.log_handler.logger import logger
 from curs.cursglobal import *
 from curs.api import *
-from curs.broker.account import Account, Position
+from curs.broker.qmt_account import QmtStockAccount,Position
 import time
 import json
 import os
@@ -15,7 +15,11 @@ def init(context):
     """初始化涨停板策略"""
     logger.info("初始化涨停板策略")
     # 初始化账户
-    context.account = Account(total_cash=100000)  # 初始资金为10万元
+    qmt_path = CursGlobal.get_instance().config["base"]["accounts"]["qmt_path"]
+    account_id = CursGlobal.get_instance().config["base"]["accounts"]["qmt_account_id"]
+    trader_name = CursGlobal.get_instance().config["base"]["accounts"]["qmt_trader_name"]
+    context.account = QmtStockAccount(path=qmt_path,account_id=account_id,trader_name=trader_name, total_cash=100000)  # 初始资金为10万元
+    
     # 存储每只股票的上次挂单量
     context.last_order_volumes = {}
     #pre ticks
@@ -47,8 +51,8 @@ def init(context):
     context.current_time = None
     #读取昨天zt_list 
     context.pre_limit_up_stocks = set()
-    context.open_time = datetime.strptime("09:30:00", "%H:%M:%S").time()
-    context.close_time = datetime.strptime("14:57:00", "%H:%M:%S").time()
+    context.open_time = datetime.strptime("09:35:00", "%H:%M:%S").time()
+    context.close_time = datetime.strptime("14:30:00", "%H:%M:%S").time()
     
     date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
     file_name = "/zt_list_pre.txt"
@@ -170,16 +174,17 @@ def handle_tick(context, ticks):
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
     # 获取账户信息
+    return
     account = context.account
     
     # 计算可买数量
-    available_cash = account.cash
+    available_cash = 10000
     buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
     
     if buy_volume > 0:
         # 下单
         # if account.buy(stock_code, price, buy_volume):
-        if True:
+        if account.buy_fix_price(stock_code,buy_volume, price):
             logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}, 时间：{context.current_time}")
             
             # 记录交易

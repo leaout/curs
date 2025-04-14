@@ -50,7 +50,7 @@ def init(context):
     context.current_time = None
     #读取昨天zt_list 
     context.pre_limit_up_stocks = set()
-    context.open_time = datetime.strptime("09:30:00", "%H:%M:%S").time()
+    context.open_time = datetime.strptime("09:35:00", "%H:%M:%S").time()
     context.close_time = datetime.strptime("14:00:00", "%H:%M:%S").time()
     
     date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
@@ -113,41 +113,53 @@ def before_trading(context):
     
     logger.info("涨停板策略初始化完成")
 # 新增卖出处理函数
-def sell_strategy(context):
+def sell_strategy(context,stock_code,tick):
     """次日卖出策略组合"""
-    for stock_code, position in context.account.positions.items():
-        if position.quantity == 0:
-            continue
-            
-        # 获取实时行情
-        tick = get_current_tick(stock_code)
-        buy_price = position.avg_cost
-        current_price = tick['lastPrice']
-        high_price = tick['high']
+    # 策略2：10:00-10:30卖出窗口        
+    current_time = context.current_time.time()
+    current_time_of_day = current_time.time()
+
+    if not (datetime.time(10, 0) <= current_time_of_day <= datetime.time(10, 30)):
+        return
+    #如果股票当天涨停
+    position = context.account.get_position(stock_code)
+    if position is None:
+        return
+
+    if position.quantity == 0:
+        return
+    
+    # 获取涨停价
+    upper_limit = context.stock_base_info[stock_code]['limit_up_price']
+    #已经涨停过的股票不再买入，针对涨停之后开板的股票
+    bid_prices = tick.get('bidPrice', [])
+    #如果涨停，继续持有
+    if upper_limit in bid_prices:
+        return
+    # 获取实时行情
+    buy_price = position.avg_cost
+    current_price = tick['lastPrice']
+    high_price = tick['high']
+
+    
+    # 策略1：动态止盈止损
+    max_peak = context.trade_records[stock_code]['peak_price']  # 记录当日最高价
+    if current_price > max_peak:
+        max_peak = current_price
+        context.trade_records[stock_code]['peak_price'] = max_peak
         
-        # 策略1：动态止盈止损
-        max_peak = context.trade_records[stock_code]['peak_price']  # 记录当日最高价
-        if current_price > max_peak:
-            max_peak = current_price
-            context.trade_records[stock_code]['peak_price'] = max_peak
-            
-        # 回落2%止损
-        if current_price < max_peak * 0.98:
-            order_volume = position.quantity
-            if context.account.sell(stock_code, current_price, order_volume):
-                log_sale('dynamic_stop', stock_code, order_volume)
-        
-        # 策略2：分时均线跌破
-        ma5 = calculate_ma(stock_code, 5)
-        if current_price < ma5:
-            order_volume = int(position.quantity * 0.5)  # 卖出50%
-            if context.account.sell(stock_code, current_price, order_volume):
-                log_sale('ma_stop', stock_code, order_volume)
-        
-        # 策略3：尾盘强制清仓
-        if context.current_time.time() >= datetime.time(14, 55):
-            if context.account.sell(stock_code, current_price, position.quantity):
-                log_sale('force_close', stock_code, position.quantity)
+    # 回落2%止损
+    if current_price < max_peak * 0.98:
+        order_volume = position.quantity
+        if context.account.sell_fix_price(stock_code,order_volume, current_price):
+            log_sale('dynamic_stop', stock_code, order_volume)
+    
+
+    
+    # 策略3：尾盘强制清仓
+    if current_time >= datetime.time(14, 55):
+        if context.account.sell_fix_price(stock_code, current_price, position.quantity):
+            log_sale('force_close', stock_code, position.quantity)
 
 def log_sale(strategy, code, vol):
     logger.info(f"[{strategy}] 卖出 {code} 数量 {vol} 时间 {datetime.now()}")
@@ -253,6 +265,7 @@ def handle_tick(context, ticks):
             current_volume = 0
             last_volume = context.last_order_volumes.get(stock_code, current_volume)
             if last_volume > 0:
+                logger.info(f"触发排版买入:{stock_code}")
                 # 触发排版买入
                 buy_at_limit_up(context, stock_code, upper_limit)
                 
@@ -273,7 +286,7 @@ def buy_at_limit_up(context, stock_code, price):
     
     if buy_volume > 0:
         # 下单
-        if account.buy_fix_price(stock_code, price, buy_volume):
+        if account.buy_fix_price(stock_code,buy_volume, price):
             logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}, 时间：{context.current_time}")
             
             # 记录交易
