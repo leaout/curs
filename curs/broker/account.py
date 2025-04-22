@@ -102,9 +102,12 @@ class Account(object):
         if order_book_id not in self.positions:
             self.positions[order_book_id] = Position()
         #update position
-        self.positions[order_book_id].update(quantity,avg_price)
+        try:
+            self.positions[order_book_id].update(quantity,avg_price)
+        except:
+            print("update_account error")
+            pass
 
-        pass
     def buy(self, stock_code, price, volume):
         """买入股票"""
         if self.cash >= price * volume:
