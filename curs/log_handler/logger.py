@@ -12,7 +12,9 @@ class curs_logger(object):
     def __init__(self,log_path='default.log'):
         self._logger = logging.getLogger()
         self._logger.setLevel(logging.DEBUG)
-        file_print = logging.handlers.TimedRotatingFileHandler(log_path, 'D')
+        file_print = logging.handlers.TimedRotatingFileHandler(log_path, 'D', 
+            encoding='utf-8'  # 指定编码
+            )
         std_print = logging.StreamHandler()
         fmt = logging.Formatter("%(asctime)s %(pathname)s %(filename)s %(funcName)s %(lineno)d %(levelname)s - %(message)s","%Y-%m-%d %H:%M:%S")
         std_print.setFormatter(fmt)
@@ -24,19 +26,6 @@ class curs_logger(object):
         self.info = self._logger.info
         self.warning = self._logger.warning
         self.error = self._logger.error
-
-    # def debug(self,stream):
-    #     self.logger.debug(stream)
-    # def info(self,stream):
-    #     self.logger.info(stream)
-    # def warning(self,stream):
-    #     self.logger.warning(stream)
-    # def error(self,stream):
-    #     self.logger.error(stream)
-    # debug = logger.debug
-    # info = logger.info
-    # warning = logger.warning
-    # error = logger.error
 
 def progress_bar(total,count,msg=""):
     """
