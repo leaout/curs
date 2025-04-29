@@ -24,7 +24,10 @@ class CursGlobal:
             raise RuntimeError(
                 _(u"Environment has not been created. Please Use `CursGlobal.get_instance()` after  init"))
         return CursGlobal._global
-
+    @property
+    def config(self):
+        return self.__config
+    
     @property
     def stock_map(self):
         return self._stock_map

@@ -1,7 +1,7 @@
 from curs.cursglobal import *
 from curs.strategy import *
 from typing import Dict
-
+ 
 class StategyLoader:
     """策略加载器"""
     def __init__(self, strategy_file_path: str):
@@ -17,19 +17,19 @@ class StategyLoader:
         strategy_context = StrategyContext()
         self._strategy = Strategy(event_bus, scop, strategy_context)
         self._strategy.init()
-        
+         
     def unload(self, event_bus: EventBus):
         """卸载策略"""
         if self._strategy:
             self._strategy.unregister_event()
             self._strategy = None
-        
-    
+         
+     
 class StrategyManager:
     """策略管理器"""
     _instance = None
     _strategies: Dict[str, object] = {}  # 存储已加载策略
-    
+     
     def __new__(cls, event_bus: EventBus):
         if cls._instance is not None:
             # 确保后续调用使用相同的 event_bus
@@ -42,30 +42,30 @@ class StrategyManager:
         instance._strategies = {}  # 实例变量存储策略
         cls._instance = instance
         return instance
-    
+     
     @classmethod
     def get_instance(cls):
         """获取单例实例"""
         if cls._instance is None:
             raise RuntimeError("StrategyManager has not been initialized. Please initialize it first.")
         return cls._instance
-    
+     
     def load_strategy(self, strategy_file_path: str):
         """加载策略"""
         if strategy_file_path in self._strategies:
             return self._strategies[strategy_file_path]
-            
+             
         try:
             s_loader = StategyLoader(strategy_file_path)
             s_loader.load(self._event_bus)
-
+ 
             self._strategies[strategy_file_path] = s_loader
             return s_loader
         except Exception as e:
             logger.error(f'加载策略{strategy_file_path}失败: {e}')
             raise
     def unload_strategy(self, strategy_file_path: str):
-        """重新加载策略"""
+        """卸载策略"""
         if strategy_file_path in self._strategies:
             strategy_loader = self._strategies[strategy_file_path]
             strategy_loader.unload(self._event_bus)
@@ -74,4 +74,3 @@ class StrategyManager:
             return True
         logger.warning(f'策略{strategy_file_path}未找到，无法卸载')
         return False
-    

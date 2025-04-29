@@ -6,6 +6,7 @@ from xml.dom.pulldom import parseString
 from xtquant import xtconstant, xtdata
 from xtquant.xttrader import XtQuantTrader, XtQuantTraderCallback
 from xtquant.xttype import StockAccount, XtPosition
+from curs.broker.account import Account,Position
 
 logger = logging.getLogger(__name__)
 #https://dict.thinktrader.net/nativeApi/xttrader.html?id=e2M5nZ#%E6%88%90%E4%BA%A4xttrade
@@ -90,8 +91,9 @@ class MyXtQuantTraderCallback(XtQuantTraderCallback):
         logger.info(f"qmt on_account_status: {vars(status)}")
 
 
-class QmtStockAccount():
-    def __init__(self, path, account_id, trader_name, session_id=None) -> None:
+class QmtStockAccount(Account):
+    def __init__(self, path, account_id, trader_name, session_id=None, total_cash=0) -> None:
+        super().__init__(total_cash)
         if not session_id:
             session_id = int(time.time())
         self.trader_name = trader_name
@@ -123,6 +125,9 @@ class QmtStockAccount():
             logger.error(f"账号订阅失败: {subscribe_result}")
             # raise QmtError(f"账号订阅失败: {subscribe_result}")
         logger.info("账号订阅成功！")
+        positions = self.get_positions()
+        for position in positions:
+            super().update_account(position.stock_code, position.can_use_volume, position.open_price)
 
     def get_positions(self):
         positions: List[XtPosition] = self.xt_trader.query_stock_positions(self.account)
@@ -246,7 +251,10 @@ class QmtStockAccount():
         logger.info(f"order result id: {fix_result_order_id}")
 
     def sell_fix_price(self, stock_code,volume,price):
-        fix_result_order_id = self.xt_trader.order_stock(
+        # 先调用基类的sell方法更新账户状态
+        if super().sell(stock_code, price, volume):
+            # 如果基类sell成功，则执行QMT交易
+            fix_result_order_id = self.xt_trader.order_stock(
                 account=self.account,
                 stock_code=stock_code,
                 order_type=xtconstant.STOCK_SELL,
@@ -255,8 +263,10 @@ class QmtStockAccount():
                 price=price,
                 strategy_name=self.trader_name,
                 order_remark="order from cly",
-        )
-        logger.info(f"order result id: {fix_result_order_id}")
+            )
+            logger.info(f"order result id: {fix_result_order_id}")
+            return fix_result_order_id
+        return None
 
     def buy_latest_price(self, stock_code,volume):
 
@@ -274,19 +284,22 @@ class QmtStockAccount():
         return fix_result_order_id
     
     def buy_fix_price(self, stock_code,volume,price):
-
-        fix_result_order_id = self.xt_trader.order_stock(
-            account=self.account,
-            stock_code=stock_code,
-            order_type=xtconstant.STOCK_BUY,
-            order_volume=int(volume),
-            price_type=xtconstant.FIX_PRICE,
-            price=price,
-            strategy_name=self.trader_name,
-            order_remark="order from cly",
-        )
-        logger.info(f"order result id: {fix_result_order_id}")
-        return fix_result_order_id
+        # 先调用基类的buy方法更新账户状态
+        if super().buy(stock_code, price, volume):
+            # 如果基类buy成功，则执行QMT交易
+            fix_result_order_id = self.xt_trader.order_stock(
+                account=self.account,
+                stock_code=stock_code,
+                order_type=xtconstant.STOCK_BUY,
+                order_volume=int(volume),
+                price_type=xtconstant.FIX_PRICE,
+                price=price,
+                strategy_name=self.trader_name,
+                order_remark="order from cly",
+            )
+            logger.info(f"order result id: {fix_result_order_id}")
+            return fix_result_order_id
+        return None
 
     def query_orders(self):
         orders = self.xt_trader.query_stock_orders(self.account, False)
@@ -298,10 +311,10 @@ class QmtStockAccount():
         positions = self.get_positions()
         for position in positions:
             if position.stock_code not in buy_stocks:
-                log.info("stock [%s] in position is not buyable" %(position.stock_code))
+                logger.info("stock [%s] in position is not buyable" %(position.stock_code))
                 self.sell_all(position.stock_code)
             else:
-                log.info("stock [%s] is already in position" %(position.stock_code))
+                logger.info("stock [%s] is already in position" %(position.stock_code))
 
         # 根据股票数量分仓
         # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
@@ -343,4 +356,3 @@ if __name__ == "__main__":
     #
     # account.sell_market_convert_5_cancel("002681.SZ",100)
     account.buy_latest_price("002195.SZ",100)
-    
