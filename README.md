@@ -1,4 +1,5 @@
 # curs
+Curs is an personal automated quantitative investment platform.
 ## Strategy
 ```mermaid
 graph TD
@@ -17,7 +18,6 @@ graph TD
     L -->|均线跌破| N[破5日线卖出]
     L -->|尾盘强制| O[14:55清仓]
 ```
-Curs is an personal automated quantitative investment platform.
 ## Install
 python 3.10 recommended!
 ```bash
