@@ -211,6 +211,9 @@ def handle_tick(context, ticks):
         # 过滤时间段:9:30-14:57
         if not (context.open_time <= current_time_of_day <= context.close_time):
              continue
+        if context.pre_limit_up_stocks and stock_code in context.pre_limit_up_stocks:
+            # logger.info(f"昨日涨停股票：{stock_code}，不再买入")
+            continue
         #update pre_ticks
         context.pre_ticks[stock_code] = tick
         # 过滤ST股票 name中含有ST或st
@@ -274,6 +277,7 @@ def handle_tick(context, ticks):
 
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
+    # return
     if context.pre_limit_up_stocks and stock_code in context.pre_limit_up_stocks:
         # logger.info(f"昨日涨停股票：{stock_code}，不再买入")
         return
@@ -281,7 +285,7 @@ def buy_at_limit_up(context, stock_code, price):
     account = context.account
     
     # 计算可买数量
-    available_cash = 10000
+    available_cash = 20000
     buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
     
     if buy_volume > 0:
