@@ -285,7 +285,7 @@ def buy_at_limit_up(context, stock_code, price):
     account = context.account
     
     # 计算可买数量
-    available_cash = 20000
+    available_cash = 30000
     buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
     
     if buy_volume > 0:
