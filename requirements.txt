@@ -16,3 +16,6 @@ mpl_finance
 retrying
 xtquant
 schedule
+
+Flask==2.2.5
+Flask-SQLAlchemy==3.0.5
