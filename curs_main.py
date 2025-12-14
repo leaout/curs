@@ -38,83 +38,6 @@ def create_data_dir():
     os.makedirs(data_dir, exist_ok=True)
     return data_dir
 
-# Web路由
-@app.route('/strategies')
-def strategies():
-    """策略页面"""
-    return render_template('strategy.html')
-
-@app.route('/api/strategies')
-def api_strategies():
-    """获取所有策略信息"""
-    strategies = get_all_strategies()
-    return strategies
-
-@app.route('/api/strategies/<strategy_id>')
-def api_strategy(strategy_id):
-    """获取单个策略信息"""
-    strategy_info = get_strategy_info(strategy_id)
-    return strategy_info
-
-@app.route('/strategy/<strategy_id>/start', methods=['POST'])
-def start_strategy(strategy_id):
-    """启动策略"""
-    try:
-        if strategy_manager.start_strategy(strategy_id):
-            return {'status': 'success', 'message': '策略已启动'}
-        return {'status': 'error', 'message': '策略启动失败'}
-    except Exception as e:
-        return {'status': 'error', 'message': str(e)}
-
-@app.route('/strategy/<strategy_id>/stop', methods=['POST'])
-def stop_strategy(strategy_id):
-    """停止策略"""
-    try:
-        if strategy_manager.stop_strategy(strategy_id):
-            return {'status': 'success', 'message': '策略已停止'}
-        return {'status': 'error', 'message': '策略停止失败'}
-    except Exception as e:
-        return {'status': 'error', 'message': str(e)}
-
-def get_all_strategies():
-    """获取所有策略信息"""
-    strategies = []
-    strategies_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'strategies')
-    for filename in os.listdir(strategies_dir):
-        if filename.endswith('.py') and filename != '__init__.py':
-            strategy_id = filename[:-3]
-            strategy_info = get_strategy_info(strategy_id)
-            strategies.append(strategy_info)
-    return {'strategies': strategies}
-
-def get_strategy_info(strategy_id):
-    """获取策略详细信息"""
-    data_file = os.path.join(create_data_dir(), f'{strategy_id}_trades.json')
-    if os.path.exists(data_file):
-        with open(data_file, 'r', encoding='utf-8') as f:
-            trades = json.load(f)
-    else:
-        trades = []
-    
-    total_trades = len(trades)
-    success_trades = sum(1 for trade in trades if trade.get('success', False))
-    success_rate = success_trades / total_trades * 100 if total_trades > 0 else 0
-    
-    return {
-        'id': strategy_id,
-        'name': strategy_id.replace('_', ' ').title(),
-        'description': f'{strategy_id} strategy description',
-        'returns': f'{success_rate:.2f}%',
-        'details': f'Total trades: {total_trades}, Success rate: {success_rate:.2f}%',
-        'return_curve': [trade.get('profit', 0) for trade in trades[-30:]],
-        'holdings': [],
-        'positions': trades
-    }
-
-def run_flask():
-    """运行Flask应用"""
-    app.run(host='0.0.0.0', port=8080)
-
 def main():
     global global_instance, engine, strategy_manager
     
@@ -140,9 +63,6 @@ def main():
     # 启动交易引擎
     engine.start()
     
-    # 启动Flask应用
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
     
     # 信号处理
     signal.signal(signal.SIGINT, signal_handler)

@@ -209,7 +209,6 @@ def get_strategy_info(strategy_id):
         pending_signals = sum(1 for signal in signals_stats if signal.get('status') == 'PENDING')
         executed_signals = sum(1 for signal in signals_stats if signal.get('status') == 'EXECUTED')
     except Exception as e:
-        logger.error(f"获取信号统计失败: {e}")
         today_signals = 0
         pending_signals = 0
         executed_signals = 0
