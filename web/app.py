@@ -11,6 +11,7 @@ import os
 # 将项目根目录添加到PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from curs.strategy.strategy_loader import StrategyManager
+from curs.database import get_db_manager
 
 app = Flask(__name__)
 
@@ -95,6 +96,81 @@ def stop_strategy(strategy_id):
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
 
+@app.route('/signals')
+def signals():
+    """信号查询页面"""
+    return render_template('signals.html')
+
+@app.route('/api/signals')
+def api_signals():
+    """获取策略信号数据"""
+    try:
+        strategy_name = request.args.get('strategy')
+        stock_code = request.args.get('stock')
+        signal_type = request.args.get('type')
+        status = request.args.get('status')
+        limit = int(request.args.get('limit', 100))
+
+        db_manager = get_db_manager()
+        signals = db_manager.get_strategy_signals(
+            strategy_name=strategy_name if strategy_name else None,
+            stock_code=stock_code if stock_code else None,
+            signal_type=signal_type if signal_type else None,
+            status=status if status else None,
+            limit=limit
+        )
+
+        # 格式化时间戳
+        for signal in signals:
+            if 'timestamp' in signal and signal['timestamp']:
+                signal['timestamp'] = signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+            if 'created_at' in signal and signal['created_at']:
+                signal['created_at'] = signal['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if 'updated_at' in signal and signal['updated_at']:
+                signal['updated_at'] = signal['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+
+        return {'signals': signals, 'total': len(signals)}
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+@app.route('/api/signals/stats')
+def api_signals_stats():
+    """获取信号统计数据"""
+    try:
+        db_manager = get_db_manager()
+
+        # 获取所有信号
+        all_signals = db_manager.get_strategy_signals(limit=10000)
+
+        # 按策略分组统计
+        strategy_stats = {}
+        status_stats = {'PENDING': 0, 'EXECUTED': 0, 'CANCELLED': 0}
+        type_stats = {'BUY': 0, 'SELL': 0}
+
+        for signal in all_signals:
+            strategy = signal.get('strategy_name', 'unknown')
+            status = signal.get('status', 'unknown')
+            signal_type = signal.get('signal_type', 'unknown')
+
+            if strategy not in strategy_stats:
+                strategy_stats[strategy] = 0
+            strategy_stats[strategy] += 1
+
+            if status in status_stats:
+                status_stats[status] += 1
+
+            if signal_type in type_stats:
+                type_stats[signal_type] += 1
+
+        return {
+            'strategy_stats': strategy_stats,
+            'status_stats': status_stats,
+            'type_stats': type_stats,
+            'total_signals': len(all_signals)
+        }
+    except Exception as e:
+        return {'error': str(e)}, 500
+
 def get_all_strategies():
     """获取所有策略信息"""
     strategies = []
@@ -118,22 +194,103 @@ def get_strategy_info(strategy_id):
             trades = json.load(f)
     else:
         trades = []
-    
+
     # 计算策略指标
     total_trades = len(trades)
     success_trades = sum(1 for trade in trades if trade.get('success', False))
     success_rate = success_trades / total_trades * 100 if total_trades > 0 else 0
-    
+
+    # 获取信号统计
+    db_manager = get_db_manager()
+    try:
+        signals_stats = db_manager.get_strategy_signals(strategy_name=strategy_id, limit=1000)
+        today_signals = sum(1 for signal in signals_stats
+                           if signal.get('timestamp', '').startswith(datetime.now().strftime('%Y-%m-%d')))
+        pending_signals = sum(1 for signal in signals_stats if signal.get('status') == 'PENDING')
+        executed_signals = sum(1 for signal in signals_stats if signal.get('status') == 'EXECUTED')
+    except Exception as e:
+        logger.error(f"获取信号统计失败: {e}")
+        today_signals = 0
+        pending_signals = 0
+        executed_signals = 0
+
+    # 计算收益率（简单计算）
+    total_return = 0
+    if trades:
+        # 假设每笔交易的收益为固定比例，这里简化为成功率作为收益率
+        total_return = success_rate
+
     return {
         'id': strategy_id,
         'name': strategy_id.replace('_', ' ').title(),
-        'description': f'{strategy_id} strategy description',
-        'returns': f'{success_rate:.2f}%',
+        'description': f'{strategy_id} 量化交易策略',
+        'returns': f'{total_return:.2f}%',
         'details': f'Total trades: {total_trades}, Success rate: {success_rate:.2f}%',
-        'return_curve': [trade.get('profit', 0) for trade in trades[-30:]],  # 最近30笔交易收益
+        'return_curve': [trade.get('profit', success_rate/10) for trade in trades[-30:]],  # 最近30笔交易收益
         'holdings': [],  # 当前持仓
-        'positions': trades  # 历史交易记录
+        'positions': trades,  # 历史交易记录
+        'signal_stats': {
+            'today_signals': today_signals,
+            'pending_signals': pending_signals,
+            'executed_signals': executed_signals,
+            'total_signals': len(signals_stats)
+        }
     }
 
+@app.route('/')
+def index():
+    """主页"""
+    return '''
+    <html>
+    <head>
+        <title>量化交易系统</title>
+        <style>
+            body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+            h1 { color: #2c3e50; text-align: center; }
+            .nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 30px; }
+            .nav-card { background: #f8f9fa; padding: 20px; border-radius: 6px; text-align: center; border: 1px solid #dee2e6; transition: transform 0.2s; }
+            .nav-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+            .nav-card h3 { margin: 0 0 10px 0; color: #495057; }
+            .nav-card p { margin: 10px 0; color: #6c757d; }
+            .nav-button { display: inline-block; background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-top: 10px; }
+            .nav-button:hover { background: #0056b3; color: white; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>量化交易系统</h1>
+            <p style="text-align: center; color: #6c757d;">选择您要访问的功能模块</p>
+
+            <div class="nav-grid">
+                <div class="nav-card">
+                    <h3>📊 策略管理</h3>
+                    <p>查看和管理交易策略，监控策略运行状态和性能指标</p>
+                    <a href="/strategies" class="nav-button">进入策略管理</a>
+                </div>
+
+                <div class="nav-card">
+                    <h3>📈 信号查询</h3>
+                    <p>实时查看策略生成的买卖信号，支持多维度筛选和统计</p>
+                    <a href="/signals" class="nav-button">进入信号查询</a>
+                </div>
+
+                <div class="nav-card">
+                    <h3>⚙️ 系统设置</h3>
+                    <p>配置系统参数，管理数据库连接和交易账户</p>
+                    <a href="#" class="nav-button" onclick="alert('功能开发中')">进入系统设置</a>
+                </div>
+
+                <div class="nav-card">
+                    <h3>📋 交易日志</h3>
+                    <p>查看详细的交易日志和系统运行日志</p>
+                    <a href="#" class="nav-button" onclick="alert('功能开发中')">进入交易日志</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
 if __name__ == "__main__":
-    app.run()
+    app.run(host='0.0.0.0', port=5000, debug=True)

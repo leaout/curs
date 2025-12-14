@@ -2,155 +2,621 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>策略管理系统</title>
+    <title>策略管理系统 - 量化交易平台</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f2f2f2;
+        * {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            box-sizing: border-box;
         }
-        .container {
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .nav-links {
             display: flex;
             gap: 20px;
-            max-width: 1600px;
+        }
+
+        .nav-link {
+            color: #666;
+            text-decoration: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
             margin: 0 auto;
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 30px;
         }
+
+        /* 侧边栏样式 */
         .sidebar {
-            width: 300px;
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
-        .main-content {
-            flex: 1;
-            background: white;
+
+        .sidebar-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
         }
+
+        .sidebar-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
         .strategy-list {
             max-height: 600px;
             overflow-y: auto;
         }
+
         .strategy-item {
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 4px;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.3s ease;
+            position: relative;
         }
+
         .strategy-item:hover {
-            background: #f5f5f5;
+            background: #f8f9ff;
+            transform: translateX(5px);
         }
+
         .strategy-item.active {
-            background: #e3f2fd;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
         }
-        .chart-container {
-            height: 400px;
-            margin-top: 20px;
+
+        .strategy-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #fff;
         }
+
+        .strategy-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .strategy-status {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .strategy-metrics {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 11px;
+        }
+
+        /* 主内容区样式 */
+        .main-content {
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            gap: 20px;
+        }
+
+        .strategy-header {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .strategy-info h2 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 28px;
+        }
+
+        .strategy-description {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .strategy-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        /* 指标卡片网格 */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
         }
+
         .metric-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
             text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .metric-icon {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
         .metric-value {
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 32px;
+            font-weight: 700;
             margin: 10px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
+
         .metric-label {
             color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .position-history {
-            margin-top: 30px;
+
+        .metric-change {
+            font-size: 12px;
+            margin-top: 5px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            display: inline-block;
         }
-        .position-history table {
+
+        .change-positive {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .change-negative {
+            background: #ffeaea;
+            color: #c62828;
+        }
+
+        /* 图表区域 */
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            height: 350px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        /* 数据表格 */
+        .data-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .data-header {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .data-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .data-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
         }
-        .position-history th,
-        .position-history td {
-            padding: 12px;
+
+        .data-table th,
+        .data-table td {
+            padding: 15px 20px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #e9ecef;
         }
-        .position-history th {
-            background-color: #f5f5f5;
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .position-history tr:hover {
-            background-color: #f9f9f9;
+
+        .data-table tr:hover {
+            background: #f8f9ff;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-running {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .status-stopped {
+            background: #ffeaea;
+            color: #c62828;
+        }
+
+        .status-unknown {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .strategy-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .strategy-actions {
+                justify-content: center;
+            }
+
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+        }
+
+        /* 加载动画 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .empty-state-description {
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <h1>策略管理系统</h1>
-    
+    <!-- 页面头部 -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">📊 量化交易平台</div>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">首页</a>
+                <a href="/strategies" class="nav-link active">策略管理</a>
+                <a href="/signals" class="nav-link">信号查询</a>
+                <a href="#" class="nav-link">系统监控</a>
+                <a href="#" class="nav-link">日志查看</a>
+            </nav>
+        </div>
+    </header>
+
     <div class="container">
         <!-- 侧边栏 -->
-        <div class="sidebar">
-            <h3>策略列表</h3>
-            <div class="strategy-list" id="strategy-list">
-                <!-- 动态加载策略列表 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>📈 策略列表</h3>
             </div>
-        </div>
-
-        <!-- 主内容区 -->
-        <div class="main-content">
-            <div class="strategy-header">
-                <h2 id="strategy-name">请选择策略</h2>
-                <div class="strategy-actions">
-                    <button onclick="startStrategy()">启动</button>
-                    <button onclick="stopStrategy()">停止</button>
+            <div class="strategy-list" id="strategy-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    加载中...
                 </div>
             </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 策略头部信息 -->
+            <section class="strategy-header" id="strategy-header" style="display: none;">
+                <div class="strategy-info">
+                    <h2 id="strategy-name">请选择策略</h2>
+                    <div class="strategy-description" id="strategy-description"></div>
+                </div>
+                <div class="strategy-actions">
+                    <button class="btn btn-success" onclick="startStrategy()" id="start-btn">
+                        <span>▶️</span> 启动策略
+                    </button>
+                    <button class="btn btn-danger" onclick="stopStrategy()" id="stop-btn">
+                        <span>⏹️</span> 停止策略
+                    </button>
+                    <button class="btn btn-primary" onclick="refreshStrategy()">
+                        <span>🔄</span> 刷新
+                    </button>
+                </div>
+            </section>
 
             <!-- 指标卡片 -->
-            <div class="metrics-grid" id="metrics-grid">
+            <section class="metrics-grid" id="metrics-grid" style="display: none;">
                 <!-- 动态加载策略指标 -->
-            </div>
+            </section>
 
             <!-- 图表区域 -->
-            <div class="chart-container" id="strategy-chart"></div>
+            <section class="charts-section" id="charts-section" style="display: none;">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">收益曲线</div>
+                    </div>
+                    <div id="returns-chart" style="width: 100%; height: 280px;"></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">信号统计</div>
+                    </div>
+                    <div id="signals-chart" style="width: 100%; height: 280px;"></div>
+                </div>
+            </section>
 
-            <!-- 持仓历史 -->
-            <div class="position-history">
-                <h3>持仓历史</h3>
-                <table id="position-history">
+            <!-- 交易记录表格 -->
+            <section class="data-section" id="trades-section" style="display: none;">
+                <div class="data-header">
+                    <div class="data-title">📋 交易记录</div>
+                    <div class="data-controls">
+                        <button class="btn btn-primary" onclick="exportTrades()">导出</button>
+                    </div>
+                </div>
+                <table class="data-table" id="trades-table">
                     <thead>
                         <tr>
-                            <th>日期</th>
+                            <th>时间</th>
                             <th>股票代码</th>
-                            <th>持仓成本</th>
-                            <th>持仓数量</th>
-                            <th>股票现价</th>
-                            <th>收益</th>
+                            <th>交易类型</th>
+                            <th>价格</th>
+                            <th>数量</th>
+                            <th>订单ID</th>
+                            <th>状态</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <!-- 动态加载持仓历史 -->
+                    <tbody id="trades-tbody">
+                        <!-- 动态加载交易记录 -->
                     </tbody>
                 </table>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
 
     <script>
-        // 初始化ECharts
-        const chartDom = document.getElementById('strategy-chart');
-        const myChart = echarts.init(chartDom);
+        // 初始化ECharts图表
+        let returnsChart, signalsChart;
+        let currentStrategyId = null;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化图表
+            returnsChart = echarts.init(document.getElementById('returns-chart'));
+            signalsChart = echarts.init(document.getElementById('signals-chart'));
+
+            // 加载策略列表
+            loadStrategies();
+
+            // 每30秒自动刷新
+            setInterval(() => {
+                if (currentStrategyId) {
+                    loadStrategy(currentStrategyId, false);
+                }
+            }, 30000);
+        });
 
         // 获取策略列表
         async function loadStrategies() {
@@ -158,113 +624,426 @@
                 const response = await axios.get('/api/strategies');
                 const strategies = response.data.strategies;
                 const strategyList = document.getElementById('strategy-list');
-                
+
+                if (strategies.length === 0) {
+                    strategyList.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📊</div>
+                            <div class="empty-state-title">暂无策略</div>
+                            <div class="empty-state-description">请先创建交易策略</div>
+                        </div>
+                    `;
+                    return;
+                }
+
                 strategyList.innerHTML = strategies.map(strategy => `
-                    <div class="strategy-item" onclick="loadStrategy('${strategy.id}')">
+                    <div class="strategy-item" onclick="selectStrategy('${strategy.id}')" data-id="${strategy.id}">
                         <div class="strategy-name">${strategy.name}</div>
                         <div class="strategy-status">${strategy.returns}</div>
+                        <div class="strategy-metrics">
+                            <span>交易: ${strategy.details.split(',')[0].split(':')[1].trim()}</span>
+                            <span>胜率: ${strategy.details.split(',')[1].split(':')[1].trim()}</span>
+                        </div>
                     </div>
                 `).join('');
-                
+
+                // 默认选择第一个策略
                 if (strategies.length > 0) {
-                    loadStrategy(strategies[0].id);
+                    selectStrategy(strategies[0].id);
                 }
             } catch (error) {
                 console.error('加载策略列表失败:', error);
+                document.getElementById('strategy-list').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <div class="empty-state-title">加载失败</div>
+                        <div class="empty-state-description">请检查网络连接</div>
+                    </div>
+                `;
             }
         }
 
-        // 加载策略详情
-        async function loadStrategy(strategyId) {
-            try {
-                const response = await axios.get(`/api/strategies/${strategyId}`);
-                const strategy = response.data;
+        // 选择策略
+        function selectStrategy(strategyId) {
+            // 更新选中状态
+            document.querySelectorAll('.strategy-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-id="${strategyId}"]`).classList.add('active');
 
-                // 更新策略名称
-                document.getElementById('strategy-name').textContent = strategy.name;
+            // 加载策略详情
+            loadStrategy(strategyId);
+        }
+
+        // 加载策略详情
+        async function loadStrategy(strategyId, showLoading = true) {
+            currentStrategyId = strategyId;
+
+            try {
+                if (showLoading) {
+                    // 显示加载状态
+                    document.getElementById('strategy-header').style.display = 'none';
+                    document.getElementById('metrics-grid').style.display = 'none';
+                    document.getElementById('charts-section').style.display = 'none';
+                    document.getElementById('trades-section').style.display = 'none';
+                }
+
+                // 并行加载策略信息和信号统计
+                const [strategyResponse, signalsStatsResponse] = await Promise.all([
+                    axios.get(`/api/strategies/${strategyId}`),
+                    axios.get('/api/signals/stats')
+                ]);
+
+                const strategy = strategyResponse.data;
+                const stats = signalsStatsResponse.data;
+
+                // 更新策略头部
+                updateStrategyHeader(strategy, stats);
 
                 // 更新指标卡片
-                const metricsGrid = document.getElementById('metrics-grid');
-                metricsGrid.innerHTML = `
-                    <div class="metric-card">
-                        <div class="metric-value">${strategy.returns}</div>
-                        <div class="metric-label">累计收益率</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-value">${strategy.details}</div>
-                        <div class="metric-label">交易详情</div>
-                    </div>
-                `;
+                updateMetricsGrid(strategy, stats);
 
                 // 更新图表
-                const chartOption = {
-                    title: {
-                        text: '策略收益曲线'
-                    },
-                    tooltip: {
-                        trigger: 'axis'
-                    },
-                    xAxis: {
-                        type: 'category',
-                        data: strategy.return_curve.map((_, i) => `第${i + 1}天`)
-                    },
-                    yAxis: {
-                        type: 'value'
-                    },
-                    series: [{
-                        data: strategy.return_curve,
-                        type: 'line',
-                        smooth: true
-                    }]
-                };
-                myChart.setOption(chartOption);
+                updateCharts(strategy, stats);
 
-                // 更新持仓历史
-                const positionHistory = document.getElementById('position-history').querySelector('tbody');
-                positionHistory.innerHTML = strategy.positions.map(position => `
-                    <tr style="color: ${position.profit >= 0 ? 'red' : 'green'};">
-                        <td>${position.date}</td>
-                        <td>${position.stock}</td>
-                        <td>${position.price}</td>
-                        <td>${position.volume}</td>
-                        <td>${position.current_price}</td>
-                        <td>${position.profit}</td>
-                    </tr>
-                `).join('');
+                // 更新交易记录
+                updateTradesTable(strategy);
+
+                // 显示所有部分
+                document.getElementById('strategy-header').style.display = 'flex';
+                document.getElementById('metrics-grid').style.display = 'grid';
+                document.getElementById('charts-section').style.display = 'grid';
+                document.getElementById('trades-section').style.display = 'block';
 
             } catch (error) {
                 console.error('加载策略详情失败:', error);
+                showError('加载策略详情失败，请稍后重试');
             }
+        }
+
+        // 更新策略头部信息
+        function updateStrategyHeader(strategy, stats) {
+            document.getElementById('strategy-name').textContent = strategy.name;
+            document.getElementById('strategy-description').textContent =
+                `${strategy.description} | 最后更新: ${new Date().toLocaleString()}`;
+        }
+
+        // 更新指标卡片
+        function updateMetricsGrid(strategy, stats) {
+            const strategyStats = stats.strategy_stats[strategy.id] || 0;
+            const totalTrades = strategy.details.match(/Total trades: (\d+)/)?.[1] || 0;
+            const successRate = strategy.details.match(/Success rate: ([\d.]+)%/)?.[1] || 0;
+
+            const metrics = [
+                {
+                    icon: '💰',
+                    value: strategy.returns,
+                    label: '累计收益率',
+                    change: parseFloat(successRate) > 50 ? '+' + successRate + '%' : successRate + '%',
+                    changeClass: parseFloat(successRate) > 50 ? 'change-positive' : 'change-negative'
+                },
+                {
+                    icon: '📊',
+                    value: totalTrades,
+                    label: '总交易次数',
+                    change: null,
+                    changeClass: null
+                },
+                {
+                    icon: '🎯',
+                    value: successRate + '%',
+                    label: '成功率',
+                    change: parseFloat(successRate) > 50 ? '优秀' : '待优化',
+                    changeClass: parseFloat(successRate) > 50 ? 'change-positive' : 'change-negative'
+                },
+                {
+                    icon: '📈',
+                    value: strategyStats,
+                    label: '今日信号数',
+                    change: null,
+                    changeClass: null
+                },
+                {
+                    icon: '⏳',
+                    value: stats.status_stats.PENDING,
+                    label: '待执行信号',
+                    change: null,
+                    changeClass: null
+                },
+                {
+                    icon: '✅',
+                    value: stats.status_stats.EXECUTED,
+                    label: '已执行信号',
+                    change: null,
+                    changeClass: null
+                }
+            ];
+
+            const metricsGrid = document.getElementById('metrics-grid');
+            metricsGrid.innerHTML = metrics.map(metric => `
+                <div class="metric-card">
+                    <div class="metric-icon">${metric.icon}</div>
+                    <div class="metric-value">${metric.value}</div>
+                    <div class="metric-label">${metric.label}</div>
+                    ${metric.change ? `<div class="metric-change ${metric.changeClass}">${metric.change}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 更新图表
+        function updateCharts(strategy, stats) {
+            // 收益曲线图
+            const returnsOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        return params[0].name + '<br/>收益: ' + params[0].value + '%';
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: strategy.return_curve.map((_, i) => `Day ${i + 1}`),
+                    axisLabel: {
+                        color: '#666'
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        color: '#666'
+                    }
+                },
+                series: [{
+                    data: strategy.return_curve,
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 6,
+                    lineStyle: {
+                        color: '#667eea',
+                        width: 3
+                    },
+                    itemStyle: {
+                        color: '#667eea'
+                    },
+                    areaStyle: {
+                        color: {
+                            type: 'linear',
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [{
+                                offset: 0, color: 'rgba(102, 126, 234, 0.3)'
+                            }, {
+                                offset: 1, color: 'rgba(102, 126, 234, 0.1)'
+                            }]
+                        }
+                    }
+                }]
+            };
+            returnsChart.setOption(returnsOption);
+
+            // 信号统计饼图
+            const strategySignals = stats.strategy_stats[strategy.id] || 0;
+            const otherSignals = stats.total_signals - strategySignals;
+
+            const signalsOption = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: {c} ({d}%)'
+                },
+                legend: {
+                    orient: 'vertical',
+                    left: 'left'
+                },
+                series: [{
+                    name: '信号统计',
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    center: ['60%', '50%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: {
+                        borderRadius: 10,
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    },
+                    label: {
+                        show: false,
+                        position: 'center'
+                    },
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontSize: '18',
+                            fontWeight: 'bold'
+                        }
+                    },
+                    labelLine: {
+                        show: false
+                    },
+                    data: [
+                        { value: strategySignals, name: '当前策略信号', itemStyle: { color: '#667eea' } },
+                        { value: otherSignals, name: '其他策略信号', itemStyle: { color: '#e9ecef' } },
+                        { value: stats.status_stats.EXECUTED, name: '已执行', itemStyle: { color: '#28a745' } },
+                        { value: stats.status_stats.PENDING, name: '待执行', itemStyle: { color: '#ffc107' } },
+                        { value: stats.status_stats.CANCELLED, name: '已取消', itemStyle: { color: '#dc3545' } }
+                    ].filter(item => item.value > 0)
+                }]
+            };
+            signalsChart.setOption(signalsOption);
+        }
+
+        // 更新交易记录表格
+        function updateTradesTable(strategy) {
+            const tbody = document.getElementById('trades-tbody');
+
+            if (!strategy.positions || strategy.positions.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <div class="empty-state-title">暂无交易记录</div>
+                            <div class="empty-state-description">策略还未产生交易记录</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = strategy.positions.slice(0, 50).map(position => {
+                const isSuccess = position.success;
+                const statusClass = isSuccess ? 'status-success' : 'status-failed';
+
+                return `
+                    <tr>
+                        <td>${position.date}</td>
+                        <td>${position.stock}</td>
+                        <td>${position.action || '买入'}</td>
+                        <td>${position.price}</td>
+                        <td>${position.volume}</td>
+                        <td>${position.order_id || '-'}</td>
+                        <td><span class="status-badge ${statusClass}">${isSuccess ? '成功' : '失败'}</span></td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // 启动策略
         async function startStrategy() {
-            const strategyId = document.querySelector('.strategy-item.active')?.dataset.id;
-            if (strategyId) {
-                try {
-                    await axios.post(`/strategy/${strategyId}/start`);
-                    alert('策略启动成功');
-                } catch (error) {
-                    alert('策略启动失败');
+            if (!currentStrategyId) return;
+
+            const btn = document.getElementById('start-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span>⏳</span> 启动中...';
+            btn.disabled = true;
+
+            try {
+                const response = await axios.post(`/strategy/${currentStrategyId}/start`);
+                if (response.data.status === 'success') {
+                    showSuccess('策略启动成功');
+                    setTimeout(() => loadStrategy(currentStrategyId), 2000);
+                } else {
+                    showError(response.data.message || '策略启动失败');
                 }
+            } catch (error) {
+                showError('策略启动失败，请稍后重试');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
         }
 
         // 停止策略
         async function stopStrategy() {
-            const strategyId = document.querySelector('.strategy-item.active')?.dataset.id;
-            if (strategyId) {
-                try {
-                    await axios.post(`/strategy/${strategyId}/stop`);
-                    alert('策略停止成功');
-                } catch (error) {
-                    alert('策略停止失败');
+            if (!currentStrategyId) return;
+
+            const btn = document.getElementById('stop-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span>⏳</span> 停止中...';
+            btn.disabled = true;
+
+            try {
+                const response = await axios.post(`/strategy/${currentStrategyId}/stop`);
+                if (response.data.status === 'success') {
+                    showSuccess('策略停止成功');
+                    setTimeout(() => loadStrategy(currentStrategyId), 2000);
+                } else {
+                    showError(response.data.message || '策略停止失败');
                 }
+            } catch (error) {
+                showError('策略停止失败，请稍后重试');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
         }
 
-        // 页面加载时初始化
-        loadStrategies();
+        // 刷新策略
+        function refreshStrategy() {
+            if (currentStrategyId) {
+                loadStrategy(currentStrategyId);
+            }
+        }
+
+        // 导出交易记录
+        function exportTrades() {
+            if (!currentStrategyId) return;
+
+            const table = document.getElementById('trades-table');
+            let csv = [];
+
+            // 获取表头
+            const headers = [];
+            table.querySelectorAll('thead th').forEach(th => {
+                headers.push(th.textContent);
+            });
+            csv.push(headers.join(','));
+
+            // 获取数据行
+            table.querySelectorAll('tbody tr').forEach(tr => {
+                const row = [];
+                tr.querySelectorAll('td').forEach(td => {
+                    row.push(td.textContent.replace(/,/g, ';'));
+                });
+                csv.push(row.join(','));
+            });
+
+            // 下载CSV文件
+            const csvContent = csv.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${currentStrategyId}_trades_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 工具函数
+        function showSuccess(message) {
+            // 这里可以集成更美观的提示组件
+            alert('✅ ' + message);
+        }
+
+        function showError(message) {
+            // 这里可以集成更美观的提示组件
+            alert('❌ ' + message);
+        }
+
+        // 响应式图表调整
+        window.addEventListener('resize', function() {
+            if (returnsChart) returnsChart.resize();
+            if (signalsChart) signalsChart.resize();
+        });
     </script>
 </body>
 </html>

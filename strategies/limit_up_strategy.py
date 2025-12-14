@@ -3,6 +3,7 @@ from curs.log_handler.logger import logger
 from curs.cursglobal import *
 from curs.api import *
 from curs.broker.qmt_account import QmtStockAccount,Position
+from curs.database import get_db_manager
 import time
 import json
 import os
@@ -283,28 +284,53 @@ def buy_at_limit_up(context, stock_code, price):
         return
     # 获取账户信息
     account = context.account
-    
+
     # 计算可买数量
     available_cash = 30000
     buy_volume = int(available_cash / price / 100) * 100  # 按手数买入
-    
+
     if buy_volume > 0:
+        # 生成订单ID
+        order_id = str(random.randint(1000000, 9999999))
+
+        # 保存买入信号到数据库
+        db_manager = get_db_manager()
+        signal_saved = db_manager.save_strategy_signal(
+            strategy_name='limit_up_strategy',
+            stock_code=stock_code,
+            signal_type='BUY',
+            price=price,
+            volume=buy_volume,
+            order_id=order_id,
+            status='PENDING'
+        )
+
+        if signal_saved:
+            logger.info(f"策略信号已保存到数据库: {stock_code} - BUY - {price}")
+        else:
+            logger.error(f"保存策略信号到数据库失败: {stock_code}")
+
         # 下单
         if account.buy_fix_price(stock_code,buy_volume, price):
             logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}, 时间：{context.current_time}")
-            
+
+            # 更新信号状态为已执行
+            db_manager.update_signal_status_by_order_id(order_id, 'EXECUTED')
+
             # 记录交易
             trade_record = {
                 'date': time.strftime("%Y-%m-%d %H:%M:%S"),
                 'stock': stock_code,
                 'price': price,
                 'volume': buy_volume,
-                'order_id': random.randint(1000000, 9999999)  # 模拟订单号
+                'order_id': order_id
             }
             context.daily_trades.append(trade_record)
             context.total_count += 1
         else:
             logger.error(f"买入失败：{stock_code}，价格：{price}，数量：{buy_volume}")
+            # 更新信号状态为取消
+            db_manager.update_signal_status_by_order_id(order_id, 'CANCELLED')
 
 def save_historical_trades(context):
     """保存历史交易数据"""
