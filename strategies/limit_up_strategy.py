@@ -49,20 +49,27 @@ def init(context):
     # 存储每日已触发信号的股票
     context.daily_signaled_stocks = set()
     context.current_time = None
-    #读取昨天zt_list 
+    # 从数据库获取昨日涨停股票列表
     context.pre_limit_up_stocks = set()
     context.open_time = datetime.strptime("09:35:00", "%H:%M:%S").time()
     context.close_time = datetime.strptime("14:00:00", "%H:%M:%S").time()
-    
-    date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-    file_name = "/zt_list_pre.txt"
-    file_name = context.data_dir+"/"+file_name
-    with open(file_name,'r') as f:
-        for line in f:
-            context.pre_limit_up_stocks.add(line.strip())
-    logger.info(f"成功加载昨日涨停股列表，共{len(context.pre_limit_up_stocks)}只")
+
+    # 获取昨日日期
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+
+    # 从数据库获取昨日涨停股票
+    db_manager = get_db_manager()
+    zt_stocks = db_manager.get_zt_stocks_by_date(yesterday)
+    context.pre_limit_up_stocks = set(zt_stocks)
+
+    logger.info(f"成功从数据库加载昨日涨停股列表，共{len(context.pre_limit_up_stocks)}只")
+
+    # 从数据库获取热门股票池
     context.hot_stocks = set()
-    load_stocks_fromfile(context, "/hotstocks.txt")
+    hot_stocks = db_manager.get_hot_stocks_from_pool('hot')
+    context.hot_stocks = set(hot_stocks)
+
+    logger.info(f"成功从数据库加载热门股票池，共{len(context.hot_stocks)}只")
     
     
 def load_stocks_fromfile(context, file_name):

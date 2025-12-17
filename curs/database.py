@@ -313,6 +313,95 @@ class DatabaseManager:
             'category_stats': category_stats or []
         }
 
+    # ===== 涨停股票管理方法 =====
+
+    def add_zt_stock(self, trade_date: str, stock_code: str) -> bool:
+        """添加涨停股票记录"""
+        query = """
+            INSERT INTO zt_stocks (trade_date, stock_code)
+            VALUES (%s, %s)
+            ON CONFLICT (trade_date, stock_code) DO NOTHING
+        """
+
+        params = (trade_date, stock_code)
+
+        result = self.execute_query(query, params)
+        if result is not None:
+            logger.info(f"涨停股票记录已添加: {trade_date} - {stock_code}")
+            return True
+        else:
+            logger.error(f"添加涨停股票记录失败: {trade_date} - {stock_code}")
+            return False
+
+    def get_zt_stocks_by_date(self, trade_date: str) -> List[str]:
+        """根据日期获取涨停股票列表"""
+        query = "SELECT stock_code FROM zt_stocks WHERE trade_date = %s ORDER BY stock_code"
+        params = (trade_date,)
+
+        results = self.execute_query(query, params)
+        return [row['stock_code'] for row in results]
+
+    def get_zt_stocks_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
+        """获取日期范围内的涨停股票"""
+        query = """
+            SELECT trade_date, stock_code
+            FROM zt_stocks
+            WHERE trade_date BETWEEN %s AND %s
+            ORDER BY trade_date DESC, stock_code
+        """
+        params = (start_date, end_date)
+
+        return self.execute_query(query, params)
+
+    def get_latest_zt_stocks(self, days: int = 1) -> List[str]:
+        """获取最近N天的涨停股票"""
+        query = """
+            SELECT DISTINCT stock_code
+            FROM zt_stocks
+            WHERE trade_date >= CURRENT_DATE - INTERVAL '%s days'
+            ORDER BY stock_code
+        """
+        params = (days,)
+
+        results = self.execute_query(query, params)
+        return [row['stock_code'] for row in results]
+
+    def batch_add_zt_stocks(self, zt_data: List[Dict]) -> dict:
+        """批量添加涨停股票记录"""
+        success_count = 0
+        failed_count = 0
+
+        for item in zt_data:
+            trade_date = item.get('trade_date')
+            stock_code = item.get('stock_code')
+
+            if trade_date and stock_code:
+                if self.add_zt_stock(trade_date, stock_code):
+                    success_count += 1
+                else:
+                    failed_count += 1
+
+        return {
+            'success_count': success_count,
+            'failed_count': failed_count,
+            'total_count': len(zt_data)
+        }
+
+    def get_hot_stocks_from_pool(self, category: str = 'hot') -> List[str]:
+        """从股票池中获取指定分类的股票代码"""
+        query = "SELECT stock_code FROM stock_pool WHERE category = %s AND is_active = TRUE ORDER BY stock_code"
+        params = (category,)
+
+        results = self.execute_query(query, params)
+        return [row['stock_code'] for row in results]
+
+    def get_all_active_stocks_from_pool(self) -> List[str]:
+        """获取股票池中所有激活的股票代码"""
+        query = "SELECT stock_code FROM stock_pool WHERE is_active = TRUE ORDER BY stock_code"
+
+        results = self.execute_query(query)
+        return [row['stock_code'] for row in results]
+
 # 全局数据库管理器实例
 _db_manager = None
 
