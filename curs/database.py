@@ -167,6 +167,152 @@ class DatabaseManager:
             logger.error(f"创建数据库表失败: {e}")
             return False
 
+    # ===== 股票池管理方法 =====
+
+    def add_stock_to_pool(self, stock_code: str, stock_name: str = None,
+                         category: str = 'default', added_by: str = 'web',
+                         notes: str = None) -> bool:
+        """添加股票到股票池"""
+        query = """
+            INSERT INTO stock_pool
+            (stock_code, stock_name, category, added_by, notes)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (stock_code) DO UPDATE SET
+                stock_name = EXCLUDED.stock_name,
+                category = EXCLUDED.category,
+                notes = EXCLUDED.notes,
+                updated_at = CURRENT_TIMESTAMP,
+                is_active = TRUE
+        """
+
+        params = (stock_code, stock_name, category, added_by, notes)
+
+        result = self.execute_query(query, params)
+        if result is not None:
+            logger.info(f"股票已添加到股票池: {stock_code}")
+            return True
+        else:
+            logger.error(f"添加股票到股票池失败: {stock_code}")
+            return False
+
+    def remove_stock_from_pool(self, stock_code: str) -> bool:
+        """从股票池中移除股票"""
+        query = "DELETE FROM stock_pool WHERE stock_code = %s"
+        params = (stock_code,)
+
+        result = self.execute_query(query, params)
+        if result is not None:
+            logger.info(f"股票已从股票池中移除: {stock_code}")
+            return True
+        else:
+            logger.error(f"从股票池中移除股票失败: {stock_code}")
+            return False
+
+    def batch_add_stocks_to_pool(self, stocks: list, category: str = 'default',
+                               added_by: str = 'web') -> dict:
+        """批量添加股票到股票池"""
+        success_count = 0
+        failed_stocks = []
+
+        for stock in stocks:
+            if isinstance(stock, dict):
+                stock_code = stock.get('code', '')
+                stock_name = stock.get('name', '')
+                notes = stock.get('notes', '')
+            else:
+                stock_code = str(stock).strip()
+                stock_name = None
+                notes = None
+
+            if stock_code:
+                if self.add_stock_to_pool(stock_code, stock_name, category, added_by, notes):
+                    success_count += 1
+                else:
+                    failed_stocks.append(stock_code)
+
+        return {
+            'success_count': success_count,
+            'failed_count': len(failed_stocks),
+            'failed_stocks': failed_stocks
+        }
+
+    def batch_remove_stocks_from_pool(self, stock_codes: list) -> dict:
+        """批量从股票池中移除股票"""
+        success_count = 0
+        failed_stocks = []
+
+        for stock_code in stock_codes:
+            if self.remove_stock_from_pool(stock_code.strip()):
+                success_count += 1
+            else:
+                failed_stocks.append(stock_code)
+
+        return {
+            'success_count': success_count,
+            'failed_count': len(failed_stocks),
+            'failed_stocks': failed_stocks
+        }
+
+    def get_stock_pool(self, category: str = None, active_only: bool = True,
+                      limit: int = 1000) -> List[Dict]:
+        """获取股票池"""
+        conditions = []
+        params = []
+
+        if category:
+            conditions.append("category = %s")
+            params.append(category)
+
+        if active_only:
+            conditions.append("is_active = TRUE")
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+        query = f"""
+            SELECT * FROM stock_pool
+            WHERE {where_clause}
+            ORDER BY updated_at DESC
+            LIMIT %s
+        """
+        params.append(limit)
+
+        return self.execute_query(query, tuple(params))
+
+    def update_stock_pool_category(self, stock_code: str, category: str) -> bool:
+        """更新股票池中股票的分类"""
+        query = "UPDATE stock_pool SET category = %s, updated_at = CURRENT_TIMESTAMP WHERE stock_code = %s"
+        params = (category, stock_code)
+
+        result = self.execute_query(query, params)
+        if result is not None:
+            logger.info(f"股票分类已更新: {stock_code} -> {category}")
+            return True
+        else:
+            logger.error(f"更新股票分类失败: {stock_code}")
+            return False
+
+    def get_stock_pool_stats(self) -> Dict:
+        """获取股票池统计信息"""
+        # 总股票数
+        total_query = "SELECT COUNT(*) as total FROM stock_pool WHERE is_active = TRUE"
+        total_result = self.execute_query(total_query)
+        total_stocks = total_result[0]['total'] if total_result else 0
+
+        # 按分类统计
+        category_query = """
+            SELECT category, COUNT(*) as count
+            FROM stock_pool
+            WHERE is_active = TRUE
+            GROUP BY category
+            ORDER BY count DESC
+        """
+        category_stats = self.execute_query(category_query)
+
+        return {
+            'total_stocks': total_stocks,
+            'category_stats': category_stats or []
+        }
+
 # 全局数据库管理器实例
 _db_manager = None
 

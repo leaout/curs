@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>股票池管理 - 量化交易平台</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-link {
+            color: #666;
+            text-decoration: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+        }
+
+        /* 侧边栏样式 */
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            height: fit-content;
+        }
+
+        .sidebar-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .sidebar-header h3 {
+            color: #2c3e50;
+            font-size: 18px;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .stats-value {
+            font-size: 32px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .stats-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .category-list {
+            margin-bottom: 20px;
+        }
+
+        .category-item {
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+
+        .category-item:hover, .category-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .category-name {
+            font-weight: 600;
+        }
+
+        .category-count {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* 主内容区样式 */
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .content-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .content-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        /* 筛选器区域 */
+        .filters-section {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .filters-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #495057;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-input, .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 120px;
+        }
+
+        .filter-input:focus, .filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+        }
+
+        /* 股票表格 */
+        .stocks-table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .stocks-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .stocks-table th,
+        .stocks-table td {
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stocks-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .stocks-table tr:hover {
+            background: #f8f9ff;
+        }
+
+        .stock-code {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .stock-name {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .category-badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .category-default {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .category-hot {
+            background: #ffeaa7;
+            color: #d63031;
+        }
+
+        .category-focus {
+            background: #a29bfe;
+            color: white;
+        }
+
+        .category-blacklist {
+            background: #fd79a8;
+            color: white;
+        }
+
+        .action-buttons-cell {
+            white-space: nowrap;
+        }
+
+        .action-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-right: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn.edit {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .action-btn.edit:hover {
+            background: #138496;
+        }
+
+        .action-btn.delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .action-btn.delete:hover {
+            background: #c82333;
+        }
+
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: #f8f9fa;
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 30px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .empty-state-description {
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .filters-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .content-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+
+            .modal-content {
+                margin: 10% auto;
+                width: 95%;
+            }
+        }
+
+        /* 加载动画 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 消息提示 */
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1001;
+            animation: slideInRight 0.3s ease;
+            max-width: 400px;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+
+        .alert-error {
+            background: linear-gradient(135deg, #dc3545, #fd7e14);
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #17a2b8, #6f42c1);
+        }
+    </style>
+</head>
+<body>
+    <!-- 页面头部 -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">📊 量化交易平台</div>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">首页</a>
+                <a href="/strategies" class="nav-link">策略管理</a>
+                <a href="/signals" class="nav-link">信号查询</a>
+                <a href="/stockpool" class="nav-link active">股票池管理</a>
+                <a href="#" class="nav-link">系统监控</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>🏊 股票池统计</h3>
+            </div>
+
+            <!-- 总统计 -->
+            <div class="stats-card">
+                <span class="stats-value" id="total-stocks">0</span>
+                <span class="stats-label">总股票数</span>
+            </div>
+
+            <!-- 分类列表 -->
+            <div class="category-list" id="category-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    加载中...
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 内容头部 -->
+            <div class="content-header">
+                <h1 class="content-title">股票池管理</h1>
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="showAddStockModal()">
+                        <span>➕</span> 添加股票
+                    </button>
+                    <button class="btn btn-primary" onclick="showBatchAddModal()">
+                        <span>📝</span> 批量添加
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshStocks()">
+                        <span>🔄</span> 刷新
+                    </button>
+                </div>
+            </div>
+
+            <!-- 筛选器 -->
+            <div class="filters-section">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label class="filter-label">股票代码</label>
+                        <input type="text" class="filter-input" id="stock-code-filter" placeholder="输入股票代码">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">股票名称</label>
+                        <input type="text" class="filter-input" id="stock-name-filter" placeholder="输入股票名称">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">分类</label>
+                        <select class="filter-select" id="category-filter">
+                            <option value="">全部分类</option>
+                            <option value="default">默认</option>
+                            <option value="hot">热门</option>
+                            <option value="focus">关注</option>
+                            <option value="blacklist">黑名单</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="applyFilters()">筛选</button>
+                    <button class="btn btn-secondary" onclick="clearFilters()">清空</button>
+                </div>
+            </div>
+
+            <!-- 股票列表 -->
+            <div class="stocks-table-container">
+                <table class="stocks-table" id="stocks-table">
+                    <thead>
+                        <tr>
+                            <th>股票代码</th>
+                            <th>股票名称</th>
+                            <th>分类</th>
+                            <th>添加时间</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stocks-tbody">
+                        <tr>
+                            <td colspan="6" class="loading">
+                                <div class="spinner"></div>
+                                正在加载股票数据...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- 添加股票模态框 -->
+    <div class="modal" id="addStockModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">添加股票</h2>
+                <button class="modal-close" onclick="closeModal('addStockModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">股票代码 *</label>
+                    <input type="text" class="form-input" id="stock-code-input" placeholder="例如：000001">
+                    <div class="form-hint">请输入6位股票代码</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">股票名称</label>
+                    <input type="text" class="form-input" id="stock-name-input" placeholder="例如：平安银行">
+                    <div class="form-hint">可选，支持中文名称</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">分类</label>
+                    <select class="form-select" id="stock-category-select">
+                        <option value="default">默认</option>
+                        <option value="hot">热门</option>
+                        <option value="focus">关注</option>
+                        <option value="blacklist">黑名单</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea class="form-textarea" id="stock-notes-input" placeholder="添加备注信息（可选）"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('addStockModal')">取消</button>
+                <button class="btn btn-primary" onclick="addStock()">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量添加模态框 -->
+    <div class="modal" id="batchAddModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">批量添加股票</h2>
+                <button class="modal-close" onclick="closeModal('batchAddModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">股票列表 *</label>
+                    <textarea class="form-textarea" id="batch-stocks-input" placeholder="每行一个股票，支持格式：
+000001 平安银行
+000002 万科A
+600000 浦发银行
+或
+000001,平安银行
+000002,万科A"></textarea>
+                    <div class="form-hint">每行一个股票，支持 "代码 名称" 或 "代码,名称" 格式</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">统一分类</label>
+                    <select class="form-select" id="batch-category-select">
+                        <option value="default">默认</option>
+                        <option value="hot">热门</option>
+                        <option value="focus">关注</option>
+                        <option value="blacklist">黑名单</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('batchAddModal')">取消</button>
+                <button class="btn btn-primary" onclick="batchAddStocks()">批量添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑股票模态框 -->
+    <div class="modal" id="editStockModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">编辑股票</h2>
+                <button class="modal-close" onclick="closeModal('editStockModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-stock-code">
+                <div class="form-group">
+                    <label class="form-label">股票代码</label>
+                    <input type="text" class="form-input" id="edit-stock-code-display" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">股票名称</label>
+                    <input type="text" class="form-input" id="edit-stock-name-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">分类</label>
+                    <select class="form-select" id="edit-stock-category-select">
+                        <option value="default">默认</option>
+                        <option value="hot">热门</option>
+                        <option value="focus">关注</option>
+                        <option value="blacklist">黑名单</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea class="form-textarea" id="edit-stock-notes-input"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('editStockModal')">取消</button>
+                <button class="btn btn-primary" onclick="updateStock()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allStocks = [];
+        let filteredStocks = [];
+        let currentCategory = '';
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStocks();
+            loadStats();
+
+            // 每30秒自动刷新统计
+            setInterval(() => {
+                loadStats();
+            }, 30000);
+        });
+
+        // 获取股票池数据
+        async function loadStocks(category = '') {
+            try {
+                const params = new URLSearchParams();
+                if (category) params.append('category', category);
+
+                const response = await axios.get('/api/stockpool?' + params.toString());
+                allStocks = response.data.stocks;
+                filteredStocks = [...allStocks];
+
+                renderStocksTable();
+            } catch (error) {
+                console.error('加载股票数据失败:', error);
+                showAlert('加载股票数据失败，请稍后重试', 'error');
+            }
+        }
+
+        // 获取统计数据
+        async function loadStats() {
+            try {
+                const response = await axios.get('/api/stockpool/stats');
+                const stats = response.data;
+
+                // 更新总统计
+                document.getElementById('total-stocks').textContent = stats.total_stocks;
+
+                // 更新分类列表
+                const categoryList = document.getElementById('category-list');
+                let html = '<div class="category-item active" onclick="filterByCategory(\'\')">全部 <span class="category-count">(' + stats.total_stocks + ')</span></div>';
+
+                stats.category_stats.forEach(cat => {
+                    const className = cat.category === 'hot' ? 'hot' : cat.category === 'focus' ? 'focus' : cat.category === 'blacklist' ? 'blacklist' : 'default';
+                    html += `<div class="category-item category-${className}" onclick="filterByCategory('${cat.category}')">
+                        ${getCategoryName(cat.category)} <span class="category-count">(${cat.count})</span>
+                    </div>`;
+                });
+
+                categoryList.innerHTML = html;
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+            }
+        }
+
+        // 按分类筛选
+        function filterByCategory(category) {
+            currentCategory = category;
+
+            // 更新选中状态
+            document.querySelectorAll('.category-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            if (category === '') {
+                document.querySelector('.category-item').classList.add('active');
+            } else {
+                document.querySelector(`[onclick="filterByCategory('${category}')"]`).classList.add('active');
+            }
+
+            loadStocks(category);
+        }
+
+        // 应用筛选条件
+        function applyFilters() {
+            const codeFilter = document.getElementById('stock-code-filter').value.toLowerCase();
+            const nameFilter = document.getElementById('stock-name-filter').value.toLowerCase();
+            const categoryFilter = document.getElementById('category-filter').value;
+
+            filteredStocks = allStocks.filter(stock => {
+                const codeMatch = !codeFilter || stock.stock_code.toLowerCase().includes(codeFilter);
+                const nameMatch = !nameFilter || (stock.stock_name && stock.stock_name.toLowerCase().includes(nameFilter));
+                const categoryMatch = !categoryFilter || stock.category === categoryFilter;
+
+                return codeMatch && nameMatch && categoryMatch;
+            });
+
+            renderStocksTable();
+        }
+
+        // 清空筛选条件
+        function clearFilters() {
+            document.getElementById('stock-code-filter').value = '';
+            document.getElementById('stock-name-filter').value = '';
+            document.getElementById('category-filter').value = '';
+            filteredStocks = [...allStocks];
+            renderStocksTable();
+        }
+
+        // 渲染股票表格
+        function renderStocksTable() {
+            const tbody = document.getElementById('stocks-tbody');
+
+            if (filteredStocks.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <div class="empty-state-icon">📊</div>
+                            <div class="empty-state-title">暂无股票</div>
+                            <div class="empty-state-description">请添加股票到股票池</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filteredStocks.map(stock => `
+                <tr>
+                    <td>
+                        <div class="stock-code">${stock.stock_code}</div>
+                    </td>
+                    <td>
+                        <div class="stock-name">${stock.stock_name || '-'}</div>
+                    </td>
+                    <td>
+                        <span class="category-badge category-${stock.category || 'default'}">
+                            ${getCategoryName(stock.category)}
+                        </span>
+                    </td>
+                    <td>${stock.added_at}</td>
+                    <td>${stock.notes || '-'}</td>
+                    <td class="action-buttons-cell">
+                        <button class="action-btn edit" onclick="editStock('${stock.stock_code}')">编辑</button>
+                        <button class="action-btn delete" onclick="deleteStock('${stock.stock_code}')">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 获取分类显示名称
+        function getCategoryName(category) {
+            const names = {
+                'default': '默认',
+                'hot': '热门',
+                'focus': '关注',
+                'blacklist': '黑名单'
+            };
+            return names[category] || category;
+        }
+
+        // 显示添加股票模态框
+        function showAddStockModal() {
+            document.getElementById('addStockModal').style.display = 'block';
+            document.getElementById('stock-code-input').focus();
+        }
+
+        // 显示批量添加模态框
+        function showBatchAddModal() {
+            document.getElementById('batchAddModal').style.display = 'block';
+        }
+
+        // 关闭模态框
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            // 清空表单
+            if (modalId === 'addStockModal') {
+                document.getElementById('stock-code-input').value = '';
+                document.getElementById('stock-name-input').value = '';
+                document.getElementById('stock-category-select').value = 'default';
+                document.getElementById('stock-notes-input').value = '';
+            } else if (modalId === 'batchAddModal') {
+                document.getElementById('batch-stocks-input').value = '';
+                document.getElementById('batch-category-select').value = 'default';
+            }
+        }
+
+        // 添加股票
+        async function addStock() {
+            const stockCode = document.getElementById('stock-code-input').value.trim();
+            const stockName = document.getElementById('stock-name-input').value.trim();
+            const category = document.getElementById('stock-category-select').value;
+            const notes = document.getElementById('stock-notes-input').value.trim();
+
+            if (!stockCode) {
+                showAlert('请输入股票代码', 'error');
+                return;
+            }
+
+            try {
+                const response = await axios.post('/api/stockpool/add', {
+                    stock_code: stockCode,
+                    stock_name: stockName || null,
+                    category: category,
+                    notes: notes || ""
+                });
+
+                if (response.data.success) {
+                    showAlert(response.data.message, 'success');
+                    closeModal('addStockModal');
+                    loadStocks(currentCategory);
+                    loadStats();
+                } else {
+                    showAlert(response.data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('添加股票失败，请稍后重试', 'error');
+            }
+        }
+
+        // 批量添加股票
+        async function batchAddStocks() {
+            const stocksText = document.getElementById('batch-stocks-input').value.trim();
+            const category = document.getElementById('batch-category-select').value;
+
+            if (!stocksText) {
+                showAlert('请输入股票列表', 'error');
+                return;
+            }
+
+            try {
+                const response = await axios.post('/api/stockpool/batch_add', {
+                    stocks: stocksText,
+                    category: category
+                });
+
+                showAlert(response.data.message, 'success');
+                closeModal('batchAddModal');
+                loadStocks(currentCategory);
+                loadStats();
+            } catch (error) {
+                showAlert('批量添加失败，请稍后重试', 'error');
+            }
+        }
+
+        // 编辑股票
+        function editStock(stockCode) {
+            const stock = allStocks.find(s => s.stock_code === stockCode);
+            if (!stock) return;
+
+            document.getElementById('edit-stock-code').value = stock.stock_code;
+            document.getElementById('edit-stock-code-display').value = stock.stock_code;
+            document.getElementById('edit-stock-name-input').value = stock.stock_name || '';
+            document.getElementById('edit-stock-category-select').value = stock.category || 'default';
+            document.getElementById('edit-stock-notes-input').value = stock.notes || '';
+
+            document.getElementById('editStockModal').style.display = 'block';
+        }
+
+        // 更新股票
+        async function updateStock() {
+            const stockCode = document.getElementById('edit-stock-code').value;
+            const stockName = document.getElementById('edit-stock-name-input').value.trim();
+            const category = document.getElementById('edit-stock-category-select').value;
+            const notes = document.getElementById('edit-stock-notes-input').value.trim();
+
+            try {
+                const response = await axios.post('/api/stockpool/update_category', {
+                    stock_code: stockCode,
+                    category: category
+                });
+
+                // 同时更新其他信息（如果有API支持的话，这里暂时只更新分类）
+                if (response.data.success) {
+                    showAlert('股票信息已更新', 'success');
+                    closeModal('editStockModal');
+                    loadStocks(currentCategory);
+                    loadStats();
+                } else {
+                    showAlert(response.data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('更新股票信息失败，请稍后重试', 'error');
+            }
+        }
+
+        // 删除股票
+        async function deleteStock(stockCode) {
+            if (!confirm(`确定要从股票池中移除 ${stockCode} 吗？`)) {
+                return;
+            }
+
+            try {
+                const response = await axios.delete(`/api/stockpool/remove/${stockCode}`);
+
+                if (response.data.success) {
+                    showAlert(response.data.message, 'success');
+                    loadStocks(currentCategory);
+                    loadStats();
+                } else {
+                    showAlert(response.data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('删除股票失败，请稍后重试', 'error');
+            }
+        }
+
+        // 刷新股票列表
+        function refreshStocks() {
+            loadStocks(currentCategory);
+            loadStats();
+        }
+
+        // 显示提示消息
+        function showAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+
+        // 回车键快捷操作
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => {
+                    modal.style.display = 'none';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

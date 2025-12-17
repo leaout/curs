@@ -171,6 +171,171 @@ def api_signals_stats():
     except Exception as e:
         return {'error': str(e)}, 500
 
+# ===== 股票池管理路由 =====
+
+@app.route('/stockpool')
+def stockpool():
+    """股票池管理页面"""
+    return render_template('stockpool.html')
+
+@app.route('/api/stockpool')
+def api_stockpool():
+    """获取股票池数据"""
+    try:
+        category = request.args.get('category')
+        limit = int(request.args.get('limit', 1000))
+
+        db_manager = get_db_manager()
+        stocks = db_manager.get_stock_pool(category=category, limit=limit)
+
+        # 格式化时间戳
+        for stock in stocks:
+            if 'added_at' in stock and stock['added_at']:
+                stock['added_at'] = stock['added_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if 'updated_at' in stock and stock['updated_at']:
+                stock['updated_at'] = stock['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+
+        return {'stocks': stocks, 'total': len(stocks)}
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+@app.route('/api/stockpool/stats')
+def api_stockpool_stats():
+    """获取股票池统计数据"""
+    try:
+        db_manager = get_db_manager()
+        stats = db_manager.get_stock_pool_stats()
+        return stats
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+@app.route('/api/stockpool/add', methods=['POST'])
+def api_add_stock():
+    """添加股票到股票池"""
+    try:
+        data = request.get_json()
+        stock_code = data.get('stock_code', '').strip()
+        stock_name = data.get('stock_name', '').strip() or None
+        category = data.get('category', 'default')
+        notes = data.get('notes', '').strip() or None
+
+        if not stock_code:
+            return {'success': False, 'message': '股票代码不能为空'}, 400
+
+        db_manager = get_db_manager()
+        if db_manager.add_stock_to_pool(stock_code, stock_name, category, 'web', notes):
+            return {'success': True, 'message': f'股票 {stock_code} 已添加到股票池'}
+        else:
+            return {'success': False, 'message': '添加股票失败'}, 500
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/stockpool/batch_add', methods=['POST'])
+def api_batch_add_stocks():
+    """批量添加股票到股票池"""
+    try:
+        data = request.get_json()
+        stocks_text = data.get('stocks', '').strip()
+        category = data.get('category', 'default')
+
+        if not stocks_text:
+            return {'success': False, 'message': '股票列表不能为空'}, 400
+
+        # 解析股票列表
+        stocks = []
+        for line in stocks_text.split('\n'):
+            line = line.strip()
+            if line:
+                # 支持多种格式：000001 或 000001 平安银行 或 000001,平安银行
+                if ',' in line:
+                    parts = line.split(',', 1)
+                    stocks.append({
+                        'code': parts[0].strip(),
+                        'name': parts[1].strip() if len(parts) > 1 else ''
+                    })
+                elif ' ' in line:
+                    parts = line.split(' ', 1)
+                    stocks.append({
+                        'code': parts[0].strip(),
+                        'name': parts[1].strip() if len(parts) > 1 else ''
+                    })
+                else:
+                    stocks.append(line)
+
+        if not stocks:
+            return {'success': False, 'message': '没有找到有效的股票代码'}, 400
+
+        db_manager = get_db_manager()
+        result = db_manager.batch_add_stocks_to_pool(stocks, category, 'web')
+
+        message = f'成功添加 {result["success_count"]} 只股票'
+        if result['failed_count'] > 0:
+            message += f'，失败 {result["failed_count"]} 只'
+
+        return {
+            'success': True,
+            'message': message,
+            'result': result
+        }
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/stockpool/remove/<stock_code>', methods=['DELETE'])
+def api_remove_stock(stock_code):
+    """从股票池中移除股票"""
+    try:
+        db_manager = get_db_manager()
+        if db_manager.remove_stock_from_pool(stock_code):
+            return {'success': True, 'message': f'股票 {stock_code} 已从股票池中移除'}
+        else:
+            return {'success': False, 'message': '移除股票失败'}, 500
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/stockpool/batch_remove', methods=['POST'])
+def api_batch_remove_stocks():
+    """批量从股票池中移除股票"""
+    try:
+        data = request.get_json()
+        stock_codes = data.get('stock_codes', [])
+
+        if not stock_codes:
+            return {'success': False, 'message': '股票代码列表不能为空'}, 400
+
+        db_manager = get_db_manager()
+        result = db_manager.batch_remove_stocks_from_pool(stock_codes)
+
+        message = f'成功移除 {result["success_count"]} 只股票'
+        if result['failed_count'] > 0:
+            message += f'，失败 {result["failed_count"]} 只'
+
+        return {
+            'success': True,
+            'message': message,
+            'result': result
+        }
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/stockpool/update_category', methods=['POST'])
+def api_update_stock_category():
+    """更新股票分类"""
+    try:
+        data = request.get_json()
+        stock_code = data.get('stock_code', '').strip()
+        category = data.get('category', 'default')
+
+        if not stock_code:
+            return {'success': False, 'message': '股票代码不能为空'}, 400
+
+        db_manager = get_db_manager()
+        if db_manager.update_stock_pool_category(stock_code, category):
+            return {'success': True, 'message': f'股票 {stock_code} 分类已更新为 {category}'}
+        else:
+            return {'success': False, 'message': '更新分类失败'}, 500
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
+
 def get_all_strategies():
     """获取所有策略信息"""
     strategies = []
@@ -275,15 +440,15 @@ def index():
                 </div>
 
                 <div class="nav-card">
-                    <h3>⚙️ 系统设置</h3>
-                    <p>配置系统参数，管理数据库连接和交易账户</p>
-                    <a href="#" class="nav-button" onclick="alert('功能开发中')">进入系统设置</a>
+                    <h3>🏊 股票池管理</h3>
+                    <p>管理股票池，支持批量添加删除股票，按分类管理</p>
+                    <a href="/stockpool" class="nav-button">进入股票池</a>
                 </div>
 
                 <div class="nav-card">
-                    <h3>📋 交易日志</h3>
-                    <p>查看详细的交易日志和系统运行日志</p>
-                    <a href="#" class="nav-button" onclick="alert('功能开发中')">进入交易日志</a>
+                    <h3>⚙️ 系统设置</h3>
+                    <p>配置系统参数，管理数据库连接和交易账户</p>
+                    <a href="#" class="nav-button" onclick="alert('功能开发中')">进入系统设置</a>
                 </div>
             </div>
         </div>
