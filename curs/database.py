@@ -397,7 +397,8 @@ class DatabaseManager:
 
     def get_all_active_stocks_from_pool(self) -> List[str]:
         """获取股票池中所有激活的股票代码"""
-        query = "SELECT stock_code FROM stock_pool WHERE is_active = TRUE ORDER BY stock_code"
+        # query = "SELECT stock_code FROM stock_pool WHERE is_active = TRUE ORDER BY stock_code"
+        query = "SELECT stock_code FROM stock_pool WHERE is_active = TRUE ORDER BY updated_at desc limit 100"
 
         results = self.execute_query(query)
         return [row['stock_code'] for row in results]
