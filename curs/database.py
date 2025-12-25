@@ -389,7 +389,7 @@ class DatabaseManager:
 
     def get_hot_stocks_from_pool(self, category: str = 'hot') -> List[str]:
         """从股票池中获取指定分类的股票代码"""
-        query = "SELECT stock_code FROM stock_pool WHERE category = %s AND is_active = TRUE ORDER BY stock_code"
+        query = "SELECT stock_code FROM stock_pool WHERE category = %s AND is_active = TRUE ORDER BY updated_at desc limit 100"
         params = (category,)
 
         results = self.execute_query(query, params)
