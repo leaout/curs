@@ -8,10 +8,13 @@ import pandas as pd
 import requests
 import sys
 import os
+import akshare as ak
+from xtquant import xtdata
 # 将项目根目录添加到PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from curs.strategy.strategy_loader import StrategyManager
 from curs.database import get_db_manager
+from curs.utils import is_valid_stock_code, format_stock_code
 
 app = Flask(__name__)
 
@@ -222,6 +225,13 @@ def api_add_stock():
         if not stock_code:
             return {'success': False, 'message': '股票代码不能为空'}, 400
 
+        # 验证股票代码格式
+        if not is_valid_stock_code(stock_code):
+            return {'success': False, 'message': '股票代码格式无效，请使用格式如：601059.SH 或 002549.SZ'}, 400
+
+        # 格式化股票代码（确保后缀大写）
+        stock_code = format_stock_code(stock_code)
+
         db_manager = get_db_manager()
         if db_manager.add_stock_to_pool(stock_code, stock_name, category, 'web', notes):
             return {'success': True, 'message': f'股票 {stock_code} 已添加到股票池'}
@@ -243,24 +253,36 @@ def api_batch_add_stocks():
 
         # 解析股票列表
         stocks = []
+        invalid_codes = []
         for line in stocks_text.split('\n'):
             line = line.strip()
             if line:
                 # 支持多种格式：000001 或 000001 平安银行 或 000001,平安银行
                 if ',' in line:
                     parts = line.split(',', 1)
-                    stocks.append({
-                        'code': parts[0].strip(),
-                        'name': parts[1].strip() if len(parts) > 1 else ''
-                    })
+                    code = parts[0].strip()
+                    name = parts[1].strip() if len(parts) > 1 else ''
                 elif ' ' in line:
                     parts = line.split(' ', 1)
+                    code = parts[0].strip()
+                    name = parts[1].strip() if len(parts) > 1 else ''
+                else:
+                    code = line
+                    name = ''
+
+                # 验证股票代码格式
+                if is_valid_stock_code(code):
+                    # 格式化股票代码
+                    code = format_stock_code(code)
                     stocks.append({
-                        'code': parts[0].strip(),
-                        'name': parts[1].strip() if len(parts) > 1 else ''
+                        'code': code,
+                        'name': name
                     })
                 else:
-                    stocks.append(line)
+                    invalid_codes.append(code)
+
+        if invalid_codes:
+            return {'success': False, 'message': f'以下股票代码格式无效：{", ".join(invalid_codes)}。请使用格式如：601059.SH 或 002549.SZ'}, 400
 
         if not stocks:
             return {'success': False, 'message': '没有找到有效的股票代码'}, 400
@@ -335,6 +357,208 @@ def api_update_stock_category():
             return {'success': False, 'message': '更新分类失败'}, 500
     except Exception as e:
         return {'success': False, 'message': str(e)}, 500
+
+# ===== 股票详情路由 =====
+
+@app.route('/api/stock/<stock_code>/kline')
+def api_stock_kline(stock_code):
+    """获取股票K线数据"""
+    try:
+        if not is_valid_stock_code(stock_code):
+            return {'error': '无效的股票代码格式'}, 400
+
+        # 首先下载历史数据（如果需要）
+        try:
+            # 下载最近60天的日K线数据
+            xtdata.download_history_data(stock_code, period='1d', start_time='', end_time='')
+        except Exception as download_error:
+            print(f"下载历史数据失败: {download_error}")
+            # 如果下载失败，继续尝试获取现有数据
+
+        # 使用QMT获取日K线数据
+        kline_data = xtdata.get_market_data(
+            field_list=['time', 'open', 'high', 'low', 'close', 'volume', 'amount'],
+            stock_list=[stock_code],
+            period='1d',  # 日K线
+            count=60  # 最近60天
+        )
+
+        if not kline_data or 'time' not in kline_data:
+            return {'error': '未找到股票数据'}, 404
+
+        # 获取各个字段的DataFrame
+        time_df = kline_data['time']
+        open_df = kline_data['open']
+        high_df = kline_data['high']
+        low_df = kline_data['low']
+        close_df = kline_data['close']
+        volume_df = kline_data['volume']
+
+        # 检查是否有数据
+        if stock_code not in time_df.index:
+            return {'error': '未找到股票数据'}, 404
+
+        # 提取该股票的数据
+        times = time_df.loc[stock_code]
+        opens = open_df.loc[stock_code]
+        highs = high_df.loc[stock_code]
+        lows = low_df.loc[stock_code]
+        closes = close_df.loc[stock_code]
+        volumes = volume_df.loc[stock_code]
+
+        # 格式化数据为ECharts K线图格式 [开盘, 收盘, 最低, 最高]
+        echarts_kline = []
+        dates = []
+        volume_list = []
+
+        # 按时间顺序整理数据
+        for i in range(len(times)):
+            if pd.notna(times.iloc[i]) and pd.notna(opens.iloc[i]):
+                try:
+                    # QMT时间戳可能是毫秒格式，尝试转换
+                    timestamp = times.iloc[i]
+                    if timestamp > 1e10:  # 如果是毫秒时间戳
+                        timestamp = timestamp / 1000
+
+                    # 时间戳转换为日期字符串
+                    date = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d')
+                    dates.append(date)
+                    echarts_kline.append([
+                        float(opens.iloc[i]),  # open
+                        float(closes.iloc[i]), # close
+                        float(lows.iloc[i]),   # low
+                        float(highs.iloc[i])   # high
+                    ])
+                    volume_list.append(float(volumes.iloc[i]))
+                except (ValueError, OSError) as e:
+                    # 如果时间戳转换失败，跳过这条数据
+                    print(f"跳过无效时间戳: {times.iloc[i]}, 错误: {e}")
+                    continue
+
+        if not dates:
+            return {'error': '未找到有效的股票数据'}, 404
+
+        return {
+            'stock_code': stock_code,
+            'dates': dates,
+            'kline_data': echarts_kline,
+            'volumes': volume_list
+        }
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+@app.route('/api/stock/<stock_code>/quote')
+def api_stock_quote(stock_code):
+    """获取股票当日行情"""
+    try:
+        if not is_valid_stock_code(stock_code):
+            return {'error': '无效的股票代码格式'}, 400
+
+        # 尝试使用QMT获取实时行情数据
+        try:
+            # 使用get_market_data_ex获取最新分笔数据
+            quote_data = xtdata.get_market_data_ex(
+                field_list=['time', 'open', 'high', 'low', 'close', 'volume', 'amount'],
+                stock_list=[stock_code],
+                period='tick',  # 分笔数据
+                count=1  # 最新一条
+            )
+
+            if quote_data and 'close' in quote_data and stock_code in quote_data['close'].index:
+                close_df = quote_data['close']
+                volume_df = quote_data['volume']
+                amount_df = quote_data['amount']
+                high_df = quote_data['high']
+                low_df = quote_data['low']
+                open_df = quote_data['open']
+
+                last_price = float(close_df.loc[stock_code].iloc[-1]) if not close_df.loc[stock_code].empty else 0
+                volume = int(volume_df.loc[stock_code].iloc[-1]) if not volume_df.loc[stock_code].empty else 0
+                amount = float(amount_df.loc[stock_code].iloc[-1]) if not amount_df.loc[stock_code].empty else 0
+                high = float(high_df.loc[stock_code].iloc[-1]) if not high_df.loc[stock_code].empty else 0
+                low = float(low_df.loc[stock_code].iloc[-1]) if not low_df.loc[stock_code].empty else 0
+                open_price = float(open_df.loc[stock_code].iloc[-1]) if not open_df.loc[stock_code].empty else 0
+            else:
+                # 如果QMT获取失败，回退到akshare
+                raise Exception("QMT data not available")
+
+        except Exception as qmt_error:
+            print(f"QMT获取行情失败: {qmt_error}，尝试使用akshare")
+
+            # 使用akshare作为备用数据源
+            code = stock_code.split('.')[0]
+            market = stock_code.split('.')[1].lower()
+
+            df = ak.stock_zh_a_spot_em()
+            stock_data = df[df['代码'] == code]
+
+            if stock_data.empty:
+                return {'error': '未找到股票行情数据'}, 404
+
+            data = stock_data.iloc[0]
+
+            return {
+                'stock_code': stock_code,
+                'name': data['名称'],
+                'price': float(data['最新价']),
+                'change': float(data['涨跌额']),
+                'change_percent': float(data['涨跌幅']),
+                'volume': int(data['成交量']),
+                'amount': float(data['成交额']),
+                'high': float(data['最高']),
+                'low': float(data['最低']),
+                'open': float(data['今开']),
+                'close': float(data['昨收']),
+                'turnover': float(data['换手率']),
+                'pe': float(data['市盈率-动态']) if pd.notna(data['市盈率-动态']) else None,
+                'market_cap': float(data['总市值']) if pd.notna(data['总市值']) else None,
+                'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+        # 获取股票基本信息
+        instrument_detail = xtdata.get_instrument_detail(stock_code, False)
+        stock_name = instrument_detail.get('InstrumentName', '') if instrument_detail else ''
+
+        # 获取昨收价用于计算涨跌幅
+        try:
+            # 获取前一天的数据来获取昨收价
+            pre_data = xtdata.get_market_data(
+                field_list=['close'],
+                stock_list=[stock_code],
+                period='1d',
+                count=2  # 获取最近2天的数据
+            )
+            if pre_data and 'close' in pre_data and stock_code in pre_data['close'].index:
+                close_df = pre_data['close']
+                pre_close = float(close_df.loc[stock_code].iloc[-2]) if len(close_df.loc[stock_code]) >= 2 else last_price
+            else:
+                pre_close = last_price
+        except:
+            pre_close = last_price
+
+        # 计算涨跌幅和涨跌额
+        change = last_price - pre_close
+        change_percent = (change / pre_close * 100) if pre_close > 0 else 0
+
+        return {
+            'stock_code': stock_code,
+            'name': stock_name,
+            'price': float(last_price),
+            'change': float(change),
+            'change_percent': float(change_percent),
+            'volume': int(volume),
+            'amount': float(amount),
+            'high': float(high),
+            'low': float(low),
+            'open': float(open_price),
+            'close': float(pre_close),
+            'turnover': 0.0,  # QMT不直接提供换手率
+            'pe': None,  # QMT不直接提供市盈率
+            'market_cap': None,  # QMT不直接提供市值
+            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+    except Exception as e:
+        return {'error': str(e)}, 500
 
 def get_all_strategies():
     """获取所有策略信息"""

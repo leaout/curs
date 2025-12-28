@@ -42,11 +42,11 @@ class DatabaseManager:
             self.connection = None
             logger.info("数据库连接已断开")
 
-    def execute_query(self, query: str, params: tuple = None) -> List[Dict]:
+    def execute_query(self, query: str, params: tuple = None):
         """执行查询并返回结果"""
         if not self.connection:
             if not self.connect():
-                return []
+                return None
 
         try:
             with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -56,11 +56,11 @@ class DatabaseManager:
                     return [dict(row) for row in results]
                 else:  # 如果是INSERT/UPDATE/DELETE查询
                     self.connection.commit()
-                    return []
+                    return cursor.rowcount
         except Exception as e:
             logger.error(f"执行查询失败: {e}")
             self.connection.rollback()
-            return []
+            return None
 
     def save_strategy_signal(self, strategy_name: str, stock_code: str, signal_type: str,
                            price: float = None, volume: int = None, order_id: str = None,
@@ -201,11 +201,11 @@ class DatabaseManager:
         params = (stock_code,)
 
         result = self.execute_query(query, params)
-        if result is not None:
-            logger.info(f"股票已从股票池中移除: {stock_code}")
+        if result is not None and result > 0:
+            logger.info(f"股票已从股票池中移除: {stock_code} ({result} 条记录)")
             return True
         else:
-            logger.error(f"从股票池中移除股票失败: {stock_code}")
+            logger.error(f"从股票池中移除股票失败: {stock_code} (受影响行数: {result})")
             return False
 
     def batch_add_stocks_to_pool(self, stocks: list, category: str = 'default',
@@ -284,11 +284,11 @@ class DatabaseManager:
         params = (category, stock_code)
 
         result = self.execute_query(query, params)
-        if result is not None:
-            logger.info(f"股票分类已更新: {stock_code} -> {category}")
+        if result is not None and result > 0:
+            logger.info(f"股票分类已更新: {stock_code} -> {category} ({result} 条记录)")
             return True
         else:
-            logger.error(f"更新股票分类失败: {stock_code}")
+            logger.error(f"更新股票分类失败: {stock_code} (受影响行数: {result})")
             return False
 
     def get_stock_pool_stats(self) -> Dict:

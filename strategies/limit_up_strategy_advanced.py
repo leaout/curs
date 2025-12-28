@@ -30,7 +30,7 @@ def init(context):
     context.account = QmtStockAccount(path=qmt_path, account_id=account_id, trader_name=trader_name, total_cash=100000)
 
     # ===== 交易参数配置 =====
-    context.max_single_position = 30000  # 单只股票最大持仓金额
+    context.max_single_position = 10000  # 单只股票最大持仓金额
     context.max_total_positions = 5      # 最大持仓股票数量
     context.min_order_volume = 100       # 最小买入数量（手）
 
@@ -325,7 +325,7 @@ def buy_at_limit_up(context, stock_code, price, current_volume, volume_reduction
     """以涨停价买入"""
     # 计算买入数量
     available_cash = context.max_single_position
-    buy_volume = int(available_cash / price / 100) * 100
+    buy_volume = int(available_cash / price / 100 +1) * 100
 
     if buy_volume < context.min_order_volume:
         logger.warning(f"买入数量 {buy_volume} 少于最小要求 {context.min_order_volume}，跳过")

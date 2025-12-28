@@ -298,6 +298,12 @@
         .stock-code {
             font-weight: 600;
             color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .stock-code:hover {
+            color: #4c63d2;
         }
 
         .stock-name {
@@ -727,8 +733,8 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">股票代码 *</label>
-                    <input type="text" class="form-input" id="stock-code-input" placeholder="例如：000001">
-                    <div class="form-hint">请输入6位股票代码</div>
+                    <input type="text" class="form-input" id="stock-code-input" placeholder="例如：601059.SH 或 002549.SZ">
+                    <div class="form-hint">请输入6位数字+.SH或.SZ格式的股票代码，如：601059.SH（上海）或002549.SZ（深圳）</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">股票名称</label>
@@ -826,6 +832,42 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('editStockModal')">取消</button>
                 <button class="btn btn-primary" onclick="updateStock()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 股票详情模态框 -->
+    <div class="modal" id="stockDetailModal">
+        <div class="modal-content" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="stock-detail-title">股票详情</h2>
+                <button class="modal-close" onclick="closeModal('stockDetailModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 行情信息 -->
+                <div class="stock-quote-section" style="margin-bottom: 30px;">
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;">当日行情</h3>
+                    <div class="quote-grid" id="stock-quote-info" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            加载行情数据...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- K线图 -->
+                <div class="stock-chart-section">
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;">K线图 (最近60天)</h3>
+                    <div id="kline-chart" style="width: 100%; height: 400px; border: 1px solid #e9ecef; border-radius: 8px;">
+                        <div class="loading" style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                            <div class="spinner"></div>
+                            加载K线数据...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('stockDetailModal')">关闭</button>
             </div>
         </div>
     </div>
@@ -952,7 +994,7 @@
             tbody.innerHTML = filteredStocks.map(stock => `
                 <tr>
                     <td>
-                        <div class="stock-code">${stock.stock_code}</div>
+                        <div class="stock-code" onclick="showStockDetail('${stock.stock_code}')">${stock.stock_code}</div>
                     </td>
                     <td>
                         <div class="stock-name">${stock.stock_name || '-'}</div>
@@ -992,6 +1034,218 @@
         // 显示批量添加模态框
         function showBatchAddModal() {
             document.getElementById('batchAddModal').style.display = 'block';
+        }
+
+        // 显示股票详情
+        async function showStockDetail(stockCode) {
+            // 设置标题
+            document.getElementById('stock-detail-title').textContent = `${stockCode} 股票详情`;
+
+            // 显示模态框
+            document.getElementById('stockDetailModal').style.display = 'block';
+
+            // 加载行情数据
+            loadStockQuote(stockCode);
+
+            // 加载K线数据
+            loadStockKline(stockCode);
+        }
+
+        // 加载股票行情数据
+        async function loadStockQuote(stockCode) {
+            const quoteInfo = document.getElementById('stock-quote-info');
+
+            try {
+                const response = await axios.get(`/api/stock/${encodeURIComponent(stockCode)}/quote`);
+                const quote = response.data;
+
+                // 渲染行情信息
+                const changeClass = quote.change >= 0 ? 'style="color: #dc3545;"' : 'style="color: #28a745;"';
+                const changePercentClass = quote.change_percent >= 0 ? 'style="color: #dc3545;"' : 'style="color: #28a745;"';
+
+                quoteInfo.innerHTML = `
+                    <div class="quote-item">
+                        <div class="quote-label">股票名称</div>
+                        <div class="quote-value">${quote.name}</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">最新价</div>
+                        <div class="quote-value">${quote.price.toFixed(2)}</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">涨跌额</div>
+                        <div class="quote-value" ${changeClass}>${quote.change >= 0 ? '+' : ''}${quote.change.toFixed(2)}</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">涨跌幅</div>
+                        <div class="quote-value" ${changePercentClass}>${quote.change_percent >= 0 ? '+' : ''}${quote.change_percent.toFixed(2)}%</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">成交量</div>
+                        <div class="quote-value">${quote.volume.toLocaleString()}</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">成交额</div>
+                        <div class="quote-value">${(quote.amount / 10000).toFixed(2)}万</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">今开</div>
+                        <div class="quote-value">${quote.open.toFixed(2)}</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">昨收</div>
+                        <div class="quote-value">${quote.close.toFixed(2)}</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">最高</div>
+                        <div class="quote-value">${quote.high.toFixed(2)}</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">最低</div>
+                        <div class="quote-value">${quote.low.toFixed(2)}</div>
+                    </div>
+                `;
+
+                // 添加样式
+                const style = document.createElement('style');
+                style.textContent = `
+                    .quote-item {
+                        background: #f8f9fa;
+                        padding: 15px;
+                        border-radius: 8px;
+                        text-align: center;
+                    }
+                    .quote-label {
+                        font-size: 12px;
+                        color: #6c757d;
+                        margin-bottom: 5px;
+                        font-weight: 600;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+                    .quote-value {
+                        font-size: 18px;
+                        font-weight: bold;
+                        color: #2c3e50;
+                    }
+                `;
+                document.head.appendChild(style);
+
+            } catch (error) {
+                console.error('加载行情数据失败:', error);
+                quoteInfo.innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">加载行情数据失败</div>';
+            }
+        }
+
+        // 加载股票K线数据
+        async function loadStockKline(stockCode) {
+            const chartContainer = document.getElementById('kline-chart');
+
+            try {
+                const response = await axios.get(`/api/stock/${encodeURIComponent(stockCode)}/kline`);
+                const klineData = response.data;
+
+                // 初始化ECharts
+                const chart = echarts.init(chartContainer);
+
+                // 配置K线图选项
+                const option = {
+                    title: {
+                        text: `${stockCode} 日K线图`,
+                        left: 'center',
+                        textStyle: {
+                            color: '#2c3e50',
+                            fontSize: 16
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'cross'
+                        },
+                        backgroundColor: 'rgba(245, 245, 245, 0.8)',
+                        borderWidth: 1,
+                        borderColor: '#ccc',
+                        textStyle: {
+                            color: '#000'
+                        },
+                        formatter: function (params) {
+                            const data = params[0];
+                            const kline = data.data;
+                            return `
+                                <div style="font-weight: bold;">${data.name}</div>
+                                <div>开盘: ${kline[1].toFixed(2)}</div>
+                                <div>收盘: ${kline[2].toFixed(2)}</div>
+                                <div>最低: ${kline[3].toFixed(2)}</div>
+                                <div>最高: ${kline[4].toFixed(2)}</div>
+                            `;
+                        }
+                    },
+                    legend: {
+                        data: ['K线'],
+                        top: 30
+                    },
+                    grid: {
+                        left: '10%',
+                        right: '10%',
+                        bottom: '15%'
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: klineData.dates,
+                        scale: true,
+                        boundaryGap: false,
+                        axisLine: { onZero: false },
+                        splitLine: { show: false },
+                        min: 'dataMin',
+                        max: 'dataMax'
+                    },
+                    yAxis: {
+                        scale: true,
+                        splitArea: {
+                            show: true
+                        }
+                    },
+                    dataZoom: [
+                        {
+                            type: 'inside',
+                            start: 50,
+                            end: 100
+                        },
+                        {
+                            show: true,
+                            type: 'slider',
+                            top: '90%',
+                            start: 50,
+                            end: 100
+                        }
+                    ],
+                    series: [
+                        {
+                            name: 'K线',
+                            type: 'candlestick',
+                            data: klineData.kline_data,
+                            itemStyle: {
+                                color: '#ec0000',      // 阳线颜色
+                                color0: '#00da3c',     // 阴线颜色
+                                borderColor: '#8A0000',    // 阳线边框
+                                borderColor0: '#008F28'    // 阴线边框
+                            }
+                        }
+                    ]
+                };
+
+                chart.setOption(option);
+
+                // 响应窗口大小变化
+                window.addEventListener('resize', function() {
+                    chart.resize();
+                });
+
+            } catch (error) {
+                console.error('加载K线数据失败:', error);
+                chartContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #dc3545;">加载K线数据失败</div>';
+            }
         }
 
         // 关闭模态框
@@ -1115,7 +1369,8 @@
             }
 
             try {
-                const response = await axios.delete(`/api/stockpool/remove/${stockCode}`);
+                const encodedStockCode = encodeURIComponent(stockCode);
+                const response = await axios.delete(`/api/stockpool/remove/${encodedStockCode}`);
 
                 if (response.data.success) {
                     showAlert(response.data.message, 'success');
