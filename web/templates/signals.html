@@ -378,7 +378,7 @@
                     <tr>
                         <td>${signal.timestamp}</td>
                         <td>${signal.strategy_name}</td>
-                        <td><a href="#" onclick="showStockKline('${signal.stock_code}')" style="color: #ff0000ff; text-decoration: underline;">${signal.stock_code}</a></td>
+                        <td><a href="#" onclick="showStockKline('${signal.stock_code}')" style="color: #007bff; text-decoration: underline;">${signal.stock_code}</a></td>
                         <td class="${typeClass}">${signal.signal_type === 'BUY' ? '买入' : '卖出'}</td>
                         <td>${signal.price || '-'}</td>
                         <td>${signal.volume || '-'}</td>
@@ -521,17 +521,14 @@
                     klineData.kline_data.push(item.data);
                 });
 
+                console.log('排序后K线数据日期范围:', klineData.dates[0], '到', klineData.dates[klineData.dates.length - 1]);
+                console.log('K线数据长度:', klineData.dates.length);
+
                 // 创建日期到索引的映射表，确保精确匹配
                 const dateToIndexMap = {};
                 klineData.dates.forEach((date, index) => {
                     dateToIndexMap[date] = index;
                 });
-
-                console.log('排序后K线数据日期范围:', klineData.dates[0], '到', klineData.dates[klineData.dates.length - 1]);
-                console.log('K线数据长度:', klineData.dates.length);
-                console.log('前5个日期:', klineData.dates.slice(0, 5));
-                console.log('后5个日期:', klineData.dates.slice(-5));
-                console.log('日期映射表样例:', Object.entries(dateToIndexMap).slice(0, 5));
 
                 // 处理信号数据，转换为图表标记点
                 const buySignals = [];
@@ -583,56 +580,46 @@
                         const priceValue = parseFloat(signal.price) || defaultPrice;
                         
                         console.log(`✅ 匹配成功! 信号日期: ${signalDate}, K线日期: ${klineData.dates[dateIndex]}, 索引: ${dateIndex}`);
-                        console.log(`K线数据 [开盘, 收盘, 最低, 最高]: [${klineItem[0]}, ${klineItem[1]}, ${klineItem[2]}, ${klineItem[3]}]`);
-                        console.log(`使用价格: ${priceValue} (信号价格: ${signal.price}, 默认价格: ${defaultPrice})`);
                         
+                        // 创建信号点 - 注意：这里使用索引作为x坐标，因为scatter系列在类目轴上使用索引
                         const signalPoint = {
-                            name: `${signal.signal_type === 'BUY' ? 'B' : 'S'}信号`,
-                            coord: [dateIndex, priceValue], // 使用精确的索引和价格
-                            value: priceValue,
+                            name: `${signal.signal_type === 'BUY' ? '买入' : '卖出'}信号`,
+                            value: [dateIndex, priceValue], // 使用索引和价格
                             itemStyle: {
-                                color: 'transparent' // 去掉符号颜色，只显示文本
+                                color: 'transparent'
                             },
                             label: {
                                 show: true,
                                 formatter: signal.signal_type === 'BUY' ? 'B' : 'S',
                                 position: signal.signal_type === 'BUY' ? 'top' : 'bottom',
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: 'bold',
                                 color: '#fff',
-                                backgroundColor: signal.signal_type === 'BUY' ? '#ff0000' : '#00ff00', // 红色买入，绿色卖出
-                                padding: [6, 12, 6, 12],
-                                borderRadius: 50, // 圆形背景
-                                distance: 15
+                                backgroundColor: signal.signal_type === 'BUY' ? '#ff0000' : '#00ff00',
+                                padding: [6, 12],
+                                borderRadius: 50,
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            },
+                            tooltip: {
+                                show: true,
+                                formatter: function(params) {
+                                    return `${signalDate}<br/>${signal.signal_type === 'BUY' ? '买入' : '卖出'}信号<br/>价格: ${priceValue.toFixed(2)}<br/>策略: ${signal.strategy_name}`;
+                                }
                             }
                         };
 
                         if (signal.signal_type === 'BUY') {
                             buySignals.push(signalPoint);
-                            console.log('✅ 添加买入信号点:', signalPoint);
                         } else {
                             sellSignals.push(signalPoint);
-                            console.log('✅ 添加卖出信号点:', signalPoint);
                         }
                     } else {
                         console.log(`❌ 信号日期 ${signalDate} 在K线数据中未找到匹配`);
-                        console.log(`K线日期范围: ${klineData.dates[0]} 到 ${klineData.dates[klineData.dates.length - 1]}`);
-                        console.log(`可用日期样例:`, klineData.dates.slice(0, 5));
                     }
                 });
                 
-                console.log(`\n=== 信号处理完成 ===`);
-                console.log('买入信号点数量:', buySignals.length);
-                console.log('卖出信号点数量:', sellSignals.length);
-                if (buySignals.length > 0) {
-                    console.log('买入信号样例:', buySignals[0]);
-                }
-                if (sellSignals.length > 0) {
-                    console.log('卖出信号样例:', sellSignals[0]);
-                }
-
-                console.log('最终买入信号点数量:', buySignals.length);
-                console.log('最终卖出信号点数量:', sellSignals.length);
+                console.log(`信号处理完成 - 买入信号: ${buySignals.length}, 卖出信号: ${sellSignals.length}`);
 
                 // 配置K线图选项
                 const option = {
@@ -649,11 +636,13 @@
                         axisPointer: {
                             type: 'cross'
                         },
-                        backgroundColor: 'rgba(245, 245, 245, 0.8)',
+                        backgroundColor: 'rgba(245, 245, 245, 0.9)',
                         borderWidth: 1,
                         borderColor: '#ccc',
+                        padding: [10, 15],
                         textStyle: {
-                            color: '#000'
+                            color: '#000',
+                            fontSize: 14
                         },
                         formatter: function (params) {
                             let result = '';
@@ -661,14 +650,15 @@
                                 if (param.seriesType === 'candlestick') {
                                     const kline = param.data;
                                     result += `
-                                        <div style="font-weight: bold;">${param.name}</div>
-                                        <div>开盘: ${kline[1].toFixed(2)}</div>
-                                        <div>收盘: ${kline[2].toFixed(2)}</div>
-                                        <div>最低: ${kline[3].toFixed(2)}</div>
-                                        <div>最高: ${kline[4].toFixed(2)}</div>
+                                        <div style="font-weight: bold; margin-bottom: 5px;">${param.name}</div>
+                                        <div>开盘: ${kline[0].toFixed(2)}</div>
+                                        <div>收盘: ${kline[1].toFixed(2)}</div>
+                                        <div>最低: ${kline[2].toFixed(2)}</div>
+                                        <div>最高: ${kline[3].toFixed(2)}</div>
                                     `;
-                                } else if (param.seriesName.includes('信号')) {
-                                    result += `<div>${param.seriesName}: ${param.value.toFixed(2)}</div>`;
+                                } else if (param.seriesName === '买入信号' || param.seriesName === '卖出信号') {
+                                    // 为信号系列保留tooltip
+                                    result += param.value.tooltip || `<div>${param.seriesName}</div>`;
                                 }
                             });
                             return result;
@@ -676,45 +666,88 @@
                     },
                     legend: {
                         data: ['K线', '买入信号', '卖出信号'],
-                        top: 30
+                        top: 30,
+                        textStyle: {
+                            fontSize: 12
+                        }
                     },
                     grid: {
-                        left: '10%',
-                        right: '10%',
-                        bottom: '15%'
+                        left: '8%',
+                        right: '8%',
+                        bottom: '15%',
+                        top: '15%'
                     },
                     xAxis: {
                         type: 'category',
                         data: klineData.dates,
                         scale: true,
                         boundaryGap: false,
-                        axisLine: { onZero: false },
-                        splitLine: { show: false },
+                        axisLine: { 
+                            onZero: false,
+                            lineStyle: {
+                                color: '#666'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#666',
+                            fontSize: 12,
+                            rotate: 45
+                        },
+                        splitLine: { 
+                            show: true,
+                            lineStyle: {
+                                type: 'dashed',
+                                color: '#eee'
+                            }
+                        },
                         min: 'dataMin',
                         max: 'dataMax'
                     },
                     yAxis: {
                         scale: true,
                         splitArea: {
-                            show: true
+                            show: true,
+                            areaStyle: {
+                                color: ['rgba(250,250,250,0.2)', 'rgba(200,200,200,0.1)']
+                            }
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#666'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#666',
+                            fontSize: 12
                         }
                     },
                     dataZoom: [
                         {
                             type: 'inside',
-                            start: 70,
+                            start: 50,
                             end: 100,
-                            minSpan: 10,  // 最小缩放范围，避免过度缩放导致卡死
-                            maxSpan: 100  // 最大缩放范围
+                            minSpan: 10,
+                            maxSpan: 100,
+                            zoomOnMouseWheel: false,
+                            moveOnMouseMove: true,
+                            moveOnMouseWheel: true
                         },
                         {
                             show: true,
                             type: 'slider',
-                            top: '90%',
-                            start: 70,
+                            top: '92%',
+                            left: '8%',
+                            right: '8%',
+                            start: 50,
                             end: 100,
                             minSpan: 10,
-                            maxSpan: 100
+                            maxSpan: 100,
+                            backgroundColor: '#f5f5f5',
+                            borderColor: '#ddd',
+                            fillerColor: 'rgba(0, 123, 255, 0.2)',
+                            handleStyle: {
+                                color: '#007bff'
+                            }
                         }
                     ],
                     series: [
@@ -723,44 +756,119 @@
                             type: 'candlestick',
                             data: klineData.kline_data,
                             itemStyle: {
-                                color: '#ec0000',      // 阳线颜色
-                                color0: '#00da3c',     // 阴线颜色
-                                borderColor: '#8A0000',    // 阳线边框
-                                borderColor0: '#008F28'    // 阴线边框
+                                color: '#ec0000',      // 阳线颜色（上涨）红色
+                                color0: '#00da3c',     // 阴线颜色（下跌）绿色
+                                borderColor: '#8A0000',    // 阳线边框深红色
+                                borderColor0: '#008F28',    // 阴线边框深绿色
+                                borderWidth: 1
+                            },
+                            emphasis: {
+                                itemStyle: {
+                                    borderWidth: 2
+                                }
                             }
                         },
                         {
                             name: '买入信号',
                             type: 'scatter',
                             data: buySignals,
+                            xAxisIndex: 0,
+                            yAxisIndex: 0,
+                            coordinateSystem: 'cartesian2d',
                             symbol: 'circle',
-                            symbolSize: 1, // 最小尺寸，几乎不显示
+                            symbolSize: 30,
+                            zlevel: 10, // 确保显示在K线之上
                             itemStyle: {
-                                color: 'transparent' // 隐藏符号
+                                color: 'transparent',
+                                borderColor: 'transparent',
+                                borderWidth: 0
                             },
                             label: {
                                 show: true,
-                                position: 'top'
+                                position: 'top',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                color: '#fff',
+                                backgroundColor: '#ff0000',
+                                padding: [6, 12],
+                                borderRadius: 50,
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            },
+                            emphasis: {
+                                label: {
+                                    show: true,
+                                    fontSize: 16
+                                }
+                            },
+                            tooltip: {
+                                show: true,
+                                trigger: 'item',
+                                formatter: function(params) {
+                                    return params.data.tooltip || `${params.data.name}<br/>价格: ${params.data.value[1].toFixed(2)}`;
+                                }
                             }
                         },
                         {
                             name: '卖出信号',
                             type: 'scatter',
                             data: sellSignals,
+                            xAxisIndex: 0,
+                            yAxisIndex: 0,
+                            coordinateSystem: 'cartesian2d',
                             symbol: 'circle',
-                            symbolSize: 1, // 最小尺寸，几乎不显示
+                            symbolSize: 30,
+                            zlevel: 10,
                             itemStyle: {
-                                color: 'transparent' // 隐藏符号
+                                color: 'transparent',
+                                borderColor: 'transparent',
+                                borderWidth: 0
                             },
                             label: {
                                 show: true,
-                                position: 'bottom'
+                                position: 'bottom',
+                                fontSize: 14,
+                                fontWeight: 'bold',
+                                color: '#fff',
+                                backgroundColor: '#00ff00',
+                                padding: [6, 12],
+                                borderRadius: 50,
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            },
+                            emphasis: {
+                                label: {
+                                    show: true,
+                                    fontSize: 16
+                                }
+                            },
+                            tooltip: {
+                                show: true,
+                                trigger: 'item',
+                                formatter: function(params) {
+                                    return params.data.tooltip || `${params.data.name}<br/>价格: ${params.data.value[1].toFixed(2)}`;
+                                }
                             }
                         }
                     ]
                 };
 
-                chart.setOption(option);
+                // 设置图表选项并强制重绘
+                chart.setOption(option, {
+                    notMerge: true,
+                    lazyUpdate: false
+                });
+
+                // 确保图表正确渲染
+                setTimeout(() => {
+                    chart.resize();
+                    // 自动缩放到最后的数据区域
+                    chart.dispatchAction({
+                        type: 'dataZoom',
+                        start: 70,
+                        end: 100
+                    });
+                }, 100);
 
                 // 响应窗口大小变化
                 window.addEventListener('resize', function() {
@@ -769,7 +877,7 @@
 
             } catch (error) {
                 console.error('加载K线和信号数据失败:', error);
-                chartContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #dc3545;">加载K线和信号数据失败</div>';
+                chartContainer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #dc3545; font-size: 16px;">加载K线和信号数据失败: ' + error.message + '</div>';
             }
         }
 
