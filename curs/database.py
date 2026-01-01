@@ -44,7 +44,8 @@ class DatabaseManager:
 
     def execute_query(self, query: str, params: tuple = None):
         """执行查询并返回结果"""
-        if not self.connection:
+        # 检查连接是否存在或已关闭
+        if not self.connection or self.connection.closed:
             if not self.connect():
                 return None
 
@@ -59,7 +60,13 @@ class DatabaseManager:
                     return cursor.rowcount
         except Exception as e:
             logger.error(f"执行查询失败: {e}")
-            self.connection.rollback()
+            # 如果查询失败，标记连接为无效，下次会自动重连
+            if self.connection:
+                try:
+                    self.connection.close()
+                except:
+                    pass
+                self.connection = None
             return None
 
     def save_strategy_signal(self, strategy_name: str, stock_code: str, signal_type: str,
@@ -254,7 +261,7 @@ class DatabaseManager:
         }
 
     def get_stock_pool(self, category: str = None, active_only: bool = True,
-                      limit: int = 1000) -> List[Dict]:
+                      limit: int = 1000, offset: int = 0) -> List[Dict]:
         """获取股票池"""
         conditions = []
         params = []
@@ -271,10 +278,10 @@ class DatabaseManager:
         query = f"""
             SELECT * FROM stock_pool
             WHERE {where_clause}
-            ORDER BY updated_at DESC
-            LIMIT %s
+            ORDER BY added_at DESC
+            LIMIT %s OFFSET %s
         """
-        params.append(limit)
+        params.extend([limit, offset])
 
         return self.execute_query(query, tuple(params))
 

@@ -25,6 +25,10 @@ global_instance = None
 engine = None
 strategy_manager = None
 
+# 导入行情数据获取函数
+from curs.broker.qmt_quote import get_stock_kline_data, get_stock_quote_data
+from flask import request, jsonify
+
 # 信号处理函数
 def signal_handler(sig, frame):
     print(f"\n捕获到信号 {sig}，正在退出程序...")
@@ -62,8 +66,16 @@ def main():
     
     # 启动交易引擎
     engine.start()
-    
-    
+
+    # 启动Flask API服务器（在后台线程中运行）
+    def run_flask():
+        print("启动Flask API服务器...")
+        app.run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)
+
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    print("Flask API服务器已启动，监听端口5001")
+
     # 信号处理
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -85,6 +97,45 @@ def load_strategy(strategy_path):
                 strategy_file_path = os.path.join(root, file)
                 StrategyManager.get_instance().unload_strategy(strategy_file_path)
                 StrategyManager.get_instance().load_strategy(strategy_file_path)
+
+# ===== 行情数据API路由 =====
+
+@app.route('/api/stock/<stock_code>/kline')
+def api_stock_kline(stock_code):
+    """获取股票K线数据"""
+    try:
+        if not is_valid_stock_code(stock_code):
+            return jsonify({'error': '无效的股票代码格式'}), 400
+
+        kline_data = get_stock_kline_data(stock_code)
+        if kline_data:
+            return jsonify(kline_data)
+        else:
+            return jsonify({'error': '未找到股票数据'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/stock/<stock_code>/quote')
+def api_stock_quote(stock_code):
+    """获取股票当日行情"""
+    try:
+        if not is_valid_stock_code(stock_code):
+            return jsonify({'error': '无效的股票代码格式'}), 400
+
+        quote_data = get_stock_quote_data(stock_code)
+        if quote_data:
+            return jsonify(quote_data)
+        else:
+            return jsonify({'error': '未找到股票行情数据'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def is_valid_stock_code(stock_code):
+    """验证股票代码格式"""
+    import re
+    # 支持格式如：000001.SH, 600000.SH, 000001.SZ, 002001.SZ等
+    pattern = r'^\d{6}\.(SH|SZ)$'
+    return re.match(pattern, stock_code.upper()) is not None
 
 # 启动程序
 def start():

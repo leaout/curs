@@ -720,6 +720,18 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- 分页控件 -->
+            <div class="pagination-container" id="pagination-container" style="display: none; padding: 20px; text-align: center; background: #f8f9fa; border-top: 1px solid #e9ecef;">
+                <div class="pagination-info" style="margin-bottom: 10px; color: #666;">
+                    显示第 <span id="page-start">1</span> - <span id="page-end">20</span> 条，共 <span id="total-count">0</span> 条
+                </div>
+                <div class="pagination-controls">
+                    <button class="btn btn-secondary" id="prev-page-btn" onclick="goToPage(currentPage - 1)" disabled>上一页</button>
+                    <span style="margin: 0 15px; color: #666;">第 <span id="current-page">1</span> 页，共 <span id="total-pages">1</span> 页</span>
+                    <button class="btn btn-secondary" id="next-page-btn" onclick="goToPage(currentPage + 1)" disabled>下一页</button>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -876,6 +888,9 @@
         let allStocks = [];
         let filteredStocks = [];
         let currentCategory = '';
+        let currentPage = 1;
+        let totalPages = 1;
+        let pageSize = 20;
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -889,16 +904,21 @@
         });
 
         // 获取股票池数据
-        async function loadStocks(category = '') {
+        async function loadStocks(category = '', page = 1) {
             try {
                 const params = new URLSearchParams();
                 if (category) params.append('category', category);
+                params.append('page', page);
+                params.append('limit', pageSize);
 
                 const response = await axios.get('/api/stockpool?' + params.toString());
                 allStocks = response.data.stocks;
                 filteredStocks = [...allStocks];
+                currentPage = response.data.page;
+                totalPages = response.data.total_pages;
 
                 renderStocksTable();
+                renderPagination();
             } catch (error) {
                 console.error('加载股票数据失败:', error);
                 showAlert('加载股票数据失败，请稍后重试', 'error');
@@ -1382,6 +1402,44 @@
             } catch (error) {
                 showAlert('删除股票失败，请稍后重试', 'error');
             }
+        }
+
+        // 渲染分页控件
+        function renderPagination() {
+            const paginationContainer = document.getElementById('pagination-container');
+            const totalCount = allStocks.length + (currentPage - 1) * pageSize; // 估算总数
+
+            if (totalPages <= 1) {
+                paginationContainer.style.display = 'none';
+                return;
+            }
+
+            paginationContainer.style.display = 'block';
+
+            // 更新分页信息
+            const pageStart = (currentPage - 1) * pageSize + 1;
+            const pageEnd = Math.min(currentPage * pageSize, totalCount);
+
+            document.getElementById('page-start').textContent = pageStart;
+            document.getElementById('page-end').textContent = pageEnd;
+            document.getElementById('total-count').textContent = totalCount;
+            document.getElementById('current-page').textContent = currentPage;
+            document.getElementById('total-pages').textContent = totalPages;
+
+            // 更新按钮状态
+            const prevBtn = document.getElementById('prev-page-btn');
+            const nextBtn = document.getElementById('next-page-btn');
+
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+
+        // 跳转到指定页面
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+
+            currentPage = page;
+            loadStocks(currentCategory, currentPage);
         }
 
         // 刷新股票列表
