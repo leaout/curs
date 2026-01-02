@@ -16,6 +16,7 @@ from flask import Flask, render_template
 import threading
 import json
 import csv
+import logging
 
 # Flask应用实例
 app = Flask(__name__)
@@ -42,8 +43,40 @@ def create_data_dir():
     os.makedirs(data_dir, exist_ok=True)
     return data_dir
 
+def check_and_start_qmt():
+    """检查QMT是否运行，如果没有则启动"""
+    logger = logging.getLogger(__name__)
+    try:
+        # 检查xtMiniQmt.exe进程是否存在
+        result = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq xtMiniQmt.exe'], 
+                               capture_output=True, text=True, shell=True)
+        if result.returncode == 0:
+            logger.info("QMT已在运行")
+            return True
+        
+        logger.warning("QMT未运行，尝试启动...")
+        # 运行启动脚本 (非阻塞)
+        script_path = os.path.join(os.path.dirname(__file__), '../../script/startqmt.bat')
+        if os.path.exists(script_path):
+            subprocess.Popen([script_path], shell=True)
+            logger.info("QMT启动脚本已执行")
+            # 等待几秒钟让QMT启动
+            time.sleep(10)
+            return True
+        else:
+            logger.error(f"QMT启动脚本不存在: {script_path}")
+            return False
+    except Exception as e:
+        logger.exception(f"检查或启动QMT时出错: {e}")
+        return False
+
 def main():
     global global_instance, engine, strategy_manager
+
+    # 检查并启动QMT
+    if not check_and_start_qmt():
+        logger.error("无法启动QMT，程序退出")
+        sys.exit(1)
     
     # 创建数据目录
     create_data_dir()

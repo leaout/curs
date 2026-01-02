@@ -1,5 +1,6 @@
 import logging
 import time
+import threading
 from typing import List
 from xml.dom.pulldom import parseString
 
@@ -11,6 +12,10 @@ from curs.broker.account import Account,Position
 logger = logging.getLogger(__name__)
 #https://dict.thinktrader.net/nativeApi/xttrader.html?id=e2M5nZ#%E6%88%90%E4%BA%A4xttrade
 class MyXtQuantTraderCallback(XtQuantTraderCallback):
+    def __init__(self):
+        super().__init__()
+        self.account = None
+
     def on_connected(self):
         logger.info("qmt on_connected")
 
@@ -25,7 +30,9 @@ class MyXtQuantTraderCallback(XtQuantTraderCallback):
         连接断开
         :return:
         """
-        logger.info(f"qmt on_disconnected")
+        logger.warning("qmt on_disconnected, attempting to reconnect...")
+        if self.account:
+            threading.Thread(target=self.account.reconnect, daemon=True).start()
 
     def on_stock_order(self, order):
         """
@@ -106,6 +113,7 @@ class QmtStockAccount(Account):
 
         # 创建交易回调类对象，并声明接收回调
         callback = MyXtQuantTraderCallback()
+        callback.account = self
         self.xt_trader.register_callback(callback)
 
         # 启动交易线程
@@ -114,9 +122,10 @@ class QmtStockAccount(Account):
         # 建立交易连接，返回0表示连接成功
         connect_result = self.xt_trader.connect()
         if connect_result != 0:
-            logger.error(f"qmt trader 连接失败: {connect_result}")
-            # raise QmtError(f"qmt trader 连接失败: {connect_result}")
-        logger.info("qmt trader 建立交易连接成功！")
+            logger.warning(f"qmt trader 初始连接失败: {connect_result}，尝试重试...")
+            self.reconnect()  # 使用重连逻辑进行初始连接
+        else:
+            logger.info("qmt trader 建立交易连接成功！")
 
         # 对交易回调进行订阅，订阅后可以收到交易主推，返回0表示订阅成功
         subscribe_result = self.xt_trader.subscribe(self.account)
@@ -128,6 +137,31 @@ class QmtStockAccount(Account):
         positions = self.get_positions()
         for position in positions:
             super().update_account(position.stock_code, position.can_use_volume, position.open_price)
+
+    def reconnect(self):
+        """尝试重新连接到QMT"""
+        max_retries = 5
+        retry_delay = 5  # seconds
+        for attempt in range(max_retries):
+            logger.info(f"Attempting to reconnect to QMT (attempt {attempt + 1}/{max_retries})")
+            try:
+                connect_result = self.xt_trader.connect()
+                if connect_result == 0:
+                    logger.info("QMT reconnection successful!")
+                    # 重新订阅
+                    subscribe_result = self.xt_trader.subscribe(self.account)
+                    if subscribe_result == 0:
+                        logger.info("Account re-subscribed successfully!")
+                        return
+                    else:
+                        logger.error(f"Account re-subscribe failed: {subscribe_result}")
+                else:
+                    logger.error(f"QMT reconnection failed: {connect_result}")
+            except Exception as e:
+                logger.exception(f"Exception during reconnection: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+        logger.error("Failed to reconnect to QMT after all attempts")
 
     def get_positions(self):
         positions: List[XtPosition] = self.xt_trader.query_stock_positions(self.account)
