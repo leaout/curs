@@ -99,6 +99,62 @@ class MyXtQuantTraderCallback(XtQuantTraderCallback):
 
 
 class QmtStockAccount(Account):
+    @classmethod
+    def test_connection(cls, path, account_id, trader_name, session_id=None):
+        """
+        测试QMT账户连接是否成功，不保持连接状态
+        :param path: QMT数据路径
+        :param account_id: 账户ID
+        :param trader_name: 交易员名称
+        :param session_id: 会话ID
+        :return: 连接成功返回True，否则返回False
+        """
+        if not session_id:
+            session_id = int(time.time())
+
+        logger.info(f"测试QMT连接 - path: {path}, account: {account_id}")
+
+        try:
+            # 创建临时交易器
+            temp_trader = XtQuantTrader(path=path, session=session_id)
+            temp_account = StockAccount(account_id=account_id, account_type="STOCK")
+
+            # 启动交易线程
+            temp_trader.start()
+
+            # 建立交易连接
+            connect_result = temp_trader.connect()
+            if connect_result != 0:
+                logger.warning(f"QMT连接失败: {connect_result}")
+                temp_trader.stop()
+                return False
+
+            # 订阅账户
+            subscribe_result = temp_trader.subscribe(temp_account)
+            if subscribe_result != 0:
+                logger.warning(f"账户订阅失败: {subscribe_result}")
+                temp_trader.stop()
+                return False
+
+            # 尝试查询账户资产来验证连接
+            asset = temp_trader.query_stock_asset(temp_account)
+            if not asset or not hasattr(asset, 'account_id'):
+                logger.warning("无法获取账户资产，连接验证失败")
+                temp_trader.stop()
+                return False
+
+            logger.info("QMT账户连接测试成功")
+            temp_trader.stop()
+            return True
+
+        except Exception as e:
+            logger.exception(f"QMT连接测试异常: {e}")
+            try:
+                temp_trader.stop()
+            except:
+                pass
+            return False
+
     def __init__(self, path, account_id, trader_name, session_id=None, total_cash=0) -> None:
         super().__init__(total_cash)
         if not session_id:

@@ -452,7 +452,9 @@ def load_position_records(context):
         signal_type='BUY',
         status='EXECUTED'
     )
-
+    if buy_signals is None:
+        context.position_records = {}
+        return
     context.position_records = {}
     for signal in buy_signals:
         stock_code = signal['stock_code']

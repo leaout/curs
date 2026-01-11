@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """数据库管理器"""
 
-    def __init__(self, host="192.168.68.150", port="6432", database="postgres",
+    def __init__(self, host="192.168.100.206", port="6432", database="postgres",
                  user="postgres", password="chenly.1"):
         self.host = host
         self.port = port

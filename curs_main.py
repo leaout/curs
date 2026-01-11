@@ -44,30 +44,99 @@ def create_data_dir():
     return data_dir
 
 def check_and_start_qmt():
-    """检查QMT是否运行，如果没有则启动"""
+    """通过QMT账户连接成功作为判断，如果连接不上则执行定时任务"""
     logger = logging.getLogger(__name__)
     try:
-        # 检查xtMiniQmt.exe进程是否存在
-        result = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq xtMiniQmt.exe'], 
-                               capture_output=True, text=True, shell=True)
-        if result.returncode == 0:
-            logger.info("QMT已在运行")
-            return True
-        
-        logger.warning("QMT未运行，尝试启动...")
-        # 运行启动脚本 (非阻塞)
-        script_path = os.path.join(os.path.dirname(__file__), '../../script/startqmt.bat')
-        if os.path.exists(script_path):
-            subprocess.Popen([script_path], shell=True)
-            logger.info("QMT启动脚本已执行")
-            # 等待几秒钟让QMT启动
-            time.sleep(10)
+        from curs.broker.qmt_account import QmtStockAccount
+        from curs.utils.config import load_yaml
+        import os
+
+        # 加载配置获取账户信息
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        config_file_path = os.path.join(current_dir, "config.yml")
+        config = load_yaml(config_file_path)
+
+        qmt_path = config["base"]["accounts"]["qmt_path"]
+        qmt_account_id = config["base"]["accounts"]["qmt_account_id"]
+        qmt_trader_name = config["base"]["accounts"]["qmt_trader_name"]
+
+        # 使用测试连接方法验证QMT账户连接
+        connection_success = QmtStockAccount.test_connection(
+            path=qmt_path,
+            account_id=qmt_account_id,
+            trader_name=qmt_trader_name,
+            session_id=int(time.time())
+        )
+
+        if connection_success:
+            logger.info("QMT账户连接成功")
             return True
         else:
-            logger.error(f"QMT启动脚本不存在: {script_path}")
+            logger.warning("QMT账户连接失败，尝试执行定时任务启动QMT")
+
+            # 多次尝试启动QMT并检测连接
+            max_startup_attempts = 3  # 最多尝试启动QMT的次数
+            connection_checks_per_startup = 3  # 每次启动后进行几次连接检测
+            connection_check_delay = 10  # 每次连接检测间隔秒数
+
+            for startup_attempt in range(max_startup_attempts):
+                logger.info(f"QMT启动尝试 {startup_attempt + 1}/{max_startup_attempts}")
+
+                try:
+                    # 执行定时任务启动QMT
+                    logger.info("执行QMT启动定时任务...")
+                    schtasks_cmd = 'schtasks /run /tn start_qmt'
+                    result = subprocess.run(schtasks_cmd, shell=True, capture_output=True, text=True)
+
+                    if result.returncode != 0:
+                        logger.error(f"执行定时任务失败: {result.stderr}")
+                        continue  # 尝试下一次启动
+
+                    logger.info("QMT启动定时任务执行成功")
+
+                    # 在启动后进行多次连接检测
+                    for check_attempt in range(connection_checks_per_startup):
+                        logger.info(f"等待QMT启动后检测连接 (检测 {check_attempt + 1}/{connection_checks_per_startup})...")
+                        time.sleep(connection_check_delay)
+
+                        # 重新检测连接
+                        retry_connection = QmtStockAccount.test_connection(
+                            path=qmt_path,
+                            account_id=qmt_account_id,
+                            trader_name=qmt_trader_name,
+                            session_id=int(time.time()) + startup_attempt * 10 + check_attempt  # 使用不同的session_id避免冲突
+                        )
+
+                        if retry_connection:
+                            logger.info("QMT账户连接检测成功")
+                            return True
+
+                        logger.warning(f"QMT连接检测失败 (检测 {check_attempt + 1}/{connection_checks_per_startup})")
+
+                    logger.warning(f"QMT启动尝试 {startup_attempt + 1} 后连接仍然失败")
+
+                except Exception as task_e:
+                    logger.exception(f"QMT启动尝试 {startup_attempt + 1} 时出错: {task_e}")
+
+            logger.error(f"经过 {max_startup_attempts} 次启动尝试后QMT连接仍然失败")
             return False
+
     except Exception as e:
-        logger.exception(f"检查或启动QMT时出错: {e}")
+        logger.exception(f"QMT连接检查时出错: {e}")
+        # 如果连接失败，执行已创建的定时任务
+        try:
+            logger.info("执行QMT启动定时任务...")
+            schtasks_cmd = 'schtasks /run /tn start_qmt'
+            result = subprocess.run(schtasks_cmd, shell=True, capture_output=True, text=True)
+            if result.returncode == 0:
+                logger.info("QMT启动定时任务执行成功")
+                # 等待一段时间让QMT启动
+                time.sleep(15)
+                return True
+            else:
+                logger.error(f"执行定时任务失败: {result.stderr}")
+        except Exception as task_e:
+            logger.exception(f"执行定时任务时出错: {task_e}")
         return False
 
 def main():
