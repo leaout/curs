@@ -302,17 +302,37 @@ class QmtStockAccount(Account):
         print(self.account)
         position = self.xt_trader.query_stock_position(self.account,stock_code)
         print(position)
-        fix_result_order_id = self.xt_trader.order_stock(
-                account=self.account,
-                stock_code=stock_code,
-                order_type=xtconstant.STOCK_SELL,
-                order_volume=int(position.can_use_volume),
-                price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
-                price=0,
-                strategy_name=self.trader_name,
-                order_remark="order from cly",
-        )
-        logger.info(f"order result id: {fix_result_order_id}")
+        if position and position.can_use_volume > 0:
+            fix_result_order_id = self.xt_trader.order_stock(
+                    account=self.account,
+                    stock_code=stock_code,
+                    order_type=xtconstant.STOCK_SELL,
+                    order_volume=int(position.can_use_volume),
+                    price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
+                    price=0,
+                    strategy_name=self.trader_name,
+                    order_remark="order from cly",
+            )
+            logger.info(f"order result id: {fix_result_order_id}")
+            return fix_result_order_id
+        else:
+            logger.warning(f"No position or no available volume for {stock_code}")
+            return None
+
+    def liquidate_all_positions(self):
+        """清仓所有持仓"""
+        positions = self.get_positions()
+        results = []
+        for position in positions:
+            if position.can_use_volume > 0:
+                order_id = self.sell_all(position.stock_code)
+                if order_id:
+                    results.append({
+                        'stock_code': position.stock_code,
+                        'volume': position.can_use_volume,
+                        'order_id': order_id
+                    })
+        return results
 
     def sell_market_convert_5_cancel(self, stock_code,volume):
         fix_result_order_id = self.xt_trader.order_stock(

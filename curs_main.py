@@ -25,6 +25,7 @@ app = Flask(__name__)
 global_instance = None
 engine = None
 strategy_manager = None
+qmt_account = None
 
 # 导入行情数据获取函数
 from curs.broker.qmt_quote import get_stock_kline_data, get_stock_quote_data
@@ -140,32 +141,39 @@ def check_and_start_qmt():
         return False
 
 def main():
-    global global_instance, engine, strategy_manager
+    global global_instance, engine, strategy_manager, qmt_account
 
     # 检查并启动QMT
     if not check_and_start_qmt():
         logger.error("无法启动QMT，程序退出")
         sys.exit(1)
-    
+
     # 创建数据目录
     create_data_dir()
-    
+
     # 事件总线
     event_bus = EventBus()
     event_bus.start()
-    
+
     # 加载配置
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_file_path = os.path.join(current_dir, "config.yml")
     config = load_yaml(config_file_path)
-    
+
+    # 初始化全局QMT账户
+    from curs.broker.qmt_account import QmtStockAccount
+    qmt_path = config["base"]["accounts"]["qmt_path"]
+    qmt_account_id = config["base"]["accounts"]["qmt_account_id"]
+    qmt_trader_name = config["base"]["accounts"]["qmt_trader_name"]
+    qmt_account = QmtStockAccount(path=qmt_path, account_id=qmt_account_id, trader_name=qmt_trader_name)
+
     global_instance = CursGlobal(event_bus, config)
     engine = Engine(event_bus, global_instance)
     strategy_manager = StrategyManager(event_bus)
-    
+
     # 加载策略
     load_strategy(config["base"]["strategy_path"])
-    
+
     # 启动交易引擎
     engine.start()
 
@@ -238,6 +246,94 @@ def is_valid_stock_code(stock_code):
     # 支持格式如：000001.SH, 600000.SH, 000001.SZ, 002001.SZ等
     pattern = r'^\d{6}\.(SH|SZ)$'
     return re.match(pattern, stock_code.upper()) is not None
+
+# ===== 持仓管理API路由 =====
+
+@app.route('/api/positions')
+def api_get_positions():
+    """获取QMT持仓信息"""
+    try:
+        global qmt_account
+        if not qmt_account:
+            return jsonify({'error': 'QMT账户未初始化'}), 500
+
+        positions = qmt_account.get_positions()
+        positions_data = []
+
+        for pos in positions:
+            positions_data.append({
+                'account_id': pos.account_id,
+                'stock_code': pos.stock_code,
+                'volume': pos.volume,
+                'can_use_volume': pos.can_use_volume,
+                'open_price': pos.open_price,
+                'market_value': pos.market_value,
+                'frozen_volume': pos.frozen_volume,
+                'on_road_volume': pos.on_road_volume,
+                'yesterday_volume': pos.yesterday_volume
+            })
+
+        asset = qmt_account.get_current_account()
+        account_data = {
+            'account_id': asset.account_id,
+            'cash': asset.cash,
+            'frozen_cash': asset.frozen_cash,
+            'market_value': asset.market_value,
+            'total_asset': asset.total_asset
+        }
+
+        return jsonify({
+            'positions': positions_data,
+            'account': account_data
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/liquidate', methods=['POST'])
+def api_liquidate_all():
+    """一键清仓所有持仓"""
+    try:
+        global qmt_account
+        if not qmt_account:
+            return jsonify({'error': 'QMT账户未初始化'}), 500
+
+        results = qmt_account.liquidate_all_positions()
+        return jsonify({
+            'success': True,
+            'message': f'已发起清仓 {len(results)} 只股票',
+            'results': results
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/liquidate/<stock_code>', methods=['POST'])
+def api_liquidate_stock(stock_code):
+    """清仓单个股票"""
+    try:
+        global qmt_account
+        if not qmt_account:
+            return jsonify({'error': 'QMT账户未初始化'}), 500
+
+        if not is_valid_stock_code(stock_code):
+            return jsonify({'error': '无效的股票代码格式'}), 400
+
+        order_id = qmt_account.sell_all(stock_code)
+        if order_id:
+            return jsonify({
+                'success': True,
+                'message': f'已发起清仓股票 {stock_code}',
+                'order_id': order_id
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'清仓失败：无持仓或可用数量为0'
+            }), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # 启动程序
 def start():

@@ -373,6 +373,69 @@ def api_update_stock_category():
     except Exception as e:
         return {'success': False, 'message': str(e)}, 500
 
+# ===== 持仓管理路由 =====
+
+@app.route('/positions')
+def positions():
+    """持仓管理页面"""
+    return render_template('positions.html')
+
+@app.route('/api/positions')
+def api_positions():
+    """获取持仓信息"""
+    try:
+        # 从策略服务获取持仓数据
+        strategy_service_url = 'http://localhost:5001/api/positions'
+        response = requests.get(strategy_service_url, timeout=10)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'error': f'策略服务返回错误: {response.status_code}'}, response.status_code
+
+    except requests.exceptions.RequestException as e:
+        return {'error': f'无法连接到策略服务: {str(e)}'}, 500
+    except Exception as e:
+        return {'error': str(e)}, 500
+
+@app.route('/api/liquidate', methods=['POST'])
+def api_liquidate():
+    """一键清仓"""
+    try:
+        # 向策略服务发送清仓请求
+        strategy_service_url = 'http://localhost:5001/api/liquidate'
+        response = requests.post(strategy_service_url, timeout=10)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'success': False, 'message': f'策略服务返回错误: {response.status_code}'}, response.status_code
+
+    except requests.exceptions.RequestException as e:
+        return {'success': False, 'message': f'无法连接到策略服务: {str(e)}'}, 500
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/liquidate/<stock_code>', methods=['POST'])
+def api_liquidate_stock(stock_code):
+    """清仓单个股票"""
+    try:
+        # 向策略服务发送清仓请求
+        strategy_service_url = f'http://localhost:5001/api/liquidate/{stock_code}'
+        response = requests.post(strategy_service_url, timeout=10)
+
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 400:
+            return {'success': False, 'message': '无效的股票代码'}, 400
+        else:
+            return {'success': False, 'message': f'策略服务返回错误: {response.status_code}'}, response.status_code
+
+    except requests.exceptions.RequestException as e:
+        return {'success': False, 'message': f'无法连接到策略服务: {str(e)}'}, 500
+    except Exception as e:
+        return {'success': False, 'message': str(e)}, 500
+
 # ===== 股票详情路由 =====
 
 @app.route('/api/stock/<stock_code>/kline')
@@ -524,6 +587,12 @@ def index():
                     <h3>🏊 股票池管理</h3>
                     <p>管理股票池，支持批量添加删除股票，按分类管理</p>
                     <a href="/stockpool" class="nav-button">进入股票池</a>
+                </div>
+
+                <div class="nav-card">
+                    <h3>💼 持仓管理</h3>
+                    <p>查看QMT持仓信息，支持一键清仓和单股票清仓操作</p>
+                    <a href="/positions" class="nav-button">进入持仓管理</a>
                 </div>
 
                 <div class="nav-card">
