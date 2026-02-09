@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>持仓管理 - 量化交易平台</title>
+    <script src="/static/echarts.min.js"></script>
+    <script src="/static/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-link {
+            color: #666;
+            text-decoration: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+        }
+
+        /* 侧边栏样式 */
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            height: fit-content;
+        }
+
+        .sidebar-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .sidebar-header h3 {
+            color: #2c3e50;
+            font-size: 18px;
+        }
+
+        .account-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .account-item {
+            margin-bottom: 15px;
+        }
+
+        .account-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .account-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* 主内容区样式 */
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .content-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .content-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        /* 持仓表格 */
+        .positions-table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .positions-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .positions-table th,
+        .positions-table td {
+            padding: 15px 20px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .positions-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .positions-table tr:hover {
+            background: #f8f9ff;
+        }
+
+        .stock-code {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .position-volume {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .position-price {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .position-value {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .action-buttons-cell {
+            white-space: nowrap;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-right: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn.liquidate {
+            background: #dc3545;
+            color: white;
+        }
+
+        .action-btn.liquidate:hover {
+            background: #c82333;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .empty-state-description {
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .content-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+        }
+
+        /* 加载动画 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 消息提示 */
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1001;
+            animation: slideInRight 0.3s ease;
+            max-width: 400px;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+
+        .alert-error {
+            background: linear-gradient(135deg, #dc3545, #fd7e14);
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #17a2b8, #6f42c1);
+        }
+
+        /* 确认对话框 */
+        .confirm-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirm-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .confirm-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .confirm-message {
+            margin-bottom: 25px;
+            color: #666;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- 页面头部 -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">📊 量化交易平台</div>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">首页</a>
+                <a href="/strategies" class="nav-link">策略管理</a>
+                <a href="/signals" class="nav-link">信号查询</a>
+                <a href="/stockpool" class="nav-link">股票池管理</a>
+                <a href="/positions" class="nav-link active">持仓管理</a>
+                <a href="#" class="nav-link">系统监控</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>💼 账户信息</h3>
+            </div>
+
+            <!-- 账户信息 -->
+            <div class="account-info" id="account-info">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    加载账户信息...
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 内容头部 -->
+            <div class="content-header">
+                <h1 class="content-title">持仓管理</h1>
+                <div class="action-buttons">
+                    <button class="btn btn-danger" onclick="confirmLiquidateAll()">
+                        <span>⚠️</span> 一键清仓
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshPositions()">
+                        <span>🔄</span> 刷新
+                    </button>
+                </div>
+            </div>
+
+            <!-- 持仓列表 -->
+            <div class="positions-table-container">
+                <table class="positions-table" id="positions-table">
+                    <thead>
+                        <tr>
+                            <th>股票代码</th>
+                            <th>持仓数量</th>
+                            <th>可用数量</th>
+                            <th>开仓价</th>
+                            <th>市值</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-tbody">
+                        <tr>
+                            <td colspan="6" class="loading">
+                                <div class="spinner"></div>
+                                正在加载持仓数据...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- 确认对话框 -->
+    <div class="confirm-dialog" id="confirmDialog">
+        <div class="confirm-content">
+            <div class="confirm-title">⚠️ 确认操作</div>
+            <div class="confirm-message" id="confirmMessage">确定要执行此操作吗？</div>
+            <div class="confirm-buttons">
+                <button class="btn btn-secondary" onclick="closeConfirmDialog()">取消</button>
+                <button class="btn btn-danger" id="confirmBtn" onclick="executeConfirmedAction()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let positionsData = [];
+        let accountData = {};
+        let pendingAction = null;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPositions();
+
+            // 每30秒自动刷新
+            setInterval(() => {
+                loadPositions();
+            }, 30000);
+        });
+
+        // 获取持仓数据
+        async function loadPositions() {
+            console.log('[DEBUG] loadPositions() 开始执行');
+            try {
+                console.log('[DEBUG] 发起请求 /api/positions...');
+                const response = await axios.get('/api/positions');
+                console.log('[DEBUG] 请求完成, status:', response.status);
+                
+                // 处理双重JSON编码的问题
+                let data = response.data;
+                console.log('[DEBUG] 初始 data 类型:', typeof data);
+                
+                // 如果 data 是字符串，尝试解析它（处理双重JSON编码）
+                if (typeof data === 'string') {
+                    console.log('[DEBUG] data 是字符串，尝试第一次解析...');
+                    try {
+                        data = JSON.parse(data);
+                        console.log('[DEBUG] 第一次解析成功，新类型:', typeof data);
+                        
+                        // 如果解析后还是字符串，再次解析（处理双重编码）
+                        if (typeof data === 'string') {
+                            console.log('[DEBUG] 解析后仍是字符串，尝试第二次解析...');
+                            try {
+                                data = JSON.parse(data);
+                                console.log('[DEBUG] 第二次解析成功，新类型:', typeof data);
+                            } catch (secondError) {
+                                console.error('[ERROR] 第二次JSON解析失败:', secondError);
+                                throw new Error('数据格式错误：双重JSON解析失败');
+                            }
+                        }
+                    } catch (firstError) {
+                        console.error('[ERROR] 第一次JSON解析失败:', firstError);
+                        console.error('[ERROR] 原始数据:', data.substring ? data.substring(0, 500) : data);
+                        throw new Error('数据格式错误：无法解析JSON');
+                    }
+                }
+                
+                // 现在 data 应该是对象了
+                console.log('[DEBUG] 最终 data 类型:', typeof data);
+                console.log('[DEBUG] data 结构:', data);
+                
+                // 提取数据
+                const positions = data.positions || data.result || data.data || [];
+                const account = data.account || data.result || data.data || {};
+                
+                console.log('[DEBUG] 解析 positions:', positions.length, '条');
+                console.log('[DEBUG] 解析 account:', account);
+                
+                positionsData = positions;
+                accountData = account;
+
+                renderAccountInfo();
+                renderPositionsTable();
+            } catch (error) {
+                console.error('[ERROR] 加载持仓数据失败:', error);
+                console.error('[ERROR] 错误详情:', error.response ? error.response.data : error.message);
+                showAlert('加载持仓数据失败，请稍后重试', 'error');
+            }
+        }
+
+        // 渲染账户信息
+        function renderAccountInfo() {
+            const accountInfo = document.getElementById('account-info');
+
+            accountInfo.innerHTML = `
+                <div class="account-item">
+                    <div class="account-label">账户ID</div>
+                    <div class="account-value">${accountData.account_id || '-'}</div>
+                </div>
+                <div class="account-item">
+                    <div class="account-label">可用资金</div>
+                    <div class="account-value">¥${(accountData.cash || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                </div>
+                <div class="account-item">
+                    <div class="account-label">冻结资金</div>
+                    <div class="account-value">¥${(accountData.frozen_cash || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                </div>
+                <div class="account-item">
+                    <div class="account-label">持仓市值</div>
+                    <div class="account-value">¥${(accountData.market_value || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                </div>
+                <div class="account-item">
+                    <div class="account-label">总资产</div>
+                    <div class="account-value">¥${(accountData.total_asset || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                </div>
+            `;
+        }
+
+        // 渲染持仓表格
+        function renderPositionsTable() {
+            const tbody = document.getElementById('positions-tbody');
+
+            if (positionsData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <div class="empty-state-icon">📊</div>
+                            <div class="empty-state-title">暂无持仓</div>
+                            <div class="empty-state-description">当前账户没有持仓股票</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = positionsData.map(position => {
+                const openPrice = (position.open_price && isFinite(position.open_price)) ? position.open_price.toFixed(2) : '-';
+                const marketValue = (position.market_value !== undefined && position.market_value !== null) ? position.market_value.toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '-';
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class="stock-code">${position.stock_code}</div>
+                        </td>
+                        <td>
+                            <div class="position-volume">${position.volume.toLocaleString()}</div>
+                        </td>
+                        <td>
+                            <div class="position-volume">${position.can_use_volume.toLocaleString()}</div>
+                        </td>
+                        <td>
+                            <div class="position-price">¥${openPrice}</div>
+                        </td>
+                        <td>
+                            <div class="position-value">¥${marketValue}</div>
+                        </td>
+                        <td class="action-buttons-cell">
+                            <button class="action-btn liquidate" onclick="confirmLiquidateStock('${position.stock_code}')">清仓</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 确认一键清仓
+        function confirmLiquidateAll() {
+            if (positionsData.length === 0) {
+                showAlert('当前没有持仓，无需清仓', 'info');
+                return;
+            }
+
+            const message = `确定要清仓所有 ${positionsData.length} 只股票吗？此操作不可撤销！`;
+            showConfirmDialog(message, 'liquidateAll');
+        }
+
+        // 确认单股票清仓
+        function confirmLiquidateStock(stockCode) {
+            const position = positionsData.find(p => p.stock_code === stockCode);
+            if (!position || position.can_use_volume <= 0) {
+                showAlert('该股票没有可用持仓', 'error');
+                return;
+            }
+
+            const message = `确定要清仓 ${stockCode} 吗？<br>可用数量：${position.can_use_volume.toLocaleString()} 股<br>市值：¥${position.market_value.toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            showConfirmDialog(message, 'liquidateStock', stockCode);
+        }
+
+        // 显示确认对话框
+        function showConfirmDialog(message, action, param = null) {
+            document.getElementById('confirmMessage').innerHTML = message;
+            document.getElementById('confirmDialog').style.display = 'flex';
+
+            pendingAction = { action, param };
+
+            // 聚焦确认按钮
+            setTimeout(() => {
+                document.getElementById('confirmBtn').focus();
+            }, 100);
+        }
+
+        // 关闭确认对话框
+        function closeConfirmDialog() {
+            document.getElementById('confirmDialog').style.display = 'none';
+            pendingAction = null;
+        }
+
+        // 执行确认的操作
+        async function executeConfirmedAction() {
+            console.log('[DEBUG] executeConfirmedAction called, pendingAction:', pendingAction);
+            
+            if (!pendingAction) {
+                console.log('[DEBUG] pendingAction is null, returning');
+                return;
+            }
+
+            const action = pendingAction.action;
+            const param = pendingAction.param;
+            
+            console.log('[DEBUG] Action:', action, 'Param:', param);
+
+            // 先关闭对话框
+            closeConfirmDialog();
+
+            try {
+                let url = '/api/liquidate';
+                if (action === 'liquidateStock') {
+                    url = '/api/liquidate/' + param;
+                }
+                
+                console.log('[DEBUG] Sending POST request to:', url);
+                showAlert('正在执行操作...', 'info');
+                
+                const response = await axios.post(url);
+                console.log('[DEBUG] Response:', response.data);
+
+                if (response.data.success) {
+                    showAlert(response.data.message, 'success');
+                    // 刷新持仓数据
+                    setTimeout(() => {
+                        loadPositions();
+                    }, 1000);
+                } else {
+                    showAlert(response.data.message || '操作失败', 'error');
+                }
+
+            } catch (error) {
+                console.error('[ERROR] Operation failed:', error);
+                console.log('[DEBUG] Error response:', error.response);
+                let message = '操作失败，请稍后重试';
+                if (error.response && error.response.data && error.response.data.message) {
+                    message = error.response.data.message;
+                } else if (error.message) {
+                    message = error.message;
+                }
+                showAlert(message, 'error');
+            } finally {
+                pendingAction = null;
+            }
+        }
+
+        // 刷新持仓数据
+        function refreshPositions() {
+            showAlert('正在刷新持仓数据...', 'info');
+            loadPositions();
+        }
+
+        // 显示提示消息
+        function showAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = message;
+
+            document.body.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+
+        // 键盘事件处理
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeConfirmDialog();
+            } else if (event.key === 'Enter' && document.getElementById('confirmDialog').style.display === 'flex') {
+                executeConfirmedAction();
+            }
+        });
+
+        // 点击对话框外部关闭
+        document.getElementById('confirmDialog').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeConfirmDialog();
+            }
+        });
+    </script>
+</body>
+</html>

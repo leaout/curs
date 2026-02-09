@@ -17,6 +17,7 @@ import threading
 import json
 import csv
 import logging
+import math
 
 # Flask应用实例
 app = Flask(__name__)
@@ -261,12 +262,18 @@ def api_get_positions():
         positions_data = []
 
         for pos in positions:
+            # 处理特殊值：将Infinity、-Infinity、NaN转换为null
+            open_price = pos.open_price
+            if open_price is not None:
+                if math.isinf(open_price) or math.isnan(open_price):
+                    open_price = None
+                    
             positions_data.append({
                 'account_id': pos.account_id,
                 'stock_code': pos.stock_code,
                 'volume': pos.volume,
                 'can_use_volume': pos.can_use_volume,
-                'open_price': pos.open_price,
+                'open_price': open_price,
                 'market_value': pos.market_value,
                 'frozen_volume': pos.frozen_volume,
                 'on_road_volume': pos.on_road_volume,
