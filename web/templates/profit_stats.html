@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>盈利统计 - 量化交易系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 500;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .stat-value.positive {
+            color: #52c41a;
+        }
+        
+        .stat-value.negative {
+            color: #ff4d4f;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        th {
+            background: #fafafa;
+            font-weight: 500;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        tr:hover {
+            background: #fafafa;
+        }
+        
+        .profit-positive {
+            color: #52c41a;
+        }
+        
+        .profit-negative {
+            color: #ff4d4f;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+        }
+        
+        .error-message {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 24px;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            color: #666;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .summary-label {
+            color: #666;
+        }
+        
+        .summary-value {
+            font-weight: 600;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 盈利统计分析</h1>
+    </div>
+    
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('overview')">概览</div>
+            <div class="tab" onclick="switchTab('holding-days')">持有天数统计</div>
+            <div class="tab" onclick="switchTab('max-profit-time')">最大盈利时间</div>
+        </div>
+        
+        <!-- 概览页面 -->
+        <div id="overview" class="tab-content active">
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">总交易次数</div>
+                    <div class="stat-value" id="total-trades">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">成交次数</div>
+                    <div class="stat-value" id="filled-count">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">撤单次数</div>
+                    <div class="stat-value" id="cancelled-count">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">成交率</div>
+                    <div class="stat-value" id="fill-rate">-</div>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">平均盈利</div>
+                    <div class="stat-value" id="avg-profit">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">最大盈利</div>
+                    <div class="stat-value positive" id="max-profit">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">胜率</div>
+                    <div class="stat-value" id="win-rate">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">平均持仓时间</div>
+                    <div class="stat-value" id="avg-hold-time">-</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">盈利分布</div>
+                <div class="chart-wrapper">
+                    <canvas id="profitDistChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">最大盈利时间统计</div>
+                <div class="chart-wrapper">
+                    <canvas id="maxProfitTimeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 持有天数统计页面 -->
+        <div id="holding-days" class="tab-content">
+            <div class="chart-container">
+                <div class="chart-title">按持有天数统计盈利</div>
+                <div class="chart-wrapper">
+                    <canvas id="holdingDaysChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">持有天数详细统计</div>
+                <table id="holding-days-table">
+                    <thead>
+                        <tr>
+                            <th>持有天数</th>
+                            <th>交易次数</th>
+                            <th>平均盈利</th>
+                            <th>总盈利</th>
+                            <th>最大盈利</th>
+                            <th>最小盈利</th>
+                            <th>胜率</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="7" class="loading">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 最大盈利时间页面 -->
+        <div id="max-profit-time" class="tab-content">
+            <div class="chart-container">
+                <div class="chart-title">从信号到最大盈利的时间分布</div>
+                <div class="chart-wrapper">
+                    <canvas id="maxProfitTimeDistChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">最大盈利时间详细统计</div>
+                <table id="max-profit-table">
+                    <thead>
+                        <tr>
+                            <th>达最大盈利时间</th>
+                            <th>次数</th>
+                            <th>平均最大盈利</th>
+                            <th>最大盈利</th>
+                            <th>最小盈利</th>
+                            <th>平均耗时</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="6" class="loading">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let profitDistChart = null;
+        let maxProfitTimeChart = null;
+        let holdingDaysChart = null;
+        let maxProfitTimeDistChart = null;
+        
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            
+            if (tabId === 'overview') {
+                loadOverview();
+            } else if (tabId === 'holding-days') {
+                loadHoldingDays();
+            } else if (tabId === 'max-profit-time') {
+                loadMaxProfitTime();
+            }
+        }
+        
+        async function loadOverview() {
+            try {
+                const response = await axios.get('/api/profit/stats');
+                const data = response.data;
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                if (data.message && data.total_trades === 0) {
+                    // 没有数据，显示提示
+                    document.getElementById('total-trades').textContent = '0';
+                    document.getElementById('filled-count').textContent = '0';
+                    document.getElementById('cancelled-count').textContent = '0';
+                    document.getElementById('fill-rate').textContent = '0%';
+                    document.getElementById('avg-profit').textContent = '0%';
+                    document.getElementById('max-profit').textContent = '0%';
+                    document.getElementById('win-rate').textContent = '0%';
+                    document.getElementById('avg-hold-time').textContent = '0小时';
+                    showError(data.message || '暂无盈利数据，请确保策略已运行并成交');
+                    return;
+                }
+                
+                // 更新统计卡片
+                document.getElementById('total-trades').textContent = data.total_trades || 0;
+                document.getElementById('filled-count').textContent = data.filled_count || 0;
+                document.getElementById('cancelled-count').textContent = data.cancelled_count || 0;
+                document.getElementById('fill-rate').textContent = (data.fill_rate || 0).toFixed(1) + '%';
+                
+                const avgProfit = data.avg_profit_pct || 0;
+                const avgEl = document.getElementById('avg-profit');
+                avgEl.textContent = avgProfit.toFixed(2) + '%';
+                avgEl.className = 'stat-value ' + (avgProfit >= 0 ? 'positive' : 'negative');
+                
+                document.getElementById('max-profit').textContent = (data.max_profit_pct || 0).toFixed(2) + '%';
+                document.getElementById('win-rate').textContent = (data.win_rate || 0).toFixed(1) + '%';
+                
+                const avgHold = data.avg_hold_seconds || 0;
+                const holdHours = avgHold / 3600;
+                document.getElementById('avg-hold-time').textContent = holdHours < 24 
+                    ? holdHours.toFixed(1) + '小时' 
+                    : (holdHours / 24).toFixed(1) + '天';
+                
+                // 绘制图表
+                renderOverviewCharts(data);
+                
+            } catch (error) {
+                showError('加载数据失败: ' + error.message);
+            }
+        }
+        
+        function renderOverviewCharts(data) {
+            const ctx1 = document.getElementById('profitDistChart').getContext('2d');
+            const ctx2 = document.getElementById('maxProfitTimeChart').getContext('2d');
+            
+            if (profitDistChart) profitDistChart.destroy();
+            if (maxProfitTimeChart) maxProfitTimeChart.destroy();
+            
+            // 盈利分布饼图
+            const profits = [];
+            const labels = [];
+            
+            // 从 profit_to_max_time 获取数据
+            if (data.profit_to_max_time && data.profit_to_max_time.details) {
+                const details = data.profit_to_max_time.details;
+                
+                // 按股票统计最大盈利
+                const stockMaxProfits = {};
+                details.forEach(d => {
+                    if (d.stock_code) {
+                        if (!stockMaxProfits[d.stock_code] || d.max_profit_pct > stockMaxProfits[d.stock_code]) {
+                            stockMaxProfits[d.stock_code] = d.max_profit_pct;
+                        }
+                    }
+                });
+                
+                Object.values(stockMaxProfits).forEach(p => profits.push(p));
+            }
+            
+            profitDistChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: profits.map((_, i) => `交易${i+1}`),
+                    datasets: [{
+                        label: '盈利%',
+                        data: profits,
+                        backgroundColor: profits.map(p => p >= 0 ? '#52c41a' : '#ff4d4f'),
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: '盈利 %' }
+                        }
+                    }
+                }
+            });
+            
+            // 最大盈利时间统计
+            const ptm = data.profit_to_max_time || {};
+            const timeLabels = ['当天', '1天内', '2天内', '3天内', '5天内', '10天内', '10天+'];
+            const timeData = timeLabels.map(label => {
+                const item = (ptm.details || []).find(d => d.max_profit_time === label);
+                return item ? item.count : 0;
+            });
+            
+            maxProfitTimeChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: timeLabels,
+                    datasets: [{
+                        label: '交易次数',
+                        data: timeData,
+                        backgroundColor: '#667eea',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+        
+        async function loadHoldingDays() {
+            try {
+                const response = await axios.get('/api/profit/holding-days');
+                const data = response.data;
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                const holdingStats = data.holding_stats || [];
+                
+                // 渲染表格
+                const tbody = document.querySelector('#holding-days-table tbody');
+                if (holdingStats.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="loading">暂无数据</td></tr>';
+                } else {
+                    tbody.innerHTML = holdingStats.map(stat => `
+                        <tr>
+                            <td>${stat.holding_days}</td>
+                            <td>${stat.trade_count}</td>
+                            <td class="${stat.avg_profit_pct >= 0 ? 'profit-positive' : 'profit-negative'}">${stat.avg_profit_pct.toFixed(2)}%</td>
+                            <td class="${stat.total_profit_pct >= 0 ? 'profit-positive' : 'profit-negative'}">${stat.total_profit_pct.toFixed(2)}%</td>
+                            <td class="profit-positive">${stat.max_profit_pct.toFixed(2)}%</td>
+                            <td class="${stat.min_profit_pct >= 0 ? 'profit-positive' : 'profit-negative'}">${stat.min_profit_pct.toFixed(2)}%</td>
+                            <td>${stat.win_rate.toFixed(1)}%</td>
+                        </tr>
+                    `).join('');
+                }
+                
+                // 渲染图表
+                const ctx = document.getElementById('holdingDaysChart').getContext('2d');
+                if (holdingDaysChart) holdingDaysChart.destroy();
+                
+                holdingDaysChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: holdingStats.map(s => s.holding_days),
+                        datasets: [{
+                            label: '平均盈利 %',
+                            data: holdingStats.map(s => s.avg_profit_pct),
+                            backgroundColor: holdingStats.map(s => s.avg_profit_pct >= 0 ? '#52c41a' : '#ff4d4f'),
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                showError('加载数据失败: ' + error.message);
+            }
+        }
+        
+        async function loadMaxProfitTime() {
+            try {
+                const response = await axios.get('/api/profit/max-profit-time');
+                const data = response.data;
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                const maxProfitStats = data.max_profit_stats || [];
+                
+                // 渲染表格
+                const tbody = document.querySelector('#max-profit-table tbody');
+                if (maxProfitStats.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="loading">暂无数据</td></tr>';
+                } else {
+                    tbody.innerHTML = maxProfitStats.map(stat => `
+                        <tr>
+                            <td>${stat.time_to_max}</td>
+                            <td>${stat.count}</td>
+                            <td class="profit-positive">${stat.avg_max_profit_pct.toFixed(2)}%</td>
+                            <td class="profit-positive">${stat.max_profit_pct.toFixed(2)}%</td>
+                            <td class="${stat.min_profit_pct >= 0 ? 'profit-positive' : 'profit-negative'}">${stat.min_profit_pct.toFixed(2)}%</td>
+                            <td>${(stat.avg_time_seconds / 3600).toFixed(1)}小时</td>
+                        </tr>
+                    `).join('');
+                }
+                
+                // 渲染图表
+                const ctx = document.getElementById('maxProfitTimeDistChart').getContext('2d');
+                if (maxProfitTimeDistChart) maxProfitTimeDistChart.destroy();
+                
+                maxProfitTimeDistChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: maxProfitStats.map(s => s.time_to_max),
+                        datasets: [{
+                            label: '次数',
+                            data: maxProfitStats.map(s => s.count),
+                            backgroundColor: '#764ba2',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                showError('加载数据失败: ' + error.message);
+            }
+        }
+        
+        function showError(message) {
+            const container = document.querySelector('.container');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            container.insertBefore(errorDiv, container.firstChild);
+        }
+        
+        // 初始化加载
+        loadOverview();
+    </script>
+</body>
+</html>

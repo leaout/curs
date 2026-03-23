@@ -411,6 +411,17 @@ class QmtStockAccount(Account):
             return fix_result_order_id
         return None
 
+    def cancel_order(self, order_id):
+        """取消订单"""
+        try:
+            # QMT撤单方法
+            result = self.xt_trader.cancel_order(self.account, order_id)
+            logger.info(f"撤单结果: order_id={order_id}, result={result}")
+            return result
+        except Exception as e:
+            logger.error(f"撤单失败: order_id={order_id}, error={e}")
+            return None
+    
     def query_orders(self):
         orders = self.xt_trader.query_stock_orders(self.account, False)
         return orders

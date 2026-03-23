@@ -4,12 +4,15 @@ from curs.cursglobal import *
 from curs.api import *
 from curs.broker.qmt_account import QmtStockAccount,Position
 from curs.database import get_db_manager
+from curs.broker.order_tracker import OrderTracker, OrderCallback
+from curs.broker.profit_stats import ProfitStats
 import time
 import json
 import os
 import random
 from datetime import datetime, timedelta
 import math
+import threading
 
 # 初始化策略
 def init(context):
@@ -20,8 +23,26 @@ def init(context):
     account_id = CursGlobal.get_instance().config["base"]["accounts"]["qmt_account_id"]
     trader_name = CursGlobal.get_instance().config["base"]["accounts"]["qmt_trader_name"]
     context.account = QmtStockAccount(path=qmt_path,account_id=account_id,trader_name=trader_name, total_cash=100000)  # 初始资金为10万元
+    
+    # 初始化订单跟踪器 (最大等待30秒超时，5秒检查间隔)
+    context.order_tracker = OrderTracker(max_wait_seconds=30, check_interval=5)
+    context.order_tracker.start()
+    
+    # 初始化盈利统计
+    context.profit_stats = ProfitStats(data_dir=os.path.join(os.getcwd(), 'data/strategy_records'))
+    
+    # 设置订单回调
+    if hasattr(context.account, 'xt_trader'):
+        context.order_callback = OrderCallback(
+            context.order_tracker, 
+            context.account.xt_trader, 
+            context.account.account
+        )
+    
     # 存储每只股票的上次挂单量
     context.last_order_volumes = {}
+    # 存储交易记录（包含峰值价格）
+    context.trade_records = {}
     #pre ticksFalse
     context.pre_ticks = {}
     # 监控间隔时间（秒）
@@ -102,10 +123,24 @@ def load_historical_trades(context):
 
 def before_trading(context):
     """盘前初始化"""
+    try:
+        _before_trading_inner(context)
+    except Exception as e:
+        logger.error(f"盘前初始化异常: {e}", exc_info=True)
+
+
+def _before_trading_inner(context):
+    """盘前初始化内部实现"""
     # 清空挂单量记录
     context.last_order_volumes.clear()
     # 清空每日信号记录
     context.daily_signaled_stocks.clear()
+    # 清空交易记录
+    context.trade_records.clear()
+    
+    # 重新启动订单跟踪器
+    if hasattr(context, 'order_tracker'):
+        context.order_tracker.start()
     
     # 计算并记录历史成功率
     total_trades = len(context.historical_trades) + context.total_count
@@ -123,11 +158,18 @@ def before_trading(context):
 # 新增卖出处理函数
 def sell_strategy(context,stock_code,tick):
     """次日卖出策略组合"""
-    # 策略2：10:00-10:30卖出窗口        
-    current_time = context.current_time.time()
-    current_time_of_day = current_time.time()
+    try:
+        _sell_strategy_inner(context, stock_code, tick)
+    except Exception as e:
+        logger.error(f"卖出策略异常: stock_code={stock_code}, {e}", exc_info=True)
 
-    if not (datetime.time(10, 0) <= current_time_of_day <= datetime.time(10, 30)):
+
+def _sell_strategy_inner(context, stock_code, tick):
+    """卖出策略内部实现"""
+    # 策略2：10:00-10:30卖出窗口        
+    current_time = context.current_time
+
+    if not (datetime.time(10, 0) <= current_time.time() <= datetime.time(10, 30)):
         return
     #如果股票当天涨停
     position = context.account.get_position(stock_code)
@@ -160,13 +202,51 @@ def sell_strategy(context,stock_code,tick):
     if current_price < max_peak * 0.98:
         order_volume = position.quantity
         if context.account.sell_fix_price(stock_code,order_volume, current_price):
+            # 计算盈利
+            buy_price = context.trade_records[stock_code].get('buy_price', current_price)
+            profit_pct = (current_price - buy_price) / buy_price * 100
+            
+            context.profit_stats.record_sell(stock_code, current_price, order_volume)
+            
+            # 保存到数据库
+            try:
+                db_manager = get_db_manager()
+                db_manager.update_profit_record_sold(
+                    stock_code=stock_code,
+                    sell_price=current_price,
+                    sell_time=datetime.now(),
+                    sell_volume=order_volume,
+                    profit_pct=profit_pct
+                )
+            except Exception as e:
+                logger.error(f"更新数据库盈利记录失败: {e}")
+            
             log_sale('dynamic_stop', stock_code, order_volume)
     
-
+    
     
     # 策略3：尾盘强制清仓
-    if current_time >= datetime.time(14, 55):
+    if current_time.time() >= datetime.time(14, 55):
         if context.account.sell_fix_price(stock_code, current_price, position.quantity):
+            # 计算盈利
+            buy_price = context.trade_records[stock_code].get('buy_price', current_price)
+            profit_pct = (current_price - buy_price) / buy_price * 100
+            
+            context.profit_stats.record_sell(stock_code, current_price, position.quantity)
+            
+            # 保存到数据库
+            try:
+                db_manager = get_db_manager()
+                db_manager.update_profit_record_sold(
+                    stock_code=stock_code,
+                    sell_price=current_price,
+                    sell_time=datetime.now(),
+                    sell_volume=position.quantity,
+                    profit_pct=profit_pct
+                )
+            except Exception as e:
+                logger.error(f"更新数据库盈利记录失败: {e}")
+            
             log_sale('force_close', stock_code, position.quantity)
 
 def log_sale(strategy, code, vol):
@@ -174,7 +254,15 @@ def log_sale(strategy, code, vol):
 
 def handle_tick(context, ticks):
     """处理tick数据"""
-     # 全局风险控制 --------------------------
+    try:
+        _handle_tick_inner(context, ticks)
+    except Exception as e:
+        logger.error(f"处理tick异常: {e}", exc_info=True)
+
+
+def _handle_tick_inner(context, ticks):
+    """处理tick数据内部实现"""
+    # 全局风险控制 --------------------------
     # # 1. 单日最大回撤控制
     # if context.account.total_assets < context.account.init_assets * 0.98:
     #     logger.warning("触发单日最大回撤2%，停止交易")
@@ -216,6 +304,59 @@ def handle_tick(context, ticks):
         current_time = datetime.fromtimestamp(tick.get('time', 0) / 1000)
         context.current_time= current_time
         current_time_of_day = current_time.time()
+        
+        # 更新价格到订单跟踪器和盈利统计
+        current_price = tick.get('lastPrice', 0)
+        if current_price > 0:
+            context.order_tracker.update_price(stock_code, current_price)
+            context.profit_stats.update_price(stock_code, current_price)
+        
+        # 检查待成交订单状态
+        pending_orders = context.order_tracker.get_pending_orders()
+        for order in pending_orders:
+            if order.stock_code == stock_code:
+                # 检查持仓是否已有该股票（说明已成交）
+                position = context.account.get_position(stock_code)
+                if position and position.quantity > 0:
+                    # 成交了！
+                    context.order_tracker.update_order_status(
+                        order.order_id,
+                        "FULL",
+                        filled_volume=position.quantity,
+                        avg_price=position.avg_price
+                    )
+                    context.profit_stats.record_filled(
+                        stock_code,
+                        filled_price=position.avg_price,
+                        filled_volume=position.quantity
+                    )
+                    
+                    # 保存到数据库
+                    try:
+                        db_manager = get_db_manager()
+                        db_manager.update_profit_record_filled(
+                            stock_code=stock_code,
+                            filled_price=position.avg_price,
+                            filled_time=datetime.now(),
+                            filled_volume=position.quantity
+                        )
+                    except Exception as e:
+                        logger.error(f"更新数据库盈利记录失败: {e}")
+                else:
+                    # 检查是否超时未成交（超过60秒）
+                    wait_seconds = (current_time - order.order_time).total_seconds()
+                    if wait_seconds > 60:
+                        # 超时未成交，标记为失败（交易机会已丧失）
+                        context.order_tracker.update_order_status(
+                            order.order_id,
+                            "TIMEOUT",
+                            filled_volume=0,
+                            avg_price=0
+                        )
+                        logger.warning(f"订单超时未成交，已放弃: {order.order_id} - {stock_code}")
+                    
+                    logger.info(f"检测到订单成交: {stock_code} - 数量: {position.quantity}")
+        
         # 过滤时间段:9:30-14:57
         if not (context.open_time <= current_time_of_day <= context.close_time):
              continue
@@ -285,6 +426,14 @@ def handle_tick(context, ticks):
 
 def buy_at_limit_up(context, stock_code, price):
     """以涨停价买入"""
+    try:
+        _buy_at_limit_up_inner(context, stock_code, price)
+    except Exception as e:
+        logger.error(f"买入策略异常: stock_code={stock_code}, price={price}, {e}", exc_info=True)
+
+
+def _buy_at_limit_up_inner(context, stock_code, price):
+    """以涨停价买入内部实现"""
     # return
     if context.pre_limit_up_stocks and stock_code in context.pre_limit_up_stocks:
         # logger.info(f"昨日涨停股票：{stock_code}，不再买入")
@@ -300,29 +449,89 @@ def buy_at_limit_up(context, stock_code, price):
         # 生成订单ID
         order_id = str(random.randint(1000000, 9999999))
 
-        # 保存买入信号到数据库
+        # 先保存买入信号到数据库（不管下单成功与否都要记录信号）
         db_manager = get_db_manager()
-        signal_saved = db_manager.save_strategy_signal(
-            strategy_name='limit_up_strategy',
+        try:
+            signal_saved = db_manager.save_strategy_signal(
+                strategy_name='limit_up_strategy',
+                stock_code=stock_code,
+                signal_type='BUY',
+                price=price,
+                volume=buy_volume,
+                order_id=order_id,
+                status='PENDING'
+            )
+            
+            if signal_saved:
+                logger.info(f"策略信号已保存到数据库: {stock_code} - BUY - {price}")
+            else:
+                logger.warning(f"策略信号保存返回失败: {stock_code}, 将重试")
+                # 重试一次
+                signal_saved = db_manager.save_strategy_signal(
+                    strategy_name='limit_up_strategy',
+                    stock_code=stock_code,
+                    signal_type='BUY',
+                    price=price,
+                    volume=buy_volume,
+                    order_id=order_id,
+                    status='PENDING'
+                )
+        except Exception as e:
+            logger.error(f"保存策略信号到数据库异常: {e}, stock_code={stock_code}")
+            signal_saved = False
+
+        # 注册订单到跟踪器
+        context.order_tracker.register_order(
             stock_code=stock_code,
-            signal_type='BUY',
-            price=price,
-            volume=buy_volume,
             order_id=order_id,
-            status='PENDING'
+            volume=buy_volume,
+            price=price,
+            order_type="BUY"
         )
 
-        if signal_saved:
-            logger.info(f"策略信号已保存到数据库: {stock_code} - BUY - {price}")
-        else:
-            logger.error(f"保存策略信号到数据库失败: {stock_code}")
+        # 记录买入到盈利统计（内存）
+        context.profit_stats.record_buy(
+            stock_code=stock_code,
+            order_id=order_id,
+            price=price,
+            volume=buy_volume,
+            buy_time=context.current_time
+        )
+
+        # 初始化交易记录（用于追踪峰值价格）
+        if stock_code not in context.trade_records:
+            context.trade_records[stock_code] = {
+                'peak_price': price,
+                'buy_price': price,
+                'buy_time': context.current_time
+            }
 
         # 下单
-        if account.buy_fix_price(stock_code,buy_volume, price):
+        order_success = False
+        try:
+            order_success = account.buy_fix_price(stock_code,buy_volume, price)
+        except Exception as e:
+            logger.error(f"下单异常: {stock_code}, {e}")
+        
+        if order_success:
             logger.info(f"涨停板买入：{stock_code}，价格：{price}，数量：{buy_volume}, 时间：{context.current_time}")
 
             # 更新信号状态为已执行
-            db_manager.update_signal_status_by_order_id(order_id, 'EXECUTED')
+            try:
+                db_manager.update_signal_status_by_order_id(order_id, 'EXECUTED')
+            except Exception as e:
+                logger.error(f"更新信号状态为EXECUTED失败: {e}")
+            
+            # 保存盈利记录到数据库
+            try:
+                db_manager.save_profit_record(
+                    stock_code=stock_code,
+                    order_id=order_id,
+                    buy_price=price,
+                    buy_time=context.current_time
+                )
+            except Exception as e:
+                logger.error(f"保存盈利记录到数据库失败: {e}")
 
             # 记录交易
             trade_record = {
@@ -335,9 +544,12 @@ def buy_at_limit_up(context, stock_code, price):
             context.daily_trades.append(trade_record)
             context.total_count += 1
         else:
-            logger.error(f"买入失败：{stock_code}，价格：{price}，数量：{buy_volume}")
-            # 更新信号状态为取消
-            db_manager.update_signal_status_by_order_id(order_id, 'CANCELLED')
+            logger.warning(f"买入下单返回失败：{stock_code}，价格：{price}，数量：{buy_volume}")
+            # 更新信号状态为取消（但信号本身已保存）
+            try:
+                db_manager.update_signal_status_by_order_id(order_id, 'CANCELLED')
+            except Exception as e:
+                logger.error(f"更新信号状态为CANCELLED失败: {e}")
 
 def save_historical_trades(context):
     """保存历史交易数据"""
@@ -373,8 +585,25 @@ def check_trade_outcomes(context):
 
 def after_trading(context):
     """盘后处理"""
+    try:
+        _after_trading_inner(context)
+    except Exception as e:
+        logger.error(f"盘后处理异常: {e}", exc_info=True)
+
+
+def _after_trading_inner(context):
+    """盘后处理内部实现"""
+    # 停止订单跟踪器
+    if hasattr(context, 'order_tracker'):
+        context.order_tracker.stop()
+    
     # 检查当日交易结果
     check_trade_outcomes(context)
     save_historical_trades(context)
     context.account.save_daily_account_info('limit_up_strategy')
     logger.info(f"当日交易记录：{context.daily_trades}")
+    
+    # 输出盈利统计报告
+    if hasattr(context, 'profit_stats'):
+        report = context.profit_stats.get_summary_report()
+        logger.info(f"\n{report}")

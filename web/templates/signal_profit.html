@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>信号盈利分析 - 量化交易系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 500;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .toolbar {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .stat-value.positive { color: #52c41a; }
+        .stat-value.negative { color: #ff4d4f; }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        
+        .chart-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        
+        .chart-wrapper {
+            height: 300px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        th {
+            background: #fafafa;
+            font-weight: 500;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        tr:hover { background: #fafafa; }
+        
+        .profit-positive { color: #52c41a; }
+        .profit-negative { color: #ff4d4f; }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .error-message {
+            background: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            color: #666;
+        }
+        
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .info-text {
+            color: #666;
+            font-size: 13px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📈 信号盈利分析</h1>
+    </div>
+    
+    <div class="container">
+        <div class="toolbar">
+            <button class="btn" id="analyzeBtn" onclick="startAnalysis()">开始分析</button>
+            <select id="priceType" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                <option value="high">最高价(当日卖点)</option>
+                <option value="close">收盘价</option>
+                <option value="avg">均价</option>
+            </select>
+            <span class="info-text">基于T+1制度，从第2天开始统计</span>
+            <span id="loadingText" style="display:none; color: #666; margin-left: 12px;">分析中，请稍候...</span>
+        </div>
+        
+        <div id="errorContainer"></div>
+        
+        <div id="resultContainer" style="display:none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">分析信号数</div>
+                    <div class="stat-value" id="totalSignals">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">平均最大盈利</div>
+                    <div class="stat-value" id="avgMaxProfit">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">最佳持有天数</div>
+                    <div class="stat-value" id="bestHoldingDays">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">胜率</div>
+                    <div class="stat-value" id="overallWinRate">-</div>
+                </div>
+            </div>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('summary')">盈利汇总</div>
+                <div class="tab" onclick="switchTab('details')">详细数据</div>
+            </div>
+            
+            <div id="summary" class="tab-content active">
+                <div class="chart-container">
+                    <div class="chart-title">持有天数 vs 平均盈利</div>
+                    <div class="chart-wrapper">
+                        <canvas id="profitChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">持有天数 vs 胜率</div>
+                    <div class="chart-wrapper">
+                        <canvas id="winRateChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">各持有天数详细统计</div>
+                    <table id="summaryTable">
+                        <thead>
+                            <tr>
+                                <th>持有天数</th>
+                                <th>样本数</th>
+                                <th>平均盈利</th>
+                                <th>最大盈利</th>
+                                <th>最小盈利</th>
+                                <th>胜率</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="details" class="tab-content">
+                <div class="chart-container">
+                    <div class="chart-title">各信号盈利曲线</div>
+                    <div class="chart-wrapper">
+                        <canvas id="profitCurveChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">信号详细数据</div>
+                    <table id="detailsTable">
+                        <thead>
+                            <tr>
+                                <th>股票代码</th>
+                                <th>股票名称</th>
+                                <th>买入价</th>
+                                <th>信号时间</th>
+                                <th>最大盈利%</th>
+                                <th>最大盈利天数</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let profitChart = null;
+        let winRateChart = null;
+        let profitCurveChart = null;
+        let analysisData = null;
+        
+        async function startAnalysis() {
+            const btn = document.getElementById('analyzeBtn');
+            const loadingText = document.getElementById('loadingText');
+            const errorContainer = document.getElementById('errorContainer');
+            const resultContainer = document.getElementById('resultContainer');
+            const priceType = document.getElementById('priceType').value;
+            
+            btn.disabled = true;
+            loadingText.style.display = 'inline';
+            errorContainer.innerHTML = '';
+            resultContainer.style.display = 'none';
+            
+            try {
+                const response = await axios.get('/api/signals/profit-analysis?price_type=' + priceType);
+                const data = response.data;
+                
+                if (data.error) {
+                    errorContainer.innerHTML = `<div class="error-message">${data.error}</div>`;
+                    return;
+                }
+                
+                analysisData = data;
+                renderResults(data);
+                resultContainer.style.display = 'block';
+                
+            } catch (error) {
+                errorContainer.innerHTML = `<div class="error-message">分析失败: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                loadingText.style.display = 'none';
+            }
+        }
+        
+        function renderResults(data) {
+            document.getElementById('totalSignals').textContent = data.total_signals || 0;
+            
+            // 计算总体统计
+            let allProfits = [];
+            let bestDays = [];
+            let wins = 0;
+            let total = 0;
+            
+            if (data.summary) {
+                data.summary.forEach(s => {
+                    allProfits.push(s.avg_profit_pct * s.count);
+                    bestDays.push({ days: s.holding_days, profit: s.avg_profit_pct });
+                    wins += s.count * s.win_rate / 100;
+                    total += s.count;
+                });
+                
+                const avgMax = data.summary.reduce((sum, s) => sum + (s.max_profit_pct * s.count), 0) / total;
+                document.getElementById('avgMaxProfit').textContent = avgMax.toFixed(2) + '%';
+                document.getElementById('avgMaxProfit').className = 'stat-value ' + (avgMax >= 0 ? 'positive' : 'negative');
+                
+                // 找最佳持有天数
+                const best = bestDays.reduce((a, b) => a.profit > b.profit ? a : b);
+                document.getElementById('bestHoldingDays').textContent = best.days;
+                
+                document.getElementById('overallWinRate').textContent = (wins / total * 100).toFixed(1) + '%';
+            }
+            
+            // 渲染图表
+            renderCharts(data);
+            
+            // 渲染表格
+            renderTables(data);
+        }
+        
+        function renderCharts(data) {
+            if (!data.summary) return;
+            
+            const labels = data.summary.map(s => s.holding_days);
+            const profits = data.summary.map(s => s.avg_profit_pct);
+            const winRates = data.summary.map(s => s.win_rate);
+            
+            // 盈利图表
+            const ctx1 = document.getElementById('profitChart').getContext('2d');
+            if (profitChart) profitChart.destroy();
+            profitChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '平均盈利%',
+                        data: profits,
+                        backgroundColor: profits.map(p => p >= 0 ? '#52c41a' : '#ff4d4f'),
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+            
+            // 胜率图表
+            const ctx2 = document.getElementById('winRateChart').getContext('2d');
+            if (winRateChart) winRateChart.destroy();
+            winRateChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '胜率%',
+                        data: winRates,
+                        backgroundColor: '#667eea',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, max: 100 } }
+                }
+            });
+            
+            // 盈利曲线图
+            if (data.details && data.details.length > 0) {
+                const ctx3 = document.getElementById('profitCurveChart').getContext('2d');
+                if (profitCurveChart) profitCurveChart.destroy();
+                
+                const datasets = data.details.slice(0, 10).map((d, i) => ({
+                    label: d.stock_code,
+                    data: d.daily_profits ? d.daily_profits.map(p => p.profit_pct) : [],
+                    borderColor: `hsl(${i * 36}, 70%, 50%)`,
+                    fill: false,
+                    tension: 0.1
+                }));
+                
+                // 获取最大天数
+                const maxDays = Math.max(...datasets.map(d => d.data.length));
+                const dayLabels = Array.from({length: maxDays}, (_, i) => `第${i+1}天`);
+                
+                profitCurveChart = new Chart(ctx3, {
+                    type: 'line',
+                    data: {
+                        labels: dayLabels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'right' } },
+                        scales: { y: { beginAtZero: false } }
+                    }
+                });
+            }
+        }
+        
+        function renderTables(data) {
+            // 汇总表格
+            const summaryTbody = document.querySelector('#summaryTable tbody');
+            if (data.summary) {
+                summaryTbody.innerHTML = data.summary.map(s => `
+                    <tr>
+                        <td>${s.holding_days}</td>
+                        <td>${s.count}</td>
+                        <td class="${s.avg_profit_pct >= 0 ? 'profit-positive' : 'profit-negative'}">${s.avg_profit_pct.toFixed(2)}%</td>
+                        <td class="profit-positive">${s.max_profit_pct.toFixed(2)}%</td>
+                        <td class="${s.min_profit_pct >= 0 ? 'profit-positive' : 'profit-negative'}">${s.min_profit_pct.toFixed(2)}%</td>
+                        <td>${s.win_rate.toFixed(1)}%</td>
+                    </tr>
+                `).join('');
+            }
+            
+            // 详细表格
+            const detailsTbody = document.querySelector('#detailsTable tbody');
+            if (data.details) {
+                detailsTbody.innerHTML = data.details.map(d => `
+                    <tr>
+                        <td>${d.stock_code}</td>
+                        <td>${d.stock_name || '-'}</td>
+                        <td>${d.buy_price?.toFixed(2) || '-'}</td>
+                        <td>${d.buy_time || '-'}</td>
+                        <td class="profit-positive">${(d.max_profit_pct || 0).toFixed(2)}%</td>
+                        <td>${d.max_profit_day || '-'}天</td>
+                    </tr>
+                `).join('');
+            }
+        }
+        
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+    </script>
+</body>
+</html>
