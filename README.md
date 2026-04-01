@@ -93,7 +93,7 @@ database:
 
 qmt:
   path: E:\qmt\userdata_mini
-  account_id: "8886692024"
+  account_id: "YOUR_ACCOUNT_ID"
   trader_name: curs
 ```
 
@@ -101,7 +101,7 @@ qmt:
 
 ```bash
 set CURS_DB_PASSWORD=your_password
-set CURS_QMT_ACCOUNT_ID=8886692024
+set CURS_QMT_ACCOUNT_ID=YOUR_ACCOUNT_ID
 ```
 
 ## 项目结构
