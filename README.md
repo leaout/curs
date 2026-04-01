@@ -59,7 +59,7 @@ python setup.py install
 
 ## 配置
 
-配置文件 `config.yml`：
+配置文件 `config.yml`（敏感配置请使用 `config.local.yml`）：
 
 ```yaml
 version: 0.1.0
@@ -70,17 +70,38 @@ database:
   port: 6432
   database: postgres
   user: postgres
-  password: chenly.1
+  password: ""  # 建议使用 config.local.yml
 
 # QMT 配置
 qmt:
-  path: E:\qmt\userdata_mini
-  account_id: "8886692024"
-  trader_name: curs
+  path: ""
+  account_id: ""  # 建议使用 config.local.yml
+  trader_name: ""
 
 # 策略配置
 strategy:
   path: ./strategies
+```
+
+### 本地配置
+
+敏感信息请放在 `config.local.yml`（已被 gitignore 忽略）：
+
+```yaml
+database:
+  password: your_password
+
+qmt:
+  path: E:\qmt\userdata_mini
+  account_id: "8886692024"
+  trader_name: curs
+```
+
+或使用环境变量：
+
+```bash
+set CURS_DB_PASSWORD=your_password
+set CURS_QMT_ACCOUNT_ID=8886692024
 ```
 
 ## 项目结构
