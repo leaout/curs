@@ -2,6 +2,8 @@
 
 Curs 是一个个人自动化量化投资平台。
 
+[English Version](README_EN.md) | 中文版
+
 ## 功能特性
 
 - **实时行情** - 支持从 QMT 获取实时 Tick 数据
