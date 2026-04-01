@@ -10,7 +10,8 @@ from xtquant.xttype import StockAccount, XtPosition
 from curs.broker.account import Account,Position
 
 logger = logging.getLogger(__name__)
-#https://dict.thinktrader.net/nativeApi/xttrader.html?id=e2M5nZ#%E6%88%90%E4%BA%A4xttrade
+
+
 class MyXtQuantTraderCallback(XtQuantTraderCallback):
     def __init__(self):
         super().__init__()
@@ -19,83 +20,66 @@ class MyXtQuantTraderCallback(XtQuantTraderCallback):
     def on_connected(self):
         logger.info("qmt on_connected")
 
-    def on_smt_appointment_async_response(self, response):
-        logger.info(f"qmt on_smt_appointment_async_response: {vars(response)}")
-
-    def on_cancel_order_stock_async_response(self, response):
-        logger.info(f"qmt on_cancel_order_stock_async_response: {vars(response)}")
-
     def on_disconnected(self):
-        """
-        连接断开
-        :return:
-        """
         logger.warning("qmt on_disconnected, attempting to reconnect...")
         if self.account:
             threading.Thread(target=self.account.reconnect, daemon=True).start()
 
     def on_stock_order(self, order):
-        """
-        委托回报推送
-        :param order: XtOrder对象
-        :return:
-        """
         logger.info(f"qmt on_stock_order: {vars(order)}")
 
     def on_stock_asset(self, asset):
-        """
-        资金变动推送
-        :param asset: XtAsset对象
-        :return:
-        """
         logger.info(f"qmt on_stock_asset: {vars(asset)}")
 
     def on_stock_trade(self, trade):
-        """
-        成交变动推送
-        :param trade: XtTrade对象
-        :return:
-        """
         logger.info(f"qmt on_stock_trade: {vars(trade)}")
 
-    def on_stock_position(self, position):
-        """
-        持仓变动推送
-        :param position: XtPosition对象
-        :return:
-        """
-        logger.info(f"qmt on_stock_position: {vars(position)}")
-
-    def on_order_error(self, order_error):
-        """
-        委托失败推送
-        :param order_error:XtOrderError 对象
-        :return:
-        """
-        logger.info(f"qmt on_order_error: {vars(order_error)}")
-
     def on_cancel_error(self, cancel_error):
-        """
-        撤单失败推送
-        :param cancel_error: XtCancelError 对象
-        :return:
-        """
         logger.info(f"qmt on_cancel_error: {vars(cancel_error)}")
 
     def on_order_stock_async_response(self, response):
-        """
-        异步下单回报推送
-        :param response: XtOrderResponse 对象
-        :return:
-        """
         logger.info(f"qmt on_order_stock_async_response: {vars(response)}")
 
     def on_account_status(self, status):
-        """
-        :param response: XtAccountStatus 对象
-        :return:
-        """
         logger.info(f"qmt on_account_status: {vars(status)}")
+
+
+class QmtStockAccount(Account):
+    @classmethod
+    def test_connection(cls, path, account_id, trader_name, session_id=2019):
+        """测试QMT账户连接是否成功，不保持连接状态"""
+        try:
+            temp_trader = XtQuantTrader(path, session_id)
+            
+            temp_trader.start()
+            
+            connect_result = temp_trader.connect()
+            if connect_result != 0:
+                logger.warning(f"QMT连接失败: {connect_result}")
+                temp_trader.stop()
+                return False
+            
+            # 订阅账户（传入账户ID字符串）
+            subscribe_result = temp_trader.subscribe(account_id)
+            if subscribe_result != 0:
+                logger.warning(f"账户订阅失败: {subscribe_result}")
+                temp_trader.stop()
+                return False
+            
+            # 尝试查询账户资产来验证连接
+            asset = temp_trader.query_stock_asset(account_id)
+            if not asset or not hasattr(asset, 'account_id'):
+                logger.warning("无法获取账户资产，连接验证失败")
+                temp_trader.stop()
+                return False
+            
+            logger.info("QMT账户连接测试成功")
+            temp_trader.stop()
+            return True
+            
+        except Exception as e:
+            logger.error(f"QMT连接测试异常: {e}")
+            return False
 
 
 class QmtStockAccount(Account):

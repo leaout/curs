@@ -15,11 +15,16 @@ import math
 def init(context):
     """初始化涨停板策略"""
     logger.info("初始化涨停板策略")
-    # 初始化账户
-    qmt_path = CursGlobal.get_instance().config["base"]["accounts"]["qmt_path"]
-    account_id = CursGlobal.get_instance().config["base"]["accounts"]["qmt_account_id"]
-    trader_name = CursGlobal.get_instance().config["base"]["accounts"]["qmt_trader_name"]
-    context.account = QmtStockAccount(path=qmt_path,account_id=account_id,trader_name=trader_name, total_cash=100000)  # 初始资金为10万元
+    
+    # 从配置读取QMT信息
+    config = CursGlobal.get_instance().config
+    qmt_config = config.get("qmt", {})
+    
+    qmt_path = qmt_config.get("path", "")
+    account_id = qmt_config.get("account_id", "")
+    trader_name = qmt_config.get("trader_name", "")
+    
+    context.account = QmtStockAccount(path=qmt_path, account_id=account_id, trader_name=trader_name, total_cash=100000)
     
     # 存储每只股票的上次挂单量
     context.last_order_volumes = {}

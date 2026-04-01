@@ -392,6 +392,8 @@ class DatabaseManager:
         params = (trade_date,)
 
         results = self.execute_query(query, params)
+        if results is None:
+            return []
         return [row['stock_code'] for row in results]
 
     def get_zt_stocks_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:

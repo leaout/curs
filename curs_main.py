@@ -58,9 +58,9 @@ def check_and_start_qmt():
         config_file_path = os.path.join(current_dir, "config.yml")
         config = load_yaml(config_file_path)
 
-        qmt_path = config["base"]["accounts"]["qmt_path"]
-        qmt_account_id = config["base"]["accounts"]["qmt_account_id"]
-        qmt_trader_name = config["base"]["accounts"]["qmt_trader_name"]
+        qmt_path = config["qmt"]["path"]
+        qmt_account_id = config["qmt"]["account_id"]
+        qmt_trader_name = config["qmt"]["trader_name"]
 
         # 使用测试连接方法验证QMT账户连接
         connection_success = QmtStockAccount.test_connection(
@@ -163,9 +163,9 @@ def main():
 
     # 初始化全局QMT账户
     from curs.broker.qmt_account import QmtStockAccount
-    qmt_path = config["base"]["accounts"]["qmt_path"]
-    qmt_account_id = config["base"]["accounts"]["qmt_account_id"]
-    qmt_trader_name = config["base"]["accounts"]["qmt_trader_name"]
+    qmt_path = config["qmt"]["path"]
+    qmt_account_id = config["qmt"]["account_id"]
+    qmt_trader_name = config["qmt"]["trader_name"]
     qmt_account = QmtStockAccount(path=qmt_path, account_id=qmt_account_id, trader_name=qmt_trader_name)
 
     global_instance = CursGlobal(event_bus, config)
@@ -173,7 +173,7 @@ def main():
     strategy_manager = StrategyManager(event_bus)
 
     # 加载策略
-    load_strategy(config["base"]["strategy_path"])
+    load_strategy(config["strategy"]["path"])
 
     # 启动交易引擎
     engine.start()
