@@ -140,3 +140,9 @@ curs/
 - When one is modified, the other should be updated to match
 - Add cross-language links at the top: `[English Version](README_EN.md)` in Chinese, `[中文版](README.md)` in English
 - Add Documentation section at the bottom linking to both versions
+
+### Git Commit Rules
+- **Always ask user before committing** - Never auto-commit
+- Show changes with `git status` and `git diff` first
+- Get user confirmation before executing commit
+- Do not push to remote unless explicitly requested
