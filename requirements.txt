@@ -8,8 +8,8 @@ aiohttp
 arrow
 xlrd
 pytdx==1.67
-backtrader_plotting
-backtrader
+# backtrader_plotting
+# backtrader
 # bcolz
 mpl_finance
 # ta-lib

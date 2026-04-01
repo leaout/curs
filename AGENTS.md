@@ -112,7 +112,6 @@ curs/
 ### Key Dependencies
 - pandas, numpy - data processing
 - pytdx - market data retrieval
-- backtrader - backtesting
 - Flask - web interface
 - psycopg2-binary - PostgreSQL database
 - requests, aiohttp - HTTP operations

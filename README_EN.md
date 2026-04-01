@@ -215,7 +215,6 @@ Via Web UI `Scheduled Tasks` page:
 Core:
 - pandas, numpy - Data processing
 - pytdx - Market data
-- backtrader - Backtesting
 - Flask - Web framework
 - psycopg2-binary - PostgreSQL
 - schedule, croniter - Scheduling
@@ -232,5 +231,4 @@ Full list in `requirements.txt`
 - [x] PostgreSQL storage
 - [x] Scheduled tasks management
 - [ ] Statistics strategy (daily limit up/down/broken)
-- [ ] Backtest optimization
 - [ ] Strategy performance analysis

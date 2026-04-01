@@ -216,7 +216,6 @@ python run.py -p 8080            # Web端口8080
 核心依赖：
 - pandas, numpy - 数据处理
 - pytdx - 行情数据获取
-- backtrader - 回测框架
 - Flask - Web 框架
 - psycopg2-binary - PostgreSQL
 - schedule, croniter - 定时任务
@@ -228,5 +227,4 @@ python run.py -p 8080            # Web端口8080
 - [x] 数据存储改为 PostgreSQL
 - [x] 定时任务管理
 - [ ] 新增统计策略（当天涨停、跌停、涨停炸板）
-- [ ] 回测优化
 - [ ] 策略绩效分析
