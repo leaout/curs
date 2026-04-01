@@ -226,9 +226,19 @@ Full list in `requirements.txt`
 - [中文文档](README.md)
 - [English Documentation](README_EN.md)
 
+## Development Direction
+
+- Live Trading - Optimize trading execution and risk management
+- Strategy Optimization - Improve strategy profitability
+- Data Collection - Scheduled tasks automation (hot stocks, profit analysis, etc.)
+  - Multi-platform rankings (Eastmoney, Tonghuashun, Xueqiu, etc.)
+  - News scraping and analysis
+  - Dragon List (龙虎榜), capital flow, sector rotation
+
 ## TODO
 
 - [x] PostgreSQL storage
 - [x] Scheduled tasks management
-- [ ] Statistics strategy (daily limit up/down/broken)
+- [ ] Enhanced data collection (multi-platform, news analysis)
+- [ ] Live trading optimization
 - [ ] Strategy performance analysis
