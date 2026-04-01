@@ -4,19 +4,42 @@ from psycopg2.extras import RealDictCursor
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
+import os
 
 logger = logging.getLogger(__name__)
+
+def _load_db_config():
+    """从配置文件加载数据库配置"""
+    try:
+        from curs.utils.config import load_yaml
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.yml')
+        if os.path.exists(config_path):
+            config = load_yaml(config_path)
+            if config and 'database' in config:
+                db = config['database']
+                return {
+                    'host': db.get('host', '192.168.2.12'),
+                    'port': db.get('port', 6432),
+                    'database': db.get('database', 'postgres'),
+                    'user': db.get('user', 'postgres'),
+                    'password': db.get('password', '')
+                }
+    except Exception as e:
+        logger.warning(f"加载配置文件失败，使用默认配置: {e}")
+    return {}
+
+_default_config = _load_db_config()
 
 class DatabaseManager:
     """数据库管理器"""
 
-    def __init__(self, host="192.168.2.12", port="6432", database="postgres",
-                 user="postgres", password="chenly.1"):
-        self.host = host
-        self.port = port
-        self.database = database
-        self.user = user
-        self.password = password
+    def __init__(self, host=None, port=None, database=None,
+                 user=None, password=None):
+        self.host = host or _default_config.get('host', '192.168.2.12')
+        self.port = port or _default_config.get('port', 6432)
+        self.database = database or _default_config.get('database', 'postgres')
+        self.user = user or _default_config.get('user', 'postgres')
+        self.password = password or _default_config.get('password', 'chenly.1')
         self.connection = None
 
     def connect(self):
@@ -708,6 +731,177 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"获取已执行买入信号失败: {e}")
             return []
+
+    # ===== 定时任务管理方法 =====
+
+    def create_scheduled_tasks_table(self):
+        """创建定时任务表"""
+        sql = """
+        CREATE TABLE IF NOT EXISTS scheduled_tasks (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            task_type VARCHAR(50) NOT NULL,
+            cron_expression VARCHAR(100),
+            interval_seconds INTEGER,
+            is_enabled BOOLEAN DEFAULT TRUE,
+            last_run_at TIMESTAMP,
+            next_run_at TIMESTAMP,
+            run_count INTEGER DEFAULT 0,
+            success_count INTEGER DEFAULT 0,
+            fail_count INTEGER DEFAULT 0,
+            config JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS scheduled_task_logs (
+            id SERIAL PRIMARY KEY,
+            task_id INTEGER REFERENCES scheduled_tasks(id),
+            status VARCHAR(20) NOT NULL,
+            message TEXT,
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            finished_at TIMESTAMP,
+            duration_seconds NUMERIC(10, 2),
+            error_detail TEXT
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_task_logs_task_id ON scheduled_task_logs(task_id);
+        CREATE INDEX IF NOT EXISTS idx_task_logs_started_at ON scheduled_task_logs(started_at DESC);
+        """
+        for stmt in sql.split(';'):
+            stmt = stmt.strip()
+            if stmt:
+                self.execute_query(stmt)
+        logger.info("定时任务表创建成功")
+
+    def save_scheduled_task(self, name: str, task_type: str, cron_expression: str = None,
+                           interval_seconds: int = None, is_enabled: bool = True, 
+                           config: dict = None) -> Optional[int]:
+        """保存定时任务"""
+        query = """
+            INSERT INTO scheduled_tasks (name, task_type, cron_expression, interval_seconds, is_enabled, config)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (name) DO UPDATE SET
+                task_type = EXCLUDED.task_type,
+                cron_expression = EXCLUDED.cron_expression,
+                interval_seconds = EXCLUDED.interval_seconds,
+                is_enabled = EXCLUDED.is_enabled,
+                config = EXCLUDED.config,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING id
+        """
+        params = (name, task_type, cron_expression, interval_seconds, is_enabled, json.dumps(config) if config else None)
+        
+        try:
+            result = self.execute_query(query, params)
+            if result and len(result) > 0:
+                return result[0].get('id')
+        except Exception as e:
+            logger.error(f"保存定时任务失败: {e}")
+        return None
+
+    def get_scheduled_task(self, task_id: int) -> Optional[Dict]:
+        """获取单个定时任务"""
+        query = "SELECT * FROM scheduled_tasks WHERE id = %s"
+        params = (task_id,)
+        
+        results = self.execute_query(query, params)
+        return results[0] if results else None
+
+    def get_scheduled_task_by_name(self, name: str) -> Optional[Dict]:
+        """根据名称获取定时任务"""
+        query = "SELECT * FROM scheduled_tasks WHERE name = %s"
+        params = (name,)
+        
+        results = self.execute_query(query, params)
+        return results[0] if results else None
+
+    def get_all_scheduled_tasks(self) -> List[Dict]:
+        """获取所有定时任务"""
+        query = "SELECT * FROM scheduled_tasks ORDER BY id"
+        return self.execute_query(query) or []
+
+    def update_scheduled_task(self, task_id: int, **kwargs) -> bool:
+        """更新定时任务"""
+        fields = []
+        params = []
+        
+        for key, value in kwargs.items():
+            if key == 'config':
+                fields.append(f"{key} = %s")
+                params.append(json.dumps(value) if value else None)
+            else:
+                fields.append(f"{key} = %s")
+                params.append(value)
+        
+        if not fields:
+            return False
+        
+        fields.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(task_id)
+        
+        query = f"UPDATE scheduled_tasks SET {', '.join(fields)} WHERE id = %s"
+        
+        result = self.execute_query(query, tuple(params))
+        return result is not None
+
+    def delete_scheduled_task(self, task_id: int) -> bool:
+        """删除定时任务"""
+        query = "DELETE FROM scheduled_tasks WHERE id = %s"
+        params = (task_id,)
+        
+        result = self.execute_query(query, params)
+        return result is not None and result > 0
+
+    def enable_scheduled_task(self, task_id: int, enabled: bool) -> bool:
+        """启用/禁用定时任务"""
+        query = "UPDATE scheduled_tasks SET is_enabled = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
+        params = (enabled, task_id)
+        
+        result = self.execute_query(query, params)
+        return result is not None
+
+    def log_task_execution(self, task_id: int, status: str, message: str = None,
+                          started_at = None, finished_at = None, duration_seconds: float = None,
+                          error_detail: str = None) -> bool:
+        """记录任务执行日志"""
+        query = """
+            INSERT INTO scheduled_task_logs 
+            (task_id, status, message, started_at, finished_at, duration_seconds, error_detail)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        params = (task_id, status, message, started_at, finished_at, duration_seconds, error_detail)
+        
+        result = self.execute_query(query, params)
+        return result is not None
+
+    def get_task_logs(self, task_id: int = None, limit: int = 100) -> List[Dict]:
+        """获取任务执行日志"""
+        if task_id:
+            query = "SELECT * FROM scheduled_task_logs WHERE task_id = %s ORDER BY started_at DESC LIMIT %s"
+            params = (task_id, limit)
+        else:
+            query = "SELECT * FROM scheduled_task_logs ORDER BY started_at DESC LIMIT %s"
+            params = (limit,)
+        
+        return self.execute_query(query, params) or []
+
+    def get_task_stats(self, task_id: int) -> Optional[Dict]:
+        """获取任务统计"""
+        query = """
+            SELECT 
+                COUNT(*) as total_runs,
+                SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as fail_count,
+                AVG(duration_seconds) as avg_duration,
+                MAX(started_at) as last_run
+            FROM scheduled_task_logs
+            WHERE task_id = %s
+        """
+        params = (task_id,)
+        
+        results = self.execute_query(query, params)
+        return results[0] if results else None
 
 # 全局数据库管理器实例
 _db_manager = None

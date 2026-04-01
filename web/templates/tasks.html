@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>定时任务管理 - 量化交易平台</title>
+    <script src="/static/axios.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }
+        .header { background: rgba(255,255,255,0.95); padding: 20px 0; box-shadow: 0 2px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .header-content { max-width: 1400px; margin: 0 auto; padding: 0 30px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .nav-links { display: flex; gap: 20px; }
+        .nav-link { color: #666; text-decoration: none; padding: 10px 15px; border-radius: 6px; transition: all 0.3s; }
+        .nav-link:hover, .nav-link.active { background: #007bff; color: white; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 30px; }
+        .page-title { color: white; font-size: 32px; margin-bottom: 30px; }
+        
+        .card { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 25px; margin-bottom: 20px; }
+        .card-title { font-size: 20px; font-weight: bold; margin-bottom: 20px; color: #2c3e50; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        
+        .task-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: #555; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-group textarea { min-height: 80px; resize: vertical; }
+        
+        .task-table { width: 100%; border-collapse: collapse; }
+        .task-table th, .task-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .task-table th { background: #f8f9fa; font-weight: 600; color: #555; }
+        .task-table tr:hover { background: #f8f9fa; }
+        
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .status-enabled { background: #d4edda; color: #155724; }
+        .status-disabled { background: #f8d7da; color: #721c24; }
+        
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .stat-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+        
+        .logs-container { max-height: 400px; overflow-y: auto; }
+        .log-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .log-success { color: #28a745; }
+        .log-failed { color: #dc3545; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal.show { display: flex; justify-content: center; align-items: center; }
+        .modal-content { background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-close { font-size: 24px; cursor: pointer; color: #999; }
+        
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state h3 { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">量化交易平台</div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">首页</a>
+                <a href="/strategies" class="nav-link">策略</a>
+                <a href="/signals" class="nav-link">信号</a>
+                <a href="/stockpool" class="nav-link">股票池</a>
+                <a href="/tasks" class="nav-link active">定时任务</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h1 class="page-title">定时任务管理</h1>
+        
+        <div class="card">
+            <div class="card-title">创建新任务</div>
+            <form id="taskForm" class="task-form">
+                <div class="form-group">
+                    <label>任务名称 *</label>
+                    <input type="text" name="name" required placeholder="例如：每日收盘同步">
+                </div>
+                <div class="form-group">
+                    <label>任务类型 *</label>
+                    <select name="task_type" id="taskTypeSelect" required>
+                        <option value="">请选择...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cron表达式</label>
+                    <input type="text" name="cron_expression" placeholder="例如：0 15 * * * (每天15:00)">
+                </div>
+                <div class="form-group">
+                    <label>间隔秒数(与Cron二选一)</label>
+                    <input type="number" name="interval_seconds" placeholder="例如：3600">
+                </div>
+                <div class="form-group">
+                    <label>配置(JSON)</label>
+                    <textarea name="config" placeholder='{"key": "value"}'></textarea>
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <button type="submit" class="btn btn-primary">创建任务</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">定时任务列表</div>
+            <table class="task-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>名称</th>
+                        <th>类型</th>
+                        <th>调度</th>
+                        <th>状态</th>
+                        <th>运行统计</th>
+                        <th>上次运行</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="taskTableBody">
+                    <tr><td colspan="8" class="empty-state">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">执行日志</div>
+            <div id="logsContainer" class="logs-container">
+                <div class="empty-state">暂无日志</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentTaskId = null;
+        
+        async function loadTasks() {
+            try {
+                const response = await axios.get('/api/tasks');
+                const tasks = response.data.tasks || [];
+                const tbody = document.getElementById('taskTableBody');
+                
+                if (tasks.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><h3>暂无定时任务</h3><p>请创建第一个定时任务</p></td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = tasks.map(task => `
+                    <tr>
+                        <td>${task.id}</td>
+                        <td>${task.name}</td>
+                        <td>${task.task_type}</td>
+                        <td>${task.cron_expression || task.interval_seconds + '秒'}</td>
+                        <td><span class="status-badge ${task.is_enabled ? 'status-enabled' : 'status-disabled'}">${task.is_enabled ? '启用' : '禁用'}</span></td>
+                        <td>成功: ${task.success_count || 0} / 失败: ${task.fail_count || 0}</td>
+                        <td>${task.last_run_at || '从未运行'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning" onclick="toggleTask(${task.id}, ${!task.is_enabled})">${task.is_enabled ? '禁用' : '启用'}</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteTask(${task.id})">删除</button>
+                            <button class="btn btn-sm btn-primary" onclick="viewLogs(${task.id})">日志</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载任务失败:', error);
+            }
+        }
+        
+        async function loadTaskTypes() {
+            try {
+                const response = await axios.get('/api/tasks/types');
+                const types = response.data.types || [];
+                const select = document.getElementById('taskTypeSelect');
+                select.innerHTML = '<option value="">请选择...</option>' + 
+                    types.map(t => `<option value="${t.id}">${t.name} - ${t.description}</option>`).join('');
+            } catch (error) {
+                console.error('加载任务类型失败:', error);
+            }
+        }
+        
+        async function loadLogs(taskId) {
+            try {
+                const response = await axios.get(`/api/tasks/${taskId}/logs`);
+                const logs = response.data.logs || [];
+                const container = document.getElementById('logsContainer');
+                
+                if (logs.length === 0) {
+                    container.innerHTML = '<div class="empty-state">暂无日志</div>';
+                    return;
+                }
+                
+                container.innerHTML = logs.map(log => `
+                    <div class="log-item">
+                        <span class="${log.status === 'SUCCESS' ? 'log-success' : 'log-failed'}">
+                            [${log.status}] ${log.message || ''}
+                        </span>
+                        <span>${log.started_at || ''} (${log.duration_seconds || 0}秒)</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载日志失败:', error);
+            }
+        }
+        
+        document.getElementById('taskForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                name: formData.get('name'),
+                task_type: formData.get('task_type'),
+                cron_expression: formData.get('cron_expression') || null,
+                interval_seconds: formData.get('interval_seconds') ? parseInt(formData.get('interval_seconds')) : null,
+                config: formData.get('config') ? JSON.parse(formData.get('config')) : {}
+            };
+            
+            if (!data.cron_expression && !data.interval_seconds) {
+                alert('请填写Cron表达式或间隔秒数');
+                return;
+            }
+            
+            try {
+                const response = await axios.post('/api/tasks', data);
+                if (response.data.success) {
+                    alert('任务创建成功');
+                    e.target.reset();
+                    loadTasks();
+                } else {
+                    alert('创建失败: ' + response.data.message);
+                }
+            } catch (error) {
+                alert('创建失败: ' + error.response?.data?.message || error.message);
+            }
+        });
+        
+        async function toggleTask(taskId, enabled) {
+            try {
+                const response = await axios.post(`/api/tasks/${taskId}/toggle`, { enabled });
+                if (response.data.success) {
+                    loadTasks();
+                } else {
+                    alert('操作失败');
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        }
+        
+        async function deleteTask(taskId) {
+            if (!confirm('确定要删除这个任务吗?')) return;
+            
+            try {
+                const response = await axios.delete(`/api/tasks/${taskId}`);
+                if (response.data.success) {
+                    loadTasks();
+                } else {
+                    alert('删除失败');
+                }
+            } catch (error) {
+                alert('删除失败: ' + error.message);
+            }
+        }
+        
+        function viewLogs(taskId) {
+            currentTaskId = taskId;
+            loadLogs(taskId);
+        }
+        
+        loadTasks();
+        loadTaskTypes();
+    </script>
+</body>
+</html>

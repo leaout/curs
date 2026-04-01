@@ -1,21 +1,22 @@
-# see more config
+# 配置文件
+# 注意：敏感配置请使用 config.local.yml
 
 version: 0.1.0
 
-base:
-  # 数据源所存储的文件路径
-  data_bundle_path: D:/buddles
-  # 启动的策略文件路径
-  strategy_path: ./strategies
-  # 运行类型，`b` 为回测，`p` 为模拟交易, `r` 为实盘交易。
-  run_type: p
+# 数据库配置
+database:
+  host: 192.168.2.12
+  port: 6432
+  database: postgres
+  user: postgres
+  password: ""
 
-  accounts:
-    # 如果想设置使用某个账户，只需要增加对应的初始资金即可
-    stock: ~
-    future: ~
-    qmt_path: E:\qmt\userdata_mini
-    qmt_account_id: "8886692024"
-    qmt_trader_name: curs
+# QMT 配置
+qmt:
+  path: ""
+  account_id: ""
+  trader_name: ""
 
-
+# 策略配置
+strategy:
+  path: ./strategies

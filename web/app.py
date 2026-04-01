@@ -1027,11 +1027,182 @@ def index():
                     <p>配置系统参数，管理数据库连接和交易账户</p>
                     <a href="#" class="nav-button" onclick="alert('功能开发中')">进入系统设置</a>
                 </div>
+
+                <div class="nav-card">
+                    <h3>⏰ 定时任务</h3>
+                    <p>配置和管理定时任务，查看任务执行日志</p>
+                    <a href="/tasks" class="nav-button">进入定时任务</a>
+                </div>
             </div>
         </div>
     </body>
     </html>
     '''
+
+# ===== 定时任务管理路由 =====
+
+@app.route('/tasks')
+def tasks_page():
+    """定时任务管理页面"""
+    return render_template('tasks.html')
+
+@app.route('/api/tasks', methods=['GET'])
+def api_get_tasks():
+    """获取所有定时任务"""
+    try:
+        db_manager = get_db_manager()
+        tasks = db_manager.get_all_scheduled_tasks()
+        
+        for task in tasks:
+            if task.get('last_run_at'):
+                task['last_run_at'] = task['last_run_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if task.get('next_run_at'):
+                task['next_run_at'] = task['next_run_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if task.get('created_at'):
+                task['created_at'] = task['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if task.get('updated_at'):
+                task['updated_at'] = task['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if task.get('config') and isinstance(task['config'], str):
+                task['config'] = json.loads(task['config'])
+        
+        return {'tasks': tasks, 'total': len(tasks)}
+    except Exception as e:
+        logger.error(f"获取定时任务失败: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/api/tasks', methods=['POST'])
+def api_create_task():
+    """创建定时任务"""
+    try:
+        data = request.get_json()
+        
+        name = data.get('name', '').strip()
+        task_type = data.get('task_type', '').strip()
+        cron_expression = data.get('cron_expression', '').strip() or None
+        interval_seconds = data.get('interval_seconds')
+        is_enabled = data.get('is_enabled', True)
+        config = data.get('config', {})
+        
+        if not name or not task_type:
+            return {'success': False, 'message': '任务名称和类型不能为空'}, 400
+        
+        if not cron_expression and not interval_seconds:
+            return {'success': False, 'message': '必须指定cron表达式或间隔秒数'}, 400
+        
+        db_manager = get_db_manager()
+        task_id = db_manager.save_scheduled_task(
+            name=name,
+            task_type=task_type,
+            cron_expression=cron_expression,
+            interval_seconds=interval_seconds,
+            is_enabled=is_enabled,
+            config=config
+        )
+        
+        if task_id:
+            return {'success': True, 'message': f'任务 {name} 已创建', 'task_id': task_id}
+        else:
+            return {'success': False, 'message': '创建任务失败'}, 500
+    except Exception as e:
+        logger.error(f"创建定时任务失败: {e}")
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
+def api_update_task(task_id):
+    """更新定时任务"""
+    try:
+        data = request.get_json()
+        
+        update_fields = {}
+        if 'name' in data:
+            update_fields['name'] = data['name'].strip()
+        if 'task_type' in data:
+            update_fields['task_type'] = data['task_type'].strip()
+        if 'cron_expression' in data:
+            update_fields['cron_expression'] = data['cron_expression'].strip() or None
+        if 'interval_seconds' in data:
+            update_fields['interval_seconds'] = data['interval_seconds']
+        if 'is_enabled' in data:
+            update_fields['is_enabled'] = data['is_enabled']
+        if 'config' in data:
+            update_fields['config'] = data['config']
+        
+        if not update_fields:
+            return {'success': False, 'message': '没有需要更新的字段'}, 400
+        
+        db_manager = get_db_manager()
+        if db_manager.update_scheduled_task(task_id, **update_fields):
+            return {'success': True, 'message': '任务已更新'}
+        else:
+            return {'success': False, 'message': '更新任务失败'}, 500
+    except Exception as e:
+        logger.error(f"更新定时任务失败: {e}")
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
+def api_delete_task(task_id):
+    """删除定时任务"""
+    try:
+        db_manager = get_db_manager()
+        if db_manager.delete_scheduled_task(task_id):
+            return {'success': True, 'message': '任务已删除'}
+        else:
+            return {'success': False, 'message': '删除任务失败'}, 500
+    except Exception as e:
+        logger.error(f"删除定时任务失败: {e}")
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/tasks/<int:task_id>/toggle', methods=['POST'])
+def api_toggle_task(task_id):
+    """启用/禁用定时任务"""
+    try:
+        data = request.get_json()
+        enabled = data.get('enabled', True)
+        
+        db_manager = get_db_manager()
+        if db_manager.enable_scheduled_task(task_id, enabled):
+            status = '启用' if enabled else '禁用'
+            return {'success': True, 'message': f'任务已{status}'}
+        else:
+            return {'success': False, 'message': '操作失败'}, 500
+    except Exception as e:
+        logger.error(f"切换任务状态失败: {e}")
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/tasks/<int:task_id>/logs', methods=['GET'])
+def api_task_logs(task_id):
+    """获取任务执行日志"""
+    try:
+        limit = int(request.args.get('limit', 100))
+        
+        db_manager = get_db_manager()
+        logs = db_manager.get_task_logs(task_id, limit)
+        
+        for log in logs:
+            if log.get('started_at'):
+                log['started_at'] = log['started_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if log.get('finished_at'):
+                log['finished_at'] = log['finished_at'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        stats = db_manager.get_task_stats(task_id)
+        
+        return {'logs': logs, 'stats': stats}
+    except Exception as e:
+        logger.error(f"获取任务日志失败: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/api/tasks/types', methods=['GET'])
+def api_task_types():
+    """获取支持的任务类型"""
+    return {
+        'types': [
+            {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '从网络获取热点股票并同步到数据库'},
+            {'id': 'sync_stock_info', 'name': '同步股票信息', 'description': '从QMT同步股票基本信息'},
+            {'id': 'profit_analysis', 'name': '盈利分析', 'description': '分析策略信号的盈利情况'},
+            {'id': 'clear_hot_stocks', 'name': '清除热点股票', 'description': '清除当天添加的热点股票'},
+            {'id': 'custom', 'name': '自定义任务', 'description': '执行自定义Python代码'},
+        ]
+    }
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
