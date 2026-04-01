@@ -117,3 +117,11 @@ curs/
 - No formal test framework configured (pytest.ini not present)
 - Use unittest-style test functions
 - Tests can use `eval()` for expression evaluation testing
+
+## 3. Documentation Rules
+
+### README Maintenance
+- Always update **both** `README.md` (Chinese) and `README_EN.md` (English) together
+- When one is modified, the other should be updated to match
+- Add cross-language links at the top: `[English Version](README_EN.md)` in Chinese, `[中文版](README.md)` in English
+- Add Documentation section at the bottom linking to both versions
