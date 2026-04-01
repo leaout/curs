@@ -1196,11 +1196,12 @@ def api_task_types():
     """获取支持的任务类型"""
     return {
         'types': [
-            {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '从网络获取热点股票并同步到数据库'},
+            {'id': 'collect_hot_stocks', 'name': '东方财富热点股票采集', 'description': '采集东方财富热点股票并同步到股票池', 'config_hint': '无需配置，保持默认即可'},
+            {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '从网络获取热点股票并同步到数据库', 'config_hint': '{"category": "hot"}'},
             {'id': 'sync_stock_info', 'name': '同步股票信息', 'description': '从QMT同步股票基本信息'},
             {'id': 'profit_analysis', 'name': '盈利分析', 'description': '分析策略信号的盈利情况'},
             {'id': 'clear_hot_stocks', 'name': '清除热点股票', 'description': '清除当天添加的热点股票'},
-            {'id': 'custom', 'name': '自定义任务', 'description': '执行自定义Python代码'},
+            {'id': 'custom_script', 'name': '自定义脚本任务', 'description': '执行自定义Python脚本', 'config_hint': '{"script_path": "路径/脚本.py", "function_name": "函数名"}'},
         ]
     }
 

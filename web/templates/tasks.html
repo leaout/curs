@@ -88,7 +88,7 @@
                 </div>
                 <div class="form-group">
                     <label>任务类型 *</label>
-                    <select name="task_type" id="taskTypeSelect" required>
+                    <select name="task_type" id="taskTypeSelect" required onchange="updateConfigHint()">
                         <option value="">请选择...</option>
                     </select>
                 </div>
@@ -102,7 +102,8 @@
                 </div>
                 <div class="form-group">
                     <label>配置(JSON)</label>
-                    <textarea name="config" placeholder='{"key": "value"}'></textarea>
+                    <textarea name="config" id="configTextarea" placeholder='{"key": "value"}'></textarea>
+                    <small id="configHint" style="color: #666; font-size: 12px;"></small>
                 </div>
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <button type="submit" class="btn btn-primary">创建任务</button>
@@ -174,15 +175,31 @@
             }
         }
         
+        let taskTypes = [];
+        
         async function loadTaskTypes() {
             try {
                 const response = await axios.get('/api/tasks/types');
-                const types = response.data.types || [];
+                taskTypes = response.data.types || [];
                 const select = document.getElementById('taskTypeSelect');
                 select.innerHTML = '<option value="">请选择...</option>' + 
-                    types.map(t => `<option value="${t.id}">${t.name} - ${t.description}</option>`).join('');
+                    taskTypes.map(t => `<option value="${t.id}">${t.name} - ${t.description}</option>`).join('');
             } catch (error) {
                 console.error('加载任务类型失败:', error);
+            }
+        }
+        
+        function updateConfigHint() {
+            const select = document.getElementById('taskTypeSelect');
+            const hint = document.getElementById('configHint');
+            const selectedType = taskTypes.find(t => t.id === select.value);
+            
+            if (selectedType && selectedType.config_hint) {
+                hint.textContent = selectedType.config_hint;
+            } else if (select.value === 'custom_script') {
+                hint.textContent = '示例: {"script_path": "data_collection/eastmoney_hot_stocks.py", "function_name": "main"}';
+            } else {
+                hint.textContent = '';
             }
         }
         
