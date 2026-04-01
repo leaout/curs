@@ -1204,5 +1204,11 @@ def api_task_types():
         ]
     }
 
+
+def create_app():
+    """创建Flask应用（供外部调用）"""
+    return app
+
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -145,11 +145,16 @@ psql -h 192.168.2.12 -U postgres -d postgres -f data/create_scheduled_tasks.sql
 ## 启动
 
 ```bash
-# 启动 Web 服务
-python web/app.py
+# 使用统一入口启动（推荐）
+python run.py                    # 启动所有服务
+python run.py --help             # 查看帮助
 
-# 启动交易引擎
-python curs_main.py
+# 单独启动
+python run.py --web-only         # 仅启动Web服务
+python run.py --engine-only      # 仅启动交易引擎
+
+# 指定端口
+python run.py -p 8080            # Web端口8080
 ```
 
 访问 http://localhost:5000 进入管理界面。

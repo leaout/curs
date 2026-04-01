@@ -24,7 +24,22 @@ python -m unittest test.curs_test.test_eval
 
 ### Running the Application
 ```bash
-python curs_main.py
+# 使用统一入口启动（推荐）
+python run.py                    # 启动所有服务
+python run.py --help             # 查看帮助
+
+# 单独启动
+python run.py --web-only         # 仅Web服务
+python run.py --engine-only      # 仅交易引擎
+
+# 指定端口
+python run.py -p 8080            # Web端口8080
+```
+
+### Legacy (deprecated)
+```bash
+python curs_main.py              # 旧入口（包含引擎+API）
+python web/app.py               # 旧Web入口
 ```
 
 ## 2. Code Style Guidelines

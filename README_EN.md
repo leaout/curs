@@ -144,11 +144,16 @@ Or via Web UI (auto-created on first access).
 ## Running
 
 ```bash
-# Start Web service
-python web/app.py
+# Use unified launcher (recommended)
+python run.py                    # Start all services
+python run.py --help             # Show help
 
-# Start trading engine
-python curs_main.py
+# Run separately
+python run.py --web-only         # Web service only
+python run.py --engine-only      # Trading engine only
+
+# Specify port
+python run.py -p 8080            # Web port 8080
 ```
 
 Visit http://localhost:5000
