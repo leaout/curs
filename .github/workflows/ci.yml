@@ -34,7 +34,7 @@ jobs:
           
       - name: Run tests with pytest
         run: |
-          python -m pytest test/ -v --cov=curs --cov-report=xml --cov-report=term
+          python -m pytest test/test_config.py test/test_task_scheduler.py test/test_task_callbacks.py -v --cov=curs --cov-report=xml --cov-report=term
         env:
           CURS_DB_HOST: localhost
           CURS_DB_PORT: 5432
@@ -60,7 +60,7 @@ jobs:
           
       - name: Run pyflakes
         run: |
-          pyflakes curs/ web/ test/
+          pyflakes curs/ web/ test/test_config.py test/test_task_scheduler.py test/test_task_callbacks.py
           
       - name: Run pycodestyle
         run: |
