@@ -1,10 +1,8 @@
 # coding: utf-8
 import unittest
-import time
 import json
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
-from croniter import croniter
 
 
 class TestScheduledTask(unittest.TestCase):

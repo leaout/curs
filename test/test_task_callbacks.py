@@ -91,7 +91,7 @@ class TestTaskCallbacks(unittest.TestCase):
         
         mock_execute.return_value = "执行成功"
         
-        result = task_sync_hot_stocks({})
+        task_sync_hot_stocks({})
         
         mock_execute.assert_called_once()
         args = mock_execute.call_args[0][0]
@@ -104,7 +104,7 @@ class TestTaskCallbacks(unittest.TestCase):
         
         mock_execute.return_value = "执行成功"
         
-        result = task_collect_hot_stocks({})
+        task_collect_hot_stocks({})
         
         mock_execute.assert_called_once()
         args = mock_execute.call_args[0][0]

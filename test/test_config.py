@@ -3,7 +3,7 @@ import unittest
 import os
 import tempfile
 import yaml
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 class TestLoadYaml(unittest.TestCase):
