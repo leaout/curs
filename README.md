@@ -114,13 +114,16 @@ curs/
 │   ├── api/              # API 接口
 │   ├── broker/           # 交易接口 (QMT)
 │   ├── collection/       # 数据采集
+│   │   └── eastmoney_hot_stocks.py  # 东财热点股票
 │   ├── core/             # 核心引擎
 │   ├── data_source/      # 历史数据
 │   ├── database.py       # 数据库管理
 │   ├── log_handler/      # 日志模块
 │   ├── strategy/         # 策略加载执行
 │   └── utils/            # 工具函数
-│       └── task_scheduler.py  # 定时任务调度器
+│       ├── config.py          # 配置加载（支持本地覆盖）
+│       ├── task_scheduler.py  # 定时任务调度器
+│       └── task_callbacks.py  # 动态任务执行器
 ├── web/
 │   ├── app.py            # Web 服务
 │   └── templates/        # 前端页面
@@ -128,6 +131,12 @@ curs/
 ├── data/                 # 数据目录
 │   └── create_scheduled_tasks.sql  # 定时任务表SQL
 ├── test/                 # 测试文件
+│   ├── test_config.py           # 配置模块测试
+│   ├── test_task_scheduler.py   # 任务调度测试
+│   └── test_task_callbacks.py   # 任务执行测试
+├── .github/
+│   └── workflows/        # GitHub Actions CI
+├── run.py                # 统一启动入口
 └── config.yml            # 配置文件
 ```
 
@@ -175,6 +184,7 @@ python run.py -p 8080            # Web端口8080
 
 - **Cron 表达式** - 灵活的时间配置，如 `0 15 * * *` 表示每天 15:00
 - **固定间隔** - 按秒/分钟/小时执行
+- **动态任务执行** - 支持运行任意 Python 脚本函数（通过 Web UI 配置脚本路径 + 函数名）
 - **多种任务类型**：
   - 同步热点股票
   - 同步股票信息
@@ -222,6 +232,23 @@ python run.py -p 8080            # Web端口8080
 
 完整依赖见 `requirements.txt`
 
+## 测试
+
+项目使用 `unittest` 测试框架，运行测试：
+
+```bash
+# 运行所有测试
+python -m unittest discover -s test
+
+# 运行单个测试文件
+python -m unittest test.test_config
+
+# 运行指定测试函数
+python -m unittest test.test_config.TestConfigLoader.test_load_config
+```
+
+CI 使用 GitHub Actions 自动运行测试（仅运行已验证通过的测试文件）。
+
 ## 开发方向
 
 - 实盘交易 - 优化交易执行和风险管理
@@ -235,6 +262,8 @@ python run.py -p 8080            # Web端口8080
 
 - [x] 数据存储改为 PostgreSQL
 - [x] 定时任务管理
+- [x] 单元测试（配置、任务调度、任务执行）
+- [x] CI/CD 集成（GitHub Actions）
 - [ ] 数据采集增强（多平台、新闻分析）
 - [ ] 实盘交易优化
 - [ ] 策略绩效分析

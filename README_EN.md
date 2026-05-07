@@ -174,6 +174,7 @@ Features:
 
 - **Cron Expression** - Flexible timing, e.g., `0 15 * * *` = daily at 15:00
 - **Fixed Interval** - Execute by seconds/minutes/hours
+- **Dynamic Task Execution** - Run arbitrary Python script functions (configure script path + function name via Web UI)
 - **Task Types**:
   - Sync hot stocks
   - Sync stock info
