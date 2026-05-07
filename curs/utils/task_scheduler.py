@@ -4,7 +4,7 @@ import time
 import json
 import logging
 import importlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Callable
 from croniter import croniter
 import schedule
@@ -183,7 +183,7 @@ class ScheduledTask:
         if self.interval_seconds and self.last_run_at:
             elapsed = (now - self.last_run_at).total_seconds()
             if elapsed >= self.interval_seconds:
-                self.next_run_at = now + type(self.interval_seconds)()
+                self.next_run_at = now + timedelta(seconds=self.interval_seconds)
                 return True
         
         return False
