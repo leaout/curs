@@ -1,6 +1,6 @@
 # AGENTS.md - Development Guide for Curs
 
-Curs is a personal automated quantitative investment platform written in Python.
+Curs is a personal automated quantitative investment platform written in Python, specializing in limit-up stock trading strategies.
 
 ## 1. Build & Test Commands
 
@@ -24,22 +24,22 @@ python -m unittest test.curs_test.test_eval
 
 ### Running the Application
 ```bash
-# 使用统一入口启动（推荐）
-python run.py                    # 启动所有服务
-python run.py --help             # 查看帮助
+# Use unified entry point (recommended)
+python run.py                    # Start all services
+python run.py --help            # View help
 
-# 单独启动
-python run.py --web-only         # 仅Web服务
-python run.py --engine-only      # 仅交易引擎
+# Start individually
+python run.py --web-only       # Web service only
+python run.py --engine-only     # Trading engine only
 
-# 指定端口
-python run.py -p 8080            # Web端口8080
+# Specify port
+python run.py -p 8080          # Web port 8080
 ```
 
 ### Legacy (deprecated)
 ```bash
-python curs_main.py              # 旧入口（包含引擎+API）
-python web/app.py               # 旧Web入口
+python curs_main.py              # Old entry (includes engine+API)
+python web/app.py               # Old Web entry
 ```
 
 ## 2. Code Style Guidelines
@@ -90,10 +90,20 @@ def __init__(self, event_bus, scope, ucontext):
 - Use Python's built-in logging for error reporting
 - Use `try/except` blocks with specific exception types when possible
 - Always log exceptions with `logger.exception()` for stack traces
+- **Critical**: Wrap strategy functions with try-except to prevent service crashes:
+```python
+def handle_tick(context, ticks):
+    try:
+        _handle_tick_inner(context, ticks)
+    except Exception as e:
+        logger.error(f"处理tick异常: {e}", exc_info=True)
+```
 
 ### Logging
 - Use `logging.getLogger(__name__)` to create module-level loggers
 - Log levels: `logger.debug()`, `logger.info()`, `logger.warning()`, `logger.error()`, `logger.exception()`
+- Log files stored in `logs/` directory with 5-day rotation
+- Simplified format: `"%(asctime)s %(levelname)s - %(message)s"`
 
 ### File Structure
 ```
@@ -101,36 +111,52 @@ curs/
 ├── core/           # Core engine and scheduling
 ├── strategy/       # Strategy loading and execution
 ├── broker/         # Trading broker integration (QMT)
+│   ├── qmt_account.py    # QMT account management
+│   ├── qmt_quote.py      # QMT quote engine
+│   ├── order_tracker.py  # Order status tracking
+│   ├── profit_stats.py   # Profit statistics
+│   └── optimized_quote.py # Optimized quote engine
 ├── data_source/    # Historical data handling
-├── collection/     # Data collection modules
+├── collection/     # Data collection modules (hot_stocks.py)
 ├── log_handler/    # Logging configuration
-├── utils/          # Utility functions
+├── utils/         # Utility functions
 ├── api/            # API endpoints
-└── train/          # Training modules
+└── train/         # Training modules
 ```
 
 ### Key Dependencies
 - pandas, numpy - data processing
-- pytdx - market data retrieval
+- pytdx, xtquant - market data retrieval and trading
 - Flask - web interface
 - psycopg2-binary - PostgreSQL database
 - requests, aiohttp - HTTP operations
 - pyyaml - configuration parsing
+- akshare - financial data APIs
 
 ### Configuration
-- Application configuration in `config.yml`
-- Use `load_yaml()` from `curs.utils.config` to load configs
+- Application configuration in `config.yml` or `config.local.yml`
+- Config structure uses flat keys (e.g., `config["qmt"]["path"]`)
+- **NOT** nested under `base.accounts`
+```python
+# Correct
+qmt_config = config.get("qmt", {})
+qmt_path = qmt_config.get("path", "")
+
+# Wrong (old style)
+qmt_path = config["base"]["accounts"]["qmt_path"]
+```
 
 ### Strategy Development
-- Strategies define functions: `init`, `before_trading`, `handle_bar`, `handle_tick`, `after_trading`
+- Strategies define functions: `init`, `before_trading`, `handle_tick`, `after_trading`
 - Access market data through the event bus system
 - Use `context` object to store strategy state
+- **T+1 Trading**: A-share stocks cannot be sold on the same day they are bought
+- **Order Tracking**: Use `OrderTracker` class to track order status
 
-### Testing Notes
-- Test files located in `test/` directory
-- No formal test framework configured (pytest.ini not present)
-- Use unittest-style test functions
-- Tests can use `eval()` for expression evaluation testing
+### Database
+- Use `get_db_manager()` to get database manager instance
+- Tables: `strategy_signals`, `stock_pool`, `stock_info`, `profit_stats`, `zt_stocks`
+- Handle `None` returns from `execute_query()` gracefully
 
 ## 3. Documentation Rules
 
