@@ -67,19 +67,11 @@ class OptimizedQuoteEngine:
                     return
         
         except Exception as e:
-            logger.warning(f"从数据库加载股票池失败: {e}")
+            logger.error(f"从数据库加载股票池失败: {e}")
         
-        # 降级：使用本地文件
-        try:
-            with open('data/hotstocks.txt', 'r') as f:
-                self.stocks = [line.strip() for line in f if line.strip()]
-                self.stock_set = set(self.stocks)
-            logger.info(f"从本地文件加载股票池，共 {len(self.stocks)} 只")
-        except Exception as e:
-            logger.warning(f"加载本地股票池失败: {e}")
-            self.stocks = xtdata.get_stock_list_in_sector("沪深A股")[:300]
-            self.stock_set = set(self.stocks)
-            logger.info(f"使用默认股票池，共 {len(self.stocks)} 只")
+        self.stocks = []
+        self.stock_set = set()
+        logger.error(f"股票池加载失败，股票池为空，策略将不会运行")
     
     def _pre_filter_tick(self, tick_data: dict) -> dict:
         """

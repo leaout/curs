@@ -164,6 +164,7 @@
                         <td>成功: ${task.success_count || 0} / 失败: ${task.fail_count || 0}</td>
                         <td>${task.last_run_at || '从未运行'}</td>
                         <td>
+                            <button class="btn btn-sm btn-success" onclick="runTask(${task.id})">立即执行</button>
                             <button class="btn btn-sm btn-warning" onclick="toggleTask(${task.id}, ${!task.is_enabled})">${task.is_enabled ? '禁用' : '启用'}</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteTask(${task.id})">删除</button>
                             <button class="btn btn-sm btn-primary" onclick="viewLogs(${task.id})">日志</button>
@@ -288,6 +289,23 @@
         function viewLogs(taskId) {
             currentTaskId = taskId;
             loadLogs(taskId);
+        }
+        
+        async function runTask(taskId) {
+            if (!confirm('确定要立即执行该任务吗?')) return;
+            
+            try {
+                const response = await axios.post(`/api/tasks/${taskId}/run`);
+                if (response.data.success) {
+                    alert('执行成功: ' + (response.data.result || '') + ' (耗时' + response.data.duration + '秒)');
+                    loadTasks();
+                    viewLogs(taskId);
+                } else {
+                    alert('执行失败: ' + response.data.message);
+                }
+            } catch (error) {
+                alert('执行失败: ' + (error.response?.data?.message || error.message));
+            }
         }
         
         loadTasks();

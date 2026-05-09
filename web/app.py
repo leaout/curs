@@ -2,12 +2,12 @@ from random import randrange
 import os
 import csv
 import json
+import time
 from datetime import datetime
 from flask import Flask, request, render_template_string, render_template, url_for, redirect
 import pandas as pd
 import requests
 import sys
-import os
 import logging
 import akshare as ak
 
@@ -20,6 +20,24 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from curs.strategy.strategy_loader import StrategyManager
 from curs.database import get_db_manager
 from curs.utils import is_valid_stock_code, format_stock_code
+from curs.utils.task_callbacks import (
+    task_sync_hot_stocks,
+    task_collect_hot_stocks,
+    task_sync_stock_info,
+    task_profit_analysis,
+    task_clear_hot_stocks,
+    execute_dynamic_task,
+)
+
+TASK_CALLBACKS = {
+    'sync_hot_stocks': task_sync_hot_stocks,
+    'collect_hot_stocks': task_collect_hot_stocks,
+    'sync_stock_info': task_sync_stock_info,
+    'profit_analysis': task_profit_analysis,
+    'clear_hot_stocks': task_clear_hot_stocks,
+    'custom_script': execute_dynamic_task,
+    'custom': execute_dynamic_task,
+}
 
 app = Flask(__name__)
 
@@ -1167,6 +1185,51 @@ def api_toggle_task(task_id):
             return {'success': False, 'message': '操作失败'}, 500
     except Exception as e:
         logger.error(f"切换任务状态失败: {e}")
+        return {'success': False, 'message': str(e)}, 500
+
+@app.route('/api/tasks/<int:task_id>/run', methods=['POST'])
+def api_run_task(task_id):
+    """立即执行定时任务"""
+    try:
+        db_manager = get_db_manager()
+        task_data = db_manager.get_scheduled_task(task_id)
+        if not task_data:
+            return {'success': False, 'message': '任务不存在'}, 404
+
+        task_type = task_data.get('task_type', '')
+        callback = TASK_CALLBACKS.get(task_type)
+        if not callback:
+            return {'success': False, 'message': f'不支持的任务类型: {task_type}'}, 400
+
+        config = task_data.get('config', {})
+        if isinstance(config, str):
+            config = json.loads(config)
+
+        start_time = time.time()
+        result = callback(config)
+        duration = time.time() - start_time
+
+        db_manager.log_task_execution(
+            task_id=task_id,
+            status='SUCCESS',
+            message=str(result)[:500],
+            duration_seconds=round(duration, 2)
+        )
+
+        logger.info(f"立即执行任务成功: {task_data.get('name')} ({duration:.2f}秒)")
+        return {'success': True, 'message': '任务执行成功', 'result': str(result)[:500], 'duration': round(duration, 2)}
+    except Exception as e:
+        logger.exception(f"立即执行任务失败: {e}")
+        try:
+            db_manager = get_db_manager()
+            db_manager.log_task_execution(
+                task_id=task_id,
+                status='FAILED',
+                message=str(e)[:500],
+                duration_seconds=0
+            )
+        except Exception:
+            pass
         return {'success': False, 'message': str(e)}, 500
 
 @app.route('/api/tasks/<int:task_id>/logs', methods=['GET'])
