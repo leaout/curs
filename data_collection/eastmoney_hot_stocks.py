@@ -160,7 +160,7 @@ def save_to_database(stocks: List[Dict]) -> Dict:
         return {'success': False, 'message': str(e)}
 
 
-def main():
+def main(config: dict = None):
     """主函数"""
     print(f"开始获取东方财富热点股票... {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"代理状态: {'启用' if PROXY_CONFIG['enabled'] else '禁用'}")
@@ -169,7 +169,7 @@ def main():
     
     if not stocks:
         print("获取失败，未获取到任何股票")
-        return
+        return {'success': False, 'message': '未获取到任何股票'}
     
     result = save_to_database(stocks)
     
@@ -177,6 +177,8 @@ def main():
     print(f"  获取股票: {result.get('total', 0)} 只")
     print(f"  成功保存: {result.get('success_count', 0)} 只")
     print(f"  保存失败: {result.get('failed_count', 0)} 只")
+
+    return result
 
 
 if __name__ == "__main__":

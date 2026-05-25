@@ -8,7 +8,7 @@ import sys
 import os
 import importlib.util
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +24,9 @@ def execute_dynamic_task(config: dict) -> str:
     if not script_path or not function_name:
         return "错误: 缺少script_path或function_name配置"
     
-    # 处理相对路径
+    # 处理相对路径（项目根目录: 从 utils/ 上溯3层）
     if not os.path.isabs(script_path):
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         script_path = os.path.join(base_dir, script_path)
     
     if not os.path.exists(script_path):
@@ -109,11 +109,20 @@ def task_clear_hot_stocks(config: dict) -> str:
         return f"执行失败: {e}"
 
 
+def task_import_collected_data(config: dict) -> str:
+    """从 GitHub Actions 采集的 JSON 文件导入热点股票到数据库"""
+    return execute_dynamic_task({
+        'script_path': 'data_collection/import_from_collected.py',
+        'function_name': 'main'
+    })
+
+
 def register_all_tasks(scheduler):
     """注册所有任务回调"""
     # 注册内置任务
     scheduler.register_callback('sync_hot_stocks', task_sync_hot_stocks)
     scheduler.register_callback('collect_hot_stocks', task_collect_hot_stocks)
+    scheduler.register_callback('import_collected_data', task_import_collected_data)
     scheduler.register_callback('sync_stock_info', task_sync_stock_info)
     scheduler.register_callback('profit_analysis', task_profit_analysis)
     scheduler.register_callback('clear_hot_stocks', task_clear_hot_stocks)

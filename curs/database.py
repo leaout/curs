@@ -201,18 +201,53 @@ class DatabaseManager:
             logger.error(f"更新信号状态失败: 订单ID={order_id}")
             return False
 
+    def _get_data_dir(self):
+        """获取data目录的绝对路径"""
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_dir, 'data')
+
     def create_tables(self):
         """创建数据库表"""
         try:
-            with open('data/create_trading_tables.sql', 'r', encoding='utf-8') as f:
+            sql_path = os.path.join(self._get_data_dir(), 'create_trading_tables.sql')
+            with open(sql_path, 'r', encoding='utf-8') as f:
                 sql_script = f.read()
 
-            # 分割SQL语句并执行
-            statements = sql_script.split(';')
+            # 分割SQL语句（跳过 $$ 块内的分号）
+            statements = []
+            current = ''
+            in_dollar = False
+            for line in sql_script.split('\n'):
+                stripped = line.strip()
+                if stripped.startswith('--') and not in_dollar:
+                    # 跳过注释行
+                    continue
+                if '$$' in line:
+                    in_dollar = not in_dollar
+                if ';' in line and not in_dollar:
+                    parts = line.split(';')
+                    for i, part in enumerate(parts):
+                        if i < len(parts) - 1:
+                            stmt = (current + part).strip()
+                            if stmt and not stmt.upper().startswith('--'):
+                                statements.append(stmt)
+                            current = ''
+                        else:
+                            current += part + '\n'
+                else:
+                    current += line + '\n'
+            if current.strip():
+                tail = current.strip()
+                if not tail.upper().startswith('--'):
+                    statements.append(tail)
+
+            # 设置语句超时，防止建索引等操作卡死
+            self.execute_query("SET statement_timeout = '30s'")
+
             for statement in statements:
-                statement = statement.strip()
-                if statement:
-                    self.execute_query(statement)
+                if not statement:
+                    continue
+                self.execute_query(statement)
 
             logger.info("数据库表创建成功")
             return True
@@ -914,3 +949,11 @@ def get_db_manager() -> DatabaseManager:
     if _db_manager is None:
         _db_manager = DatabaseManager()
     return _db_manager
+
+
+def init_db():
+    """初始化数据库所有表"""
+    db = get_db_manager()
+    db.create_tables()
+    db.create_scheduled_tasks_table()
+    logger.info("数据库表初始化完成")

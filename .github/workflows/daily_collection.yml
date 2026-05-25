@@ -1,0 +1,53 @@
+name: 每日数据采集
+
+on:
+  schedule:
+    # 每天 15:30 UTC = 23:30 北京时间，收盘后采集
+    - cron: '30 15 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      collection_type:
+        description: '采集类型'
+        default: 'hot_stocks'
+        type: choice
+        options:
+          - hot_stocks
+          - all
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install akshare pandas
+
+      - name: 采集热点股票
+        run: |
+          python data_collection/collect_to_file.py
+        env:
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
+          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
+
+      - name: 提交采集结果
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/collected/
+          if ! git diff --staged --quiet; then
+            DATE=$(date --iso-8601)
+            git commit -m "chore: daily data collection ${DATE}"
+            git push
+          else
+            echo "无数据变更，跳过提交"
+          fi

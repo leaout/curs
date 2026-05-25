@@ -63,7 +63,24 @@ class CursApp:
         from web.app import create_app
         
         self.web_app = create_app()
+        
+        # 初始化数据库表
+        from curs.database import init_db
+        init_db()
+        
+        # 自动导入 GitHub Actions 采集的数据
+        self._import_collected_data()
+        
         logger.info(f"Web服务已初始化，端口: {self.web_port}")
+    
+    def _import_collected_data(self):
+        """导入 GitHub Actions 采集的热点股票数据到数据库"""
+        try:
+            from data_collection.import_from_collected import main as do_import
+            result = do_import()
+            logger.info(f"数据导入: {result}")
+        except Exception as e:
+            logger.debug(f"未导入采集数据（首次运行或无数据文件）: {e}")
     
     def init_engine(self):
         """初始化交易引擎"""
@@ -175,11 +192,12 @@ def create_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python run.py                    启动所有服务
-  python run.py --web-only         仅启动Web服务
-  python run.py --engine-only      仅启动交易引擎
-  python run.py -p 8080            指定Web端口
-  python run.py --no-web           不启动Web服务
+  python run.py                       启动所有服务
+  python run.py --web-only            仅启动Web服务
+  python run.py --engine-only         仅启动交易引擎
+  python run.py -p 8080               指定Web端口
+  python run.py --no-web              不启动Web服务
+  python run.py --import-data         仅导入GH Actions采集数据
         """
     )
     
@@ -214,6 +232,12 @@ def create_parser():
         help='显示详细日志'
     )
     
+    parser.add_argument(
+        '--import-data',
+        action='store_true',
+        help='仅导入GitHub Actions采集数据，不启动服务'
+    )
+    
     return parser
 
 
@@ -224,6 +248,15 @@ def main():
     # 设置日志级别
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+    
+    # 仅导入数据模式
+    if args.import_data:
+        from curs.database import init_db
+        init_db()
+        from data_collection.import_from_collected import main as do_import
+        result = do_import()
+        print(result)
+        return
     
     # 确定启动模式
     web = not args.engine_only
