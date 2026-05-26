@@ -12,7 +12,33 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logger = logging.getLogger(__name__)
 
+DB_CONFIG = None
 COLLECTED_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'collected')
+
+
+def _get_db_config():
+    global DB_CONFIG
+    if DB_CONFIG is None:
+        from curs.utils.config import load_yaml
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.yml')
+        config = load_yaml(config_path) or {}
+        db = config.get('database', {})
+        DB_CONFIG = {
+            'host': db.get('host', '192.168.2.12'),
+            'port': db.get('port', 6432),
+            'database': db.get('database', 'postgres'),
+            'user': db.get('user', 'postgres'),
+            'password': db.get('password', 'chenly.1'),
+        }
+    return DB_CONFIG
+
+
+def _get_connection():
+    import psycopg2
+    cfg = _get_db_config()
+    conn = psycopg2.connect(**cfg)
+    conn.autocommit = True
+    return conn
 
 
 def find_latest_json() -> str:
@@ -38,10 +64,12 @@ def load_stocks_from_file(filepath: str) -> list:
 
 
 def import_to_database(stocks: list, db_manager=None) -> dict:
-    """导入股票数据到 stock_pool 表"""
-    if db_manager is None:
-        from curs.database import get_db_manager
-        db_manager = get_db_manager()
+    """导入股票数据到 stock_pool 表（使用独立连接，避免锁冲突）"""
+    conn = _get_connection()
+    cur = conn.cursor()
+
+    # 先清空旧 hot 数据
+    cur.execute("DELETE FROM stock_pool WHERE category = 'hot'")
 
     success_count = 0
     failed_count = 0
@@ -49,24 +77,28 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
 
     for stock in stocks:
         try:
-            # 先删除旧记录再插入（upsert）
-            db_manager.remove_stock_from_pool(stock['code'])
-            ok = db_manager.add_stock_to_pool(
-                stock_code=stock['code'],
-                stock_name=stock.get('name', ''),
-                category='hot',
-                added_by='github_actions',
-                notes=f"排名:{stock.get('rank', 0)},价格:{stock.get('price', 0)},涨跌:{stock.get('change_pct', 0)}%,采集时间:{stock.get('collect_time', '')}"
-            )
-            if ok:
-                success_count += 1
-            else:
-                failed_count += 1
-                failed_stocks.append(stock['code'])
+            cur.execute("""
+                INSERT INTO stock_pool
+                    (stock_code, stock_name, category, added_by, notes)
+                VALUES (%s, %s, 'hot', 'github_actions', %s)
+                ON CONFLICT (stock_code) DO UPDATE SET
+                    stock_name = EXCLUDED.stock_name,
+                    notes = EXCLUDED.notes,
+                    updated_at = CURRENT_TIMESTAMP,
+                    is_active = TRUE
+            """, (
+                stock['code'],
+                stock.get('name', ''),
+                f"排名:{stock.get('rank', 0)},价格:{stock.get('price', 0)},涨跌:{stock.get('change_pct', 0)}%,采集时间:{stock.get('collect_time', '')}"
+            ))
+            success_count += 1
         except Exception as e:
             logger.error(f"导入失败 {stock.get('code')}: {e}")
             failed_count += 1
             failed_stocks.append(stock['code'])
+
+    cur.close()
+    conn.close()
 
     return {
         'success': True,
@@ -80,6 +112,18 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
 def main(config: dict = None) -> str:
     logger.info("=" * 50)
     logger.info("开始导入 GitHub Actions 采集数据")
+
+    # 从 config 中获取是否先拉取代码
+    if config and config.get('git_pull'):
+        try:
+            logger.info("正在拉取远程采集数据...")
+            result = os.system('git pull origin master --ff-only')
+            if result == 0:
+                logger.info("git pull 成功")
+            else:
+                logger.warning("git pull 可能失败，继续使用本地数据")
+        except Exception as e:
+            logger.warning(f"git pull 异常: {e}")
 
     filepath = find_latest_json()
     if not filepath:
