@@ -206,7 +206,6 @@ def load_strategy(strategy_path):
         for file in files:
             if file.endswith(".py"):
                 strategy_file_path = os.path.join(root, file)
-                StrategyManager.get_instance().unload_strategy(strategy_file_path)
                 StrategyManager.get_instance().load_strategy(strategy_file_path)
 
 # ===== 行情数据API路由 =====
@@ -341,6 +340,28 @@ def api_liquidate_stock(stock_code):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ===== 策略控制API路由 =====
+
+@app.route('/api/strategy/<strategy_id>/toggle', methods=['POST'])
+def api_strategy_toggle(strategy_id):
+    """启用/禁用策略实盘交易"""
+    try:
+        from curs.strategy_manager import StrategyManager
+        data = request.get_json()
+        enabled = data.get('enabled', True)
+
+        if enabled:
+            result = StrategyManager.get_instance().enable_strategy(strategy_id)
+        else:
+            result = StrategyManager.get_instance().disable_strategy(strategy_id)
+
+        if result:
+            return jsonify({'status': 'success', 'enabled': enabled})
+        else:
+            return jsonify({'status': 'error', 'message': f'策略 {strategy_id} 未加载'}), 404
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # 启动程序
 def start():

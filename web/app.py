@@ -102,25 +102,52 @@ def strategy(strategy_id):
 
 @app.route('/strategy/<strategy_id>/start', methods=['POST'])
 def start_strategy(strategy_id):
-    """启动策略"""
+    """启动策略实盘"""
     try:
-        # manager = StrategyManager()
-        # if manager.start_strategy(strategy_id):
-        #     return {'status': 'success', 'message': '策略已启动'}
+        response = requests.post(
+            f'http://localhost:5001/api/strategy/{strategy_id}/toggle',
+            json={'enabled': True},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
         return {'status': 'error', 'message': '策略启动失败'}
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
 
 @app.route('/strategy/<strategy_id>/stop', methods=['POST'])
 def stop_strategy(strategy_id):
-    """停止策略"""
+    """停止策略实盘（仅信号模式）"""
     try:
-        # manager = StrategyManager()
-        # if manager.stop_strategy(strategy_id):
-        #     return {'status': 'success', 'message': '策略已停止'}
+        response = requests.post(
+            f'http://localhost:5001/api/strategy/{strategy_id}/toggle',
+            json={'enabled': False},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
         return {'status': 'error', 'message': '策略停止失败'}
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
+
+@app.route('/api/strategy/<strategy_id>/toggle', methods=['POST'])
+def api_strategy_toggle(strategy_id):
+    """启用/禁用策略实盘交易（web前端直接调用）"""
+    try:
+        data = request.get_json()
+        enabled = data.get('enabled', True)
+        response = requests.post(
+            f'http://localhost:5001/api/strategy/{strategy_id}/toggle',
+            json={'enabled': enabled},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return response.json()
+        return {'status': 'error', 'message': '策略切换失败'}
+    except requests.exceptions.RequestException as e:
+        return {'status': 'error', 'message': f'无法连接到策略服务: {str(e)}'}, 500
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}, 500
 
 @app.route('/signals')
 def signals():
@@ -970,8 +997,13 @@ def get_strategy_info(strategy_id):
     # 计算收益率（简单计算）
     total_return = 0
     if trades:
-        # 假设每笔交易的收益为固定比例，这里简化为成功率作为收益率
         total_return = success_rate
+
+    # 获取实盘状态
+    try:
+        enabled = db_manager.get_strategy_enabled(strategy_id)
+    except Exception:
+        enabled = True
 
     return {
         'id': strategy_id,
@@ -979,15 +1011,16 @@ def get_strategy_info(strategy_id):
         'description': f'{strategy_id} 量化交易策略',
         'returns': f'{total_return:.2f}%',
         'details': f'Total trades: {total_trades}, Success rate: {success_rate:.2f}%',
-        'return_curve': [trade.get('profit', success_rate/10) for trade in trades[-30:]],  # 最近30笔交易收益
-        'holdings': [],  # 当前持仓
-        'positions': trades,  # 历史交易记录
+        'return_curve': [trade.get('profit', success_rate/10) for trade in trades[-30:]],
+        'holdings': [],
+        'positions': trades,
         'signal_stats': {
             'today_signals': today_signals,
             'pending_signals': pending_signals,
             'executed_signals': executed_signals,
             'total_signals': len(signals_stats)
-        }
+        },
+        'enabled': enabled,
     }
 
 @app.route('/')

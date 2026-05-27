@@ -139,8 +139,9 @@ class QmtStockAccount(Account):
                 pass
             return False
 
-    def __init__(self, path, account_id, trader_name, session_id=None, total_cash=0) -> None:
+    def __init__(self, path, account_id, trader_name, session_id=None, total_cash=0, live_trading=True) -> None:
         super().__init__(total_cash)
+        self._live_trading = live_trading
         if not session_id:
             session_id = int(time.time())
         self.trader_name = trader_name
@@ -218,18 +219,14 @@ class QmtStockAccount(Account):
         return asset
 
     def order_by_amount(self, entity_id, order_price, order_timestamp, order_type, order_amount):
-        # stock_code = _to_qmt_code(entity_id=entity_id)
         stock_code = entity_id
-        fix_result_order_id = self.xt_trader.order_stock(
-            account=self.account,
+        fix_result_order_id = self._order_stock_or_simulate(
+            action="order_by_amount",
             stock_code=stock_code,
-            # order_type=_to_qmt_order_type(order_type=order_type),
             order_type=order_type,
             order_volume=order_amount,
             price_type=xtconstant.FIX_PRICE,
             price=order_price,
-            strategy_name=self.trader_name,
-            order_remark="order from cly",
         )
         logger.info(f"order result id: {fix_result_order_id}")
 
@@ -270,6 +267,32 @@ class QmtStockAccount(Account):
     #         order_amount=trading_signal.order_amount,
     #     )
 
+    @property
+    def live_trading(self):
+        return self._live_trading
+
+    @live_trading.setter
+    def live_trading(self, value):
+        self._live_trading = value
+        logger.info(f"实盘交易{'已开启' if value else '已关闭'}")
+
+    def _order_stock_or_simulate(self, action, stock_code, order_type, order_volume, price_type, price, **kwargs):
+        if not self._live_trading:
+            logger.info(f"[模拟] {action} {stock_code} volume={order_volume} price={price}")
+            import random
+            return random.randint(100000, 999999)
+        return self.xt_trader.order_stock(
+            account=self.account,
+            stock_code=stock_code,
+            order_type=order_type,
+            order_volume=int(order_volume),
+            price_type=price_type,
+            price=price,
+            strategy_name=self.trader_name,
+            order_remark="order from cly",
+            **kwargs
+        )
+
     def on_trading_open(self, timestamp):
         pass
 
@@ -287,15 +310,13 @@ class QmtStockAccount(Account):
         position = self.xt_trader.query_stock_position(self.account,stock_code)
         print(position)
         if position and position.can_use_volume > 0:
-            fix_result_order_id = self.xt_trader.order_stock(
-                    account=self.account,
-                    stock_code=stock_code,
-                    order_type=xtconstant.STOCK_SELL,
-                    order_volume=int(position.can_use_volume),
-                    price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
-                    price=0,
-                    strategy_name=self.trader_name,
-                    order_remark="order from cly",
+            fix_result_order_id = self._order_stock_or_simulate(
+                action="sell_all",
+                stock_code=stock_code,
+                order_type=xtconstant.STOCK_SELL,
+                order_volume=int(position.can_use_volume),
+                price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
+                price=0,
             )
             logger.info(f"order result id: {fix_result_order_id}")
             return fix_result_order_id
@@ -319,77 +340,62 @@ class QmtStockAccount(Account):
         return results
 
     def sell_market_convert_5_cancel(self, stock_code,volume):
-        fix_result_order_id = self.xt_trader.order_stock(
-                account=self.account,
-                stock_code=stock_code,
-                order_type=xtconstant.STOCK_SELL,
-                order_volume=int(volume),
-                price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
-                price=0,
-                strategy_name=self.trader_name,
-                order_remark="order from cly",
+        fix_result_order_id = self._order_stock_or_simulate(
+            action="sell_market_convert_5_cancel",
+            stock_code=stock_code,
+            order_type=xtconstant.STOCK_SELL,
+            order_volume=int(volume),
+            price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
+            price=0,
         )
         logger.info(f"order result id: {fix_result_order_id}")
 
     def sell_latest_price(self, stock_code,volume):
-        fix_result_order_id = self.xt_trader.order_stock(
-                account=self.account,
-                stock_code=stock_code,
-                order_type=xtconstant.STOCK_SELL,
-                order_volume=int(volume),
-                price_type=xtconstant.LATEST_PRICE,
-                price=0,
-                strategy_name=self.trader_name,
-                order_remark="order from cly",
+        fix_result_order_id = self._order_stock_or_simulate(
+            action="sell_latest_price",
+            stock_code=stock_code,
+            order_type=xtconstant.STOCK_SELL,
+            order_volume=int(volume),
+            price_type=xtconstant.LATEST_PRICE,
+            price=0,
         )
         logger.info(f"order result id: {fix_result_order_id}")
 
     def sell_fix_price(self, stock_code,volume,price):
-        # 先调用基类的sell方法更新账户状态
         if super().sell(stock_code, price, volume):
-            # 如果基类sell成功，则执行QMT交易
-            fix_result_order_id = self.xt_trader.order_stock(
-                account=self.account,
+            fix_result_order_id = self._order_stock_or_simulate(
+                action="sell_fix_price",
                 stock_code=stock_code,
                 order_type=xtconstant.STOCK_SELL,
                 order_volume=int(volume),
                 price_type=xtconstant.FIX_PRICE,
                 price=price,
-                strategy_name=self.trader_name,
-                order_remark="order from cly",
             )
             logger.info(f"order result id: {fix_result_order_id}")
             return fix_result_order_id
         return None
 
     def buy_latest_price(self, stock_code,volume):
-
-        fix_result_order_id = self.xt_trader.order_stock(
-            account=self.account,
+        fix_result_order_id = self._order_stock_or_simulate(
+            action="buy_latest_price",
             stock_code=stock_code,
             order_type=xtconstant.STOCK_BUY,
             order_volume=int(volume),
             price_type=xtconstant.LATEST_PRICE,
             price=0,
-            strategy_name=self.trader_name,
-            order_remark="order from cly",
         )
         logger.info(f"order result id: {fix_result_order_id}")
         return fix_result_order_id
     
     def buy_fix_price(self, stock_code,volume,price):
-        # 先调用基类的buy方法更新账户状态
         if super().buy(stock_code, price, volume):
-            # 如果基类buy成功，则执行QMT交易
-            fix_result_order_id = self.xt_trader.order_stock(
-                account=self.account,
+            fix_result_order_id = self._order_stock_or_simulate(
+                action="buy_fix_price",
                 stock_code=stock_code,
                 order_type=xtconstant.STOCK_BUY,
                 order_volume=int(volume),
                 price_type=xtconstant.FIX_PRICE,
                 price=price,
-                strategy_name=self.trader_name,
-                order_remark="order from cly",
             )
             logger.info(f"order result id: {fix_result_order_id}")
             return fix_result_order_id

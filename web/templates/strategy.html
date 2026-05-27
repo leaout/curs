@@ -135,6 +135,82 @@
             opacity: 0.8;
         }
 
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        .status-dot.enabled {
+            background: #4CAF50;
+            box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+        }
+
+        .status-dot.disabled {
+            background: #aaa;
+        }
+
+        .status-label {
+            font-size: 11px;
+            vertical-align: middle;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .toggle-slider {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            background: #ccc;
+            border-radius: 26px;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            left: 3px;
+            top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: #4CAF50;
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(22px);
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
         .strategy-metrics {
             display: flex;
             justify-content: space-between;
@@ -535,12 +611,11 @@
                     <div class="strategy-description" id="strategy-description"></div>
                 </div>
                 <div class="strategy-actions">
-                    <button class="btn btn-success" onclick="startStrategy()" id="start-btn">
-                        <span>▶️</span> 启动策略
-                    </button>
-                    <button class="btn btn-danger" onclick="stopStrategy()" id="stop-btn">
-                        <span>⏹️</span> 停止策略
-                    </button>
+                    <label class="toggle-switch" id="live-trading-toggle" style="display: none;">
+                        <span class="toggle-label" id="toggle-label">信号模式</span>
+                        <input type="checkbox" id="toggle-input" onchange="toggleStrategy(this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
                     <button class="btn btn-primary" onclick="refreshStrategy()">
                         <span>🔄</span> 刷新
                     </button>
@@ -637,8 +712,11 @@
                 }
 
                 strategyList.innerHTML = strategies.map(strategy => `
-                    <div class="strategy-item" onclick="selectStrategy('${strategy.id}')" data-id="${strategy.id}">
-                        <div class="strategy-name">${strategy.name}</div>
+                    <div class="strategy-item" onclick="selectStrategy('${strategy.id}')" data-id="${strategy.id}" data-enabled="${strategy.enabled}">
+                        <div class="strategy-name">
+                            <span class="status-dot ${strategy.enabled ? 'enabled' : 'disabled'}"></span>
+                            ${strategy.name}
+                        </div>
                         <div class="strategy-status">${strategy.returns}</div>
                         <div class="strategy-metrics">
                             <span>交易: ${strategy.details.split(',')[0].split(':')[1].trim()}</span>
@@ -726,6 +804,15 @@
             document.getElementById('strategy-name').textContent = strategy.name;
             document.getElementById('strategy-description').textContent =
                 `${strategy.description} | 最后更新: ${new Date().toLocaleString()}`;
+
+            // 更新实盘开关
+            const toggle = document.getElementById('live-trading-toggle');
+            const input = document.getElementById('toggle-input');
+            const label = document.getElementById('toggle-label');
+            toggle.style.display = 'inline-flex';
+            input.checked = strategy.enabled;
+            label.textContent = strategy.enabled ? '实盘交易' : '信号模式';
+            input._updating = false;
         }
 
         // 更新指标卡片
@@ -935,53 +1022,36 @@
             }).join('');
         }
 
-        // 启动策略
-        async function startStrategy() {
+        // 切换实盘/信号模式
+        async function toggleStrategy(enabled) {
             if (!currentStrategyId) return;
 
-            const btn = document.getElementById('start-btn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span>⏳</span> 启动中...';
-            btn.disabled = true;
+            const input = document.getElementById('toggle-input');
+            const label = document.getElementById('toggle-label');
+            if (input._updating) return;
+            input.disabled = true;
+            label.textContent = '切换中...';
 
             try {
-                const response = await axios.post(`/strategy/${currentStrategyId}/start`);
+                const response = await axios.post(`/api/strategy/${currentStrategyId}/toggle`, { enabled });
                 if (response.data.status === 'success') {
-                    showSuccess('策略启动成功');
-                    setTimeout(() => loadStrategy(currentStrategyId), 2000);
+                    showSuccess(enabled ? '实盘交易已开启' : '已切换为信号模式（仅生成信号，不下单）');
+                    // 更新侧栏状态
+                    document.querySelectorAll(`[data-id="${currentStrategyId}"] .status-dot`).forEach(dot => {
+                        dot.className = `status-dot ${enabled ? 'enabled' : 'disabled'}`;
+                    });
+                    document.querySelector(`[data-id="${currentStrategyId}"]`).dataset.enabled = enabled;
+                    loadStrategy(currentStrategyId, false);
                 } else {
-                    showError(response.data.message || '策略启动失败');
+                    input.checked = !enabled;
+                    showError(response.data.message || '切换失败');
                 }
             } catch (error) {
-                showError('策略启动失败，请稍后重试');
+                input.checked = !enabled;
+                showError('切换失败，请稍后重试');
             } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        // 停止策略
-        async function stopStrategy() {
-            if (!currentStrategyId) return;
-
-            const btn = document.getElementById('stop-btn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span>⏳</span> 停止中...';
-            btn.disabled = true;
-
-            try {
-                const response = await axios.post(`/strategy/${currentStrategyId}/stop`);
-                if (response.data.status === 'success') {
-                    showSuccess('策略停止成功');
-                    setTimeout(() => loadStrategy(currentStrategyId), 2000);
-                } else {
-                    showError(response.data.message || '策略停止失败');
-                }
-            } catch (error) {
-                showError('策略停止失败，请稍后重试');
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                input._updating = false;
+                input.disabled = false;
             }
         }
 

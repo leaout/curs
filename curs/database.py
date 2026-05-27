@@ -898,6 +898,62 @@ class DatabaseManager:
         result = self.execute_query(query, params)
         return result is not None
 
+    # ===== 策略配置管理方法 =====
+
+    def create_strategy_config_table(self):
+        """创建策略配置表"""
+        sql = """
+        CREATE TABLE IF NOT EXISTS strategy_config (
+            strategy_id VARCHAR(255) PRIMARY KEY,
+            enabled BOOLEAN DEFAULT TRUE,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        for stmt in sql.split(';'):
+            stmt = stmt.strip()
+            if stmt:
+                self.execute_query(stmt)
+        logger.info("策略配置表创建成功")
+
+    def get_strategy_enabled(self, strategy_id: str) -> bool:
+        """获取策略是否启用实盘"""
+        query = "SELECT enabled FROM strategy_config WHERE strategy_id = %s"
+        params = (strategy_id,)
+        try:
+            result = self.execute_query(query, params)
+            if result and len(result) > 0:
+                return result[0].get('enabled', True)
+        except Exception as e:
+            logger.debug(f"获取策略状态失败: {e}")
+        return True
+
+    def set_strategy_enabled(self, strategy_id: str, enabled: bool) -> bool:
+        """设置策略实盘状态"""
+        query = """
+            INSERT INTO strategy_config (strategy_id, enabled, updated_at)
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (strategy_id) DO UPDATE SET
+                enabled = EXCLUDED.enabled,
+                updated_at = CURRENT_TIMESTAMP
+        """
+        params = (strategy_id, enabled)
+        try:
+            result = self.execute_query(query, params)
+            return result is not None
+        except Exception as e:
+            logger.error(f"设置策略状态失败: {e}")
+            return False
+
+    def get_all_strategy_configs(self) -> Dict[str, bool]:
+        """获取所有策略配置"""
+        query = "SELECT strategy_id, enabled FROM strategy_config"
+        try:
+            results = self.execute_query(query) or []
+            return {r['strategy_id']: r['enabled'] for r in results}
+        except Exception as e:
+            logger.debug(f"获取策略配置失败: {e}")
+            return {}
+
     def log_task_execution(self, task_id: int, status: str, message: str = None,
                           started_at = None, finished_at = None, duration_seconds: float = None,
                           error_detail: str = None) -> bool:
@@ -956,4 +1012,5 @@ def init_db():
     db = get_db_manager()
     db.create_tables()
     db.create_scheduled_tasks_table()
+    db.create_strategy_config_table()
     logger.info("数据库表初始化完成")

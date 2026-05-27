@@ -98,14 +98,14 @@ class CursApp:
         
         # 加载策略
         strategy_path = config.get('strategy', {}).get('path', './strategies')
-        self._load_strategies(strategy_path)
+        self._load_strategies(strategy_path, event_bus)
         
         logger.info("交易引擎已初始化")
     
-    def _load_strategies(self, strategy_path):
+    def _load_strategies(self, strategy_path, event_bus):
         """加载策略"""
         from curs.strategy_manager import StrategyManager
-        manager = StrategyManager.get_instance()
+        manager = StrategyManager(event_bus)
         
         if not os.path.exists(strategy_path):
             logger.warning(f"策略目录不存在: {strategy_path}")
