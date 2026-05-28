@@ -17,6 +17,7 @@ import argparse
 import logging
 import threading
 import time
+import subprocess
 from functools import wraps
 
 # 配置日志
@@ -25,6 +26,68 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def check_and_start_qmt(config):
+    """通过QMT账户连接成功作为判断，如果连接不上则启动QMT"""
+    try:
+        from curs.broker.qmt_account import QmtStockAccount
+
+        qmt_path = config["qmt"]["path"]
+        qmt_account_id = config["qmt"]["account_id"]
+        qmt_trader_name = config["qmt"]["trader_name"]
+
+        connection_success = QmtStockAccount.test_connection(
+            path=qmt_path,
+            account_id=qmt_account_id,
+            trader_name=qmt_trader_name,
+            session_id=int(time.time())
+        )
+
+        if connection_success:
+            logger.info("QMT账户连接成功")
+            return True
+
+        logger.warning("QMT账户连接失败，尝试启动QMT...")
+
+        # 使用 E:\script\startqmt.bat 启动QMT（不阻塞）
+        startqmt_path = r"E:\script\startqmt.bat"
+        if os.path.exists(startqmt_path):
+            logger.info(f"执行 {startqmt_path}")
+            subprocess.Popen(
+                ["cmd", "/c", "start", "QMT", startqmt_path],
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+            )
+        else:
+            logger.warning(f"未找到 {startqmt_path}，尝试直接启动QMT")
+            qmt_exe = os.path.join(qmt_path, "bin.x64", "startminiqmt.bat")
+            if os.path.exists(qmt_exe):
+                subprocess.Popen(
+                    ["cmd", "/c", "start", "QMT", qmt_exe],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                )
+
+        # 等待QMT启动
+        max_checks = 6
+        for i in range(max_checks):
+            logger.info(f"等待QMT启动 ({i+1}/{max_checks})...")
+            time.sleep(10)
+            retry = QmtStockAccount.test_connection(
+                path=qmt_path,
+                account_id=qmt_account_id,
+                trader_name=qmt_trader_name,
+                session_id=int(time.time()) + i
+            )
+            if retry:
+                logger.info("QMT账户连接成功")
+                return True
+
+        logger.error("QMT连接失败，将继续运行但交易可能不可用")
+        return False
+
+    except Exception as e:
+        logger.exception(f"QMT连接检查时出错: {e}")
+        return False
 
 
 def singleton(cls):
@@ -145,6 +208,9 @@ class CursApp:
         """启动所有或部分服务"""
         self.running = True
         
+        # 创建数据目录
+        os.makedirs('data/strategy_records', exist_ok=True)
+        
         if web:
             self.init_web()
             web_thread = threading.Thread(target=self.start_web, daemon=True)
@@ -153,6 +219,11 @@ class CursApp:
             logger.info(f"Web服务已启动: http://localhost:{self.web_port}")
         
         if engine:
+            # 检查并启动QMT
+            config = self.load_config()
+            if not check_and_start_qmt(config):
+                logger.warning("QMT未连接，交易功能将不可用")
+            
             self.init_engine()
             engine_thread = threading.Thread(target=self.start_engine, daemon=True)
             engine_thread.start()

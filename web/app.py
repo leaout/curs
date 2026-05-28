@@ -3,6 +3,7 @@ import os
 import csv
 import json
 import time
+import math
 from datetime import datetime
 from flask import Flask, request, render_template_string, render_template, url_for, redirect
 import pandas as pd
@@ -104,6 +105,12 @@ def strategy(strategy_id):
 def start_strategy(strategy_id):
     """启动策略实盘"""
     try:
+        from curs.strategy_manager import StrategyManager
+        result = StrategyManager.get_instance().enable_strategy(strategy_id)
+        if result:
+            return {'status': 'success', 'message': '策略已启动', 'enabled': True}
+        return {'status': 'error', 'message': f'策略 {strategy_id} 未加载'}, 404
+    except RuntimeError:
         response = requests.post(
             f'http://localhost:5001/api/strategy/{strategy_id}/toggle',
             json={'enabled': True},
@@ -119,6 +126,12 @@ def start_strategy(strategy_id):
 def stop_strategy(strategy_id):
     """停止策略实盘（仅信号模式）"""
     try:
+        from curs.strategy_manager import StrategyManager
+        result = StrategyManager.get_instance().disable_strategy(strategy_id)
+        if result:
+            return {'status': 'success', 'message': '已切换为信号模式', 'enabled': False}
+        return {'status': 'error', 'message': f'策略 {strategy_id} 未加载'}, 404
+    except RuntimeError:
         response = requests.post(
             f'http://localhost:5001/api/strategy/{strategy_id}/toggle',
             json={'enabled': False},
@@ -132,20 +145,33 @@ def stop_strategy(strategy_id):
 
 @app.route('/api/strategy/<strategy_id>/toggle', methods=['POST'])
 def api_strategy_toggle(strategy_id):
-    """启用/禁用策略实盘交易（web前端直接调用）"""
+    """启用/禁用策略实盘交易"""
     try:
         data = request.get_json()
         enabled = data.get('enabled', True)
-        response = requests.post(
-            f'http://localhost:5001/api/strategy/{strategy_id}/toggle',
-            json={'enabled': enabled},
-            timeout=10
-        )
-        if response.status_code == 200:
-            return response.json()
-        return {'status': 'error', 'message': '策略切换失败'}
-    except requests.exceptions.RequestException as e:
-        return {'status': 'error', 'message': f'无法连接到策略服务: {str(e)}'}, 500
+        from curs.strategy_manager import StrategyManager
+        if enabled:
+            ok = StrategyManager.get_instance().enable_strategy(strategy_id)
+        else:
+            ok = StrategyManager.get_instance().disable_strategy(strategy_id)
+        if ok:
+            return {'status': 'success', 'enabled': enabled}
+        return {'status': 'error', 'message': f'策略 {strategy_id} 未加载'}, 404
+    except RuntimeError:
+        # 单例不存在 → 降级为 HTTP proxy（兼容 curs_main.py 模式）
+        try:
+            data = request.get_json()
+            enabled = data.get('enabled', True)
+            response = requests.post(
+                f'http://localhost:5001/api/strategy/{strategy_id}/toggle',
+                json={'enabled': enabled},
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {'status': 'error', 'message': '切换失败'}
+        except Exception as e:
+            return {'status': 'error', 'message': str(e)}, 500
     except Exception as e:
         return {'status': 'error', 'message': str(e)}, 500
 
@@ -845,6 +871,20 @@ def api_update_stock_category():
     except Exception as e:
         return {'success': False, 'message': str(e)}, 500
 
+def _get_qmt_accounts():
+    """从 StrategyManager 获取所有 QmtStockAccount"""
+    try:
+        from curs.strategy_manager import StrategyManager
+        manager = StrategyManager.get_instance()
+        accounts = []
+        for path, loader in manager._strategies.items():
+            acc = loader.account
+            if acc:
+                accounts.append((loader.strategy_id, acc))
+        return accounts
+    except RuntimeError:
+        return []
+
 # ===== 持仓管理路由 =====
 
 @app.route('/positions')
@@ -856,17 +896,43 @@ def positions():
 def api_positions():
     """获取持仓信息"""
     try:
-        # 从策略服务获取持仓数据
-        strategy_service_url = 'http://localhost:5001/api/positions'
-        response = requests.get(strategy_service_url, timeout=10)
+        accounts = _get_qmt_accounts()
+        if not accounts:
+            return {'error': 'QMT账户未初始化'}, 500
 
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {'error': f'策略服务返回错误: {response.status_code}'}, response.status_code
+        _, qmt_account = accounts[0]
+        positions = qmt_account.get_positions()
+        positions_data = []
 
-    except requests.exceptions.RequestException as e:
-        return {'error': f'无法连接到策略服务: {str(e)}'}, 500
+        for pos in positions:
+            open_price = pos.open_price
+            if open_price is not None:
+                if math.isinf(open_price) or math.isnan(open_price):
+                    open_price = None
+
+            positions_data.append({
+                'account_id': pos.account_id,
+                'stock_code': pos.stock_code,
+                'volume': pos.volume,
+                'can_use_volume': pos.can_use_volume,
+                'open_price': open_price,
+                'market_value': pos.market_value,
+                'frozen_volume': pos.frozen_volume,
+                'on_road_volume': pos.on_road_volume,
+                'yesterday_volume': pos.yesterday_volume
+            })
+
+        asset = qmt_account.get_current_account()
+        account_data = {
+            'account_id': asset.account_id,
+            'cash': asset.cash,
+            'frozen_cash': asset.frozen_cash,
+            'market_value': asset.market_value,
+            'total_asset': asset.total_asset
+        }
+
+        return {'positions': positions_data, 'account': account_data}
+
     except Exception as e:
         return {'error': str(e)}, 500
 
@@ -874,17 +940,18 @@ def api_positions():
 def api_liquidate():
     """一键清仓"""
     try:
-        # 向策略服务发送清仓请求
-        strategy_service_url = 'http://localhost:5001/api/liquidate'
-        response = requests.post(strategy_service_url, timeout=10)
+        accounts = _get_qmt_accounts()
+        if not accounts:
+            return {'success': False, 'message': 'QMT账户未初始化'}, 500
 
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {'success': False, 'message': f'策略服务返回错误: {response.status_code}'}, response.status_code
+        _, qmt_account = accounts[0]
+        results = qmt_account.liquidate_all_positions()
+        return {
+            'success': True,
+            'message': f'已发起清仓 {len(results)} 只股票',
+            'results': results
+        }
 
-    except requests.exceptions.RequestException as e:
-        return {'success': False, 'message': f'无法连接到策略服务: {str(e)}'}, 500
     except Exception as e:
         return {'success': False, 'message': str(e)}, 500
 
@@ -892,19 +959,24 @@ def api_liquidate():
 def api_liquidate_stock(stock_code):
     """清仓单个股票"""
     try:
-        # 向策略服务发送清仓请求
-        strategy_service_url = f'http://localhost:5001/api/liquidate/{stock_code}'
-        response = requests.post(strategy_service_url, timeout=10)
-
-        if response.status_code == 200:
-            return response.json()
-        elif response.status_code == 400:
+        if not is_valid_stock_code(stock_code):
             return {'success': False, 'message': '无效的股票代码'}, 400
-        else:
-            return {'success': False, 'message': f'策略服务返回错误: {response.status_code}'}, response.status_code
 
-    except requests.exceptions.RequestException as e:
-        return {'success': False, 'message': f'无法连接到策略服务: {str(e)}'}, 500
+        accounts = _get_qmt_accounts()
+        if not accounts:
+            return {'success': False, 'message': 'QMT账户未初始化'}, 500
+
+        _, qmt_account = accounts[0]
+        order_id = qmt_account.sell_all(stock_code)
+        if order_id:
+            return {
+                'success': True,
+                'message': f'已发起清仓股票 {stock_code}',
+                'order_id': order_id
+            }
+        else:
+            return {'success': False, 'message': '清仓失败：无持仓或可用数量为0'}, 400
+
     except Exception as e:
         return {'success': False, 'message': str(e)}, 500
 
@@ -917,17 +989,13 @@ def api_stock_kline(stock_code):
         if not is_valid_stock_code(stock_code):
             return {'error': '无效的股票代码格式'}, 400
 
-        # 从策略服务请求K线数据
-        strategy_service_url = 'http://localhost:5001/api/stock/{}/kline'.format(stock_code)
-        response = requests.get(strategy_service_url, timeout=10)
-
-        if response.status_code == 200:
-            return response.json()
+        from curs.broker.qmt_quote import get_stock_kline_data
+        kline_data = get_stock_kline_data(stock_code)
+        if kline_data:
+            return kline_data
         else:
-            return {'error': f'策略服务返回错误: {response.status_code}'}, response.status_code
+            return {'error': '未找到股票数据'}, 404
 
-    except requests.exceptions.RequestException as e:
-        return {'error': f'无法连接到策略服务: {str(e)}'}, 500
     except Exception as e:
         return {'error': str(e)}, 500
 
@@ -938,17 +1006,13 @@ def api_stock_quote(stock_code):
         if not is_valid_stock_code(stock_code):
             return {'error': '无效的股票代码格式'}, 400
 
-        # 从策略服务请求行情数据
-        strategy_service_url = 'http://localhost:5001/api/stock/{}/quote'.format(stock_code)
-        response = requests.get(strategy_service_url, timeout=10)
-
-        if response.status_code == 200:
-            return response.json()
+        from curs.broker.qmt_quote import get_stock_quote_data
+        quote_data = get_stock_quote_data(stock_code)
+        if quote_data:
+            return quote_data
         else:
-            return {'error': f'策略服务返回错误: {response.status_code}'}, response.status_code
+            return {'error': '未找到股票行情数据'}, 404
 
-    except requests.exceptions.RequestException as e:
-        return {'error': f'无法连接到策略服务: {str(e)}'}, 500
     except Exception as e:
         return {'error': str(e)}, 500
 
