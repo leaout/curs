@@ -145,7 +145,7 @@ Or via Web UI (auto-created on first access).
 
 ```bash
 # Use unified launcher (recommended)
-python run.py                    # Start all services
+python run.py                    # Start all services (Web + Engine)
 python run.py --help             # Show help
 
 # Run separately
@@ -157,6 +157,50 @@ python run.py -p 8080            # Web port 8080
 ```
 
 Visit http://localhost:5000
+
+### Batch Scripts
+
+Windows batch scripts are available in `E:\script\`:
+
+| Script | Description |
+|--------|-------------|
+| `start_all.bat` | One-click start QMT + Curs (Web + Engine) |
+| `startqmt.bat` | Start QMT only |
+| `startcurs.bat` | Start Curs only |
+| `start_web.bat` | Start Web service only |
+| `restart_premarket.bat` | Pre-market restart (kill → restart QMT → start Curs) |
+| `after_daily.bat` | After-market stock picking |
+| `setup_schedule.bat` | Configure Windows scheduled tasks |
+
+### Windows Scheduled Tasks
+
+Configure via `setup_schedule.bat`:
+
+| Task | Trigger | Description |
+|------|---------|-------------|
+| `CursBoot` | On login | Start QMT + Curs |
+| `CursPreMarket` | Weekdays 08:50 | Pre-market restart QMT + Curs |
+| `CursAfterMarket` | Weekdays 16:00 | After-market stock picking |
+| `CursDailyImport` | Daily 21:00 | Import collected data |
+
+## Architecture
+
+Curs uses a **single-process architecture**, with Web service and trading engine running in the same process:
+
+```
+run.py (single process)
+├── Web Service (Flask, port 5000)
+└── Trading Engine (Engine)
+    ├── Strategy Manager (StrategyManager)
+    ├── QMT Account (QmtStockAccount)
+    └── Quote Engine
+```
+
+- **Strategy Mode Toggle**: Web UI can toggle strategies between live/signal mode
+  - Live mode: receive quotes + execute orders
+  - Signal mode: receive quotes + generate signals to DB, skip real orders
+- **QMT Auto-start**: `run.py` auto-detects QMT connection on startup, auto-launches if not connected
+- **curs_main.py**: Backward-compatible shell, redirects to `run.py`
 
 ## Web Interface
 
@@ -240,6 +284,9 @@ Full list in `requirements.txt`
 
 - [x] PostgreSQL storage
 - [x] Scheduled tasks management
+- [x] Single-process architecture (Web + Engine)
+- [x] Strategy live/signal mode toggle
+- [x] QMT auto-start
 - [ ] Enhanced data collection (multi-platform, news analysis)
 - [ ] Live trading optimization
 - [ ] Strategy performance analysis

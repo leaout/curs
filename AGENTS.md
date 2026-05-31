@@ -24,7 +24,7 @@ python -m unittest test.curs_test.test_eval
 
 ### Running the Application
 ```bash
-# Use unified entry point (recommended)
+# Use unified entry point (recommended) - Single process (Web + Engine)
 python run.py                    # Start all services
 python run.py --help            # View help
 
@@ -38,11 +38,22 @@ python run.py -p 8080          # Web port 8080
 
 ### Legacy (deprecated)
 ```bash
-python curs_main.py              # Old entry (includes engine+API)
+python curs_main.py              # Old entry (compatibility shell → run.py)
 python web/app.py               # Old Web entry
 ```
 
 ## 2. Code Style Guidelines
+
+### Architecture
+- **Single Process**: `run.py` runs Web (Flask, port 5000) and Engine in one process
+- `curs_main.py` is a backward-compatible shell that redirects to `run.py`
+- QMT startup is integrated into `run.py` - auto-detects and auto-launches
+- Web toggle routes try direct `StrategyManager` first, fall back to HTTP proxy for legacy dual-process
+
+### Windows Batch Scripts
+- All scripts in `E:\script\` use `cd /d` for directory changes (NOT `pushd`/`popd` with stdout redirect)
+- `startqmt.bat` - starts QMT non-blocking via `start "QMT" cmd /c startminiqmt.bat`
+- `restart_premarket.bat` - kills curs → restarts QMT → starts curs (log to `logs/premarket_restart.log`)
 
 ### Encoding
 - Always use `# coding: utf-8` at the top of all Python files
