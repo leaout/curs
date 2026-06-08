@@ -370,6 +370,9 @@ def _handle_tick_inner(context, ticks):
             continue
         #update pre_ticks
         context.pre_ticks[stock_code] = tick
+        # guard: 股票不在基本信息列表中则跳过
+        if stock_code not in context.stock_base_info:
+            continue
         # 过滤ST股票 name中含有ST或st
         stock_name = context.stock_base_info[stock_code].get('name', '')
         if 'ST' in stock_name or 'st' in stock_name:

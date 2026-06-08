@@ -290,6 +290,9 @@ def force_sell_all_positions(context):
 
 def should_buy_stock(context, stock_code, tick):
     """判断是否应该买入股票"""
+    # guard: 股票不在基本信息列表中则跳过
+    if stock_code not in context.stock_base_info:
+        return False
     # 基础过滤
     stock_name = context.stock_base_info[stock_code].get('name', '')
     if 'ST' in stock_name or 'st' in stock_name:

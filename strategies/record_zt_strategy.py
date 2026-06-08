@@ -51,6 +51,9 @@ def handle_tick(context,ticks):
            current_time.hour > 14 or (current_time.hour == 14 and current_time.minute >= 59)):
              continue
 
+        # guard: 股票不在基本信息列表中则跳过
+        if stock_code not in context.stock_base_info:
+            continue
         # 获取涨停价
         upper_limit = context.stock_base_info[stock_code]['limit_up_price']
         last_price = tick.get('lastPrice', 0) 
