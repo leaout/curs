@@ -154,6 +154,9 @@ VENV/
 config.local.yml
 *.local.yml
 
+# Private strategies (managed by separate local git repo)
+strategies/
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
