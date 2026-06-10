@@ -55,6 +55,7 @@ def macd_cn(close_arr, fastperiod, slowperiod, signalperiod) :
 
 def trend_indicator(df):
 
+    openpx = np.nan_to_num(np.array(df.open, 'f8'))
     high = np.nan_to_num(np.array(df.high, 'f8'))
     low = np.nan_to_num(np.array(df.low, 'f8'))
     close = np.nan_to_num(np.array(df.close, 'f8'))

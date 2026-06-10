@@ -33,6 +33,7 @@ def receive_email(username, password):
     imaplib.Commands["ID"] = ('AUTH',)
     args = ("name", username, "contact", username, "version", "1.0.0", "vendor", "myclient")
     imap_client._simple_command("ID", str(args).replace(",", "").replace("\'", "\""))
+    mail_dir = imap_client.list()
 
     # 获取邮箱目录。INBOX(收件箱)/Drafts(草稿箱)/Junk(垃圾箱)/Trash(已删除)/Sent Messages(已发送)
     # 选择邮箱。返回的数据是中的消息数 信箱 (EXISTS 反应）。默认值信箱是'INBOX'

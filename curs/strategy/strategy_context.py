@@ -158,7 +158,7 @@ class StrategyContext(object):
                 continue
             try:
                 dict_data[key] = pickle.dumps(value)
-            except Exception:
+            except Exception as e:
                 logger.warn("context.{} can not pickle", key)
         return pickle.dumps(dict_data)
 
@@ -168,7 +168,7 @@ class StrategyContext(object):
             try:
                 self.__dict__[key] = pickle.loads(value)
                 logger.debug("restore context.{} {}", key, type(self.__dict__[key]))
-            except Exception:
+            except Exception as e:
                 logger.warn('context.{} can not restore', key)
 
     @property

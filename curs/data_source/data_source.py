@@ -1,4 +1,5 @@
 # coding: utf-8
+import datetime
 from curs.utils.read_csv import *
 
 class DataSource(object):

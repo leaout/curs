@@ -73,6 +73,15 @@ class Order(object):
         return self._order_book_id
 
     @property
+    def quantity(self):
+        """
+        [int] 订单数量
+        """
+        if np.isnan(self._quantity):
+            raise RuntimeError("Quantity of order {} is not supposed to be nan.".format(self.order_id))
+        return self._quantity
+
+    @property
     def filled_quantity(self):
         """
         [int] 订单已成交数量
@@ -253,6 +262,7 @@ class Simulation(object):
             open_orders = [(a, o) for (a, o) in self._open_orders if o.order_book_id == order_book_id]
 
         self._matcher.match(open_orders)
+        final_orders = [(a, o) for a, o in self._open_orders if o.is_final()]
         self._open_orders = [(a, o) for a, o in self._open_orders if not o.is_final()]
 
         # for account, order in final_orders:

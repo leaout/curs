@@ -3,6 +3,7 @@ import logging
 import time
 import threading
 from datetime import datetime
+from collections import defaultdict
 from typing import Dict, Optional, Callable
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,7 @@ class OrderTracker:
                 return
             
             order = self.orders[order_id]
+            old_status = order.status
             order.status = status
             order.filled_volume = filled_volume
             order.last_update_time = datetime.now()
@@ -196,7 +198,8 @@ class OrderTracker:
             max_profit_time = order.profit_history[profits.index(max_profit)][0]
             
             min_profit = min(profits)
-
+            min_profit_time = order.profit_history[profits.index(min_profit)][0]
+            
             time_to_max = max_profit_time - order.order_time.timestamp()
             
             return {

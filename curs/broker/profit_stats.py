@@ -4,6 +4,7 @@ import os
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,10 @@
 # coding: utf-8
 
+import datetime
 from curs.core.quote_from_tdx import *
-from sqlalchemy import Column, Integer
+from sqlalchemy import Column,Integer,String
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine, BIGINT, MetaData, Table
+from sqlalchemy import create_engine,BIGINT,MetaData,Table
 from sqlalchemy.ext.declarative import declarative_base
 
 # stock_df = get_security_list('stock')
@@ -48,6 +49,7 @@ def insert_kline_batch(df,engine):
     # 寻找Base的所有子类，按照子类的结构在数据库中生成对应的数据表信息
     base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
+    session = Session()
 def insert_kline(df,table_kline):
     pass
 def main():

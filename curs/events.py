@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from queue import Queue
+from queue import Queue, Empty
 from enum import Enum
 from collections import defaultdict
 from threading import Thread

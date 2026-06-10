@@ -5,6 +5,7 @@ from datetime import datetime, time as dt_time
 from functools import partial
 from threading import Thread, Lock
 from queue import Queue
+from collections import defaultdict
 
 from xtquant import xtdata
 from curs.events import *

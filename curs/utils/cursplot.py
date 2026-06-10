@@ -9,6 +9,8 @@
 import matplotlib.pyplot as plt
 #pip install https://github.com/matplotlib/mpl_finance/archive/master.zip
 from mpl_finance import candlestick_ochl
+import datetime
+from matplotlib.pylab import date2num
 from curs.api import *
 import matplotlib.ticker as ticker
 from .indicator import *

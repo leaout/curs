@@ -3,6 +3,8 @@
 from curs.const import *
 from curs.events import *
 # from curs.real_quote import *
+import numpy as np
+import datetime
 import logging
 from curs.broker.qmt_quote import *
 from curs.broker.optimized_quote import OptimizedQuoteEngine

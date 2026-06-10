@@ -1,4 +1,4 @@
-#coding:utf-8
+#coding:gbk
 #!/usr/bin/python
 """
 回测模型示例（非实盘交易策略）
@@ -8,8 +8,10 @@
 #特征变量我们选取了平均收盘价，平均成交量，平均最高价，平均最低价，总收益，收盘价的标准差
 #训练结束后，回测过程中在每个星期一预测本周五的涨跌，以此为据开仓
 """
-from datetime import datetime
+import pandas as pd
 import numpy as np
+import time
+from datetime import *
 from sklearn import svm
 import traceback
 def init(ContextInfo):
