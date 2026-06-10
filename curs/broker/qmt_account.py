@@ -2,12 +2,11 @@ import logging
 import time
 import threading
 from typing import List
-from xml.dom.pulldom import parseString
 
-from xtquant import xtconstant, xtdata
+from xtquant import xtconstant
 from xtquant.xttrader import XtQuantTrader, XtQuantTraderCallback
 from xtquant.xttype import StockAccount, XtPosition
-from curs.broker.account import Account,Position
+from curs.broker.account import Account
 
 logger = logging.getLogger(__name__)
 
@@ -43,43 +42,6 @@ class MyXtQuantTraderCallback(XtQuantTraderCallback):
     def on_account_status(self, status):
         logger.info(f"qmt on_account_status: {vars(status)}")
 
-
-class QmtStockAccount(Account):
-    @classmethod
-    def test_connection(cls, path, account_id, trader_name, session_id=2019):
-        """测试QMT账户连接是否成功，不保持连接状态"""
-        try:
-            temp_trader = XtQuantTrader(path, session_id)
-            
-            temp_trader.start()
-            
-            connect_result = temp_trader.connect()
-            if connect_result != 0:
-                logger.warning(f"QMT连接失败: {connect_result}")
-                temp_trader.stop()
-                return False
-            
-            # 订阅账户（传入账户ID字符串）
-            subscribe_result = temp_trader.subscribe(account_id)
-            if subscribe_result != 0:
-                logger.warning(f"账户订阅失败: {subscribe_result}")
-                temp_trader.stop()
-                return False
-            
-            # 尝试查询账户资产来验证连接
-            asset = temp_trader.query_stock_asset(account_id)
-            if not asset or not hasattr(asset, 'account_id'):
-                logger.warning("无法获取账户资产，连接验证失败")
-                temp_trader.stop()
-                return False
-            
-            logger.info("QMT账户连接测试成功")
-            temp_trader.stop()
-            return True
-            
-        except Exception as e:
-            logger.error(f"QMT连接测试异常: {e}")
-            return False
 
 
 class QmtStockAccount(Account):

@@ -3,7 +3,6 @@
 import logging
 import logging.handlers
 import sys
-import time
 import os
 
 class curs_logger(object):

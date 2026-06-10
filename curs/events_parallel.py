@@ -2,10 +2,9 @@
 import logging
 from queue import Queue, Empty
 from threading import Thread, Lock
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
-from typing import Callable, Dict, List
-import time
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 

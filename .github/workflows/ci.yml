@@ -25,7 +25,7 @@ jobs:
           
       - name: Run pyflakes
         run: |
-          pyflakes web/ test/test_config.py test/test_task_scheduler.py test/test_task_callbacks.py
+          pyflakes curs/ web/ test/test_config.py test/test_task_scheduler.py test/test_task_callbacks.py
           
       - name: Run pycodestyle
         run: |
