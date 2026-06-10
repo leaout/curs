@@ -1,16 +1,14 @@
-from random import randrange
 import os
 import csv
 import json
 import time
 import math
 from datetime import datetime
-from flask import Flask, request, render_template_string, render_template, url_for, redirect
+from flask import Flask, request, render_template
 import pandas as pd
 import requests
 import sys
 import logging
-import akshare as ak
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -447,7 +445,7 @@ def api_clear_hot_stocks():
             WHERE category = 'hot' 
             AND DATE(added_at) = CURRENT_DATE
         """
-        result = db_manager.execute_query(query)
+        db_manager.execute_query(query)
         
         # 获取删除数量
         count_query = "SELECT COUNT(*) as cnt FROM stock_pool WHERE category = 'hot'"
@@ -490,7 +488,6 @@ def api_signals_profit_analysis():
     """
     try:
         from xtquant import xtdata
-        from datetime import timedelta
         from collections import defaultdict
         
         # 获取价格类型参数: high(最高价), close(收盘价), avg(均价)
@@ -547,8 +544,7 @@ def api_signals_profit_analysis():
                 if kline_data and 'close' in kline_data and stock_code in kline_data['close'].index:
                     close_series = kline_data['close'].loc[stock_code]
                     high_series = kline_data['high'].loc[stock_code]
-                    time_series = kline_data['time'].loc[stock_code]
-                    
+
                     # 尝试获取成交量和成交额
                     has_volume = 'volume' in kline_data
                     volume_series = kline_data['volume'].loc[stock_code] if has_volume else None
@@ -1053,7 +1049,7 @@ def get_strategy_info(strategy_id):
                            if signal.get('timestamp', '').startswith(datetime.now().strftime('%Y-%m-%d')))
         pending_signals = sum(1 for signal in signals_stats if signal.get('status') == 'PENDING')
         executed_signals = sum(1 for signal in signals_stats if signal.get('status') == 'EXECUTED')
-    except Exception as e:
+    except Exception:
         today_signals = 0
         pending_signals = 0
         executed_signals = 0

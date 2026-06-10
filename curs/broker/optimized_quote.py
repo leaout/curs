@@ -71,7 +71,7 @@ class OptimizedQuoteEngine:
         
         self.stocks = []
         self.stock_set = set()
-        logger.error(f"股票池加载失败，股票池为空，策略将不会运行")
+        logger.error("股票池加载失败，股票池为空，策略将不会运行")
     
     def _pre_filter_tick(self, tick_data: dict) -> dict:
         """
