@@ -161,24 +161,38 @@ def save_to_database(stocks: List[Dict]) -> Dict:
 
 
 def main(config: dict = None):
-    """主函数"""
+    """主函数: 获取热点股票并保存到数据库"""
+    from curs.database import get_db_manager
+
     print(f"开始获取东方财富热点股票... {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"代理状态: {'启用' if PROXY_CONFIG['enabled'] else '禁用'}")
-    
+
     stocks = get_eastmoney_hot_stocks()
-    
+
     if not stocks:
         print("获取失败，未获取到任何股票")
         return {'success': False, 'message': '未获取到任何股票'}
-    
-    result = save_to_database(stocks)
-    
-    print(f"\n执行完成:")
-    print(f"  获取股票: {result.get('total', 0)} 只")
-    print(f"  成功保存: {result.get('success_count', 0)} 只")
-    print(f"  保存失败: {result.get('failed_count', 0)} 只")
 
-    return result
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    # 保存当日数据到 hot_stock_daily 表（记录原始排名数据）
+    db = get_db_manager()
+    daily_result = db.save_hot_stock_daily(today, stocks)
+
+    # 同时写入 stock_pool（全部写入，连续上榜过滤由策略启动时自行判断）
+    pool_result = save_to_database(stocks)
+
+    print(f"\n执行完成:")
+    print(f"  获取股票: {len(stocks)} 只")
+    print(f"  日记录保存: {daily_result.get('success_count', 0)} 只")
+    print(f"  股票池保存: {pool_result.get('success_count', 0)} 只")
+
+    return {
+        'success': True,
+        'total': len(stocks),
+        'daily_saved': daily_result.get('success_count', 0),
+        'pool_saved': pool_result.get('success_count', 0),
+    }
 
 
 if __name__ == "__main__":

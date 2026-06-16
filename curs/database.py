@@ -486,6 +486,88 @@ class DatabaseManager:
         results = self.execute_query(query, params)
         return [row['stock_code'] for row in results]
 
+    # ===== 热点股票日记录管理 =====
+
+    def get_last_trade_date(self) -> Optional[str]:
+        """获取 hot_stock_daily 表中最近的一个交易日"""
+        query = "SELECT MAX(trade_date) as max_date FROM hot_stock_daily"
+        results = self.execute_query(query)
+        if results and results[0].get('max_date'):
+            return results[0]['max_date'].isoformat()
+        return None
+
+    def save_hot_stock_daily(self, trade_date: str, stocks: List[Dict]) -> Dict:
+        """保存当日热点股票记录到 hot_stock_daily 表（使用独立短连接）"""
+        import psycopg2
+        conn = None
+        try:
+            conn = psycopg2.connect(
+                host=self.host, port=self.port,
+                database=self.database, user=self.user,
+                password=self.password,
+            )
+            conn.autocommit = True
+            cur = conn.cursor()
+
+            cur.execute("DELETE FROM hot_stock_daily WHERE trade_date = %s", (trade_date,))
+
+            success_count = 0
+            for stock in stocks:
+                try:
+                    cur.execute("""
+                        INSERT INTO hot_stock_daily
+                            (trade_date, stock_code, stock_name, rank, price, change_pct, source)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        trade_date,
+                        stock.get('code', ''),
+                        stock.get('name', ''),
+                        stock.get('rank', 0),
+                        stock.get('price', 0),
+                        stock.get('change_pct', 0),
+                        stock.get('source', '东方财富'),
+                    ))
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"保存热点股票日记录失败 {stock.get('code')}: {e}")
+
+            cur.close()
+            conn.close()
+            return {'success': True, 'total': len(stocks), 'success_count': success_count}
+
+        except Exception as e:
+            logger.error(f"保存热点股票日记录数据库操作失败: {e}")
+            if conn:
+                try:
+                    conn.close()
+                except:
+                    pass
+            return {'success': False, 'message': str(e)}
+
+    def get_consecutive_hot_stocks(self, min_consecutive_days: int = 2) -> List[str]:
+        """从 hot_stock_daily 中筛选连续多天都上榜的股票
+
+        找到最近连续 N 个交易日都在榜上的股票。
+        N 默认为 2，即至少昨天和今天都出现才返回。
+        """
+        query = """
+            SELECT stock_code
+            FROM hot_stock_daily
+            WHERE trade_date >= (
+                SELECT MIN(trade_date) FROM (
+                    SELECT DISTINCT trade_date
+                    FROM hot_stock_daily
+                    ORDER BY trade_date DESC
+                    LIMIT %s
+                ) sub
+            )
+            GROUP BY stock_code
+            HAVING COUNT(DISTINCT trade_date) >= %s
+            ORDER BY stock_code
+        """
+        results = self.execute_query(query, (min_consecutive_days, min_consecutive_days))
+        return [row['stock_code'] for row in results] if results else []
+
     def get_all_active_stocks_from_pool(self) -> List[str]:
         """获取股票池中所有激活的股票代码"""
         # query = "SELECT stock_code FROM stock_pool WHERE is_active = TRUE ORDER BY stock_code"

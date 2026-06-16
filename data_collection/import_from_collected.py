@@ -64,17 +64,29 @@ def load_stocks_from_file(filepath: str) -> list:
 
 
 def import_to_database(stocks: list, db_manager=None) -> dict:
-    """导入股票数据到 stock_pool 表（使用独立连接，避免锁冲突）"""
+    """导入股票数据到 hot_stock_daily + stock_pool 表"""
+    logger.info(f"开始导入 {len(stocks)} 只股票数据")
+
+    # 提取采集日期
+    today = datetime.now().strftime('%Y-%m-%d')
+    if stocks and stocks[0].get('collect_time'):
+        try:
+            dt = datetime.fromisoformat(stocks[0]['collect_time'])
+            today = dt.strftime('%Y-%m-%d')
+        except:
+            pass
+
+    # 保存到 hot_stock_daily 日记录表
+    if db_manager:
+        db_manager.save_hot_stock_daily(today, stocks)
+
+    # 写入 stock_pool（连续上榜过滤由策略启动时自行判断）
     conn = _get_connection()
     cur = conn.cursor()
 
-    # 先清空旧 hot 数据
     cur.execute("DELETE FROM stock_pool WHERE category = 'hot'")
 
     success_count = 0
-    failed_count = 0
-    failed_stocks = []
-
     for stock in stocks:
         try:
             cur.execute("""
@@ -94,8 +106,6 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
             success_count += 1
         except Exception as e:
             logger.error(f"导入失败 {stock.get('code')}: {e}")
-            failed_count += 1
-            failed_stocks.append(stock['code'])
 
     cur.close()
     conn.close()
@@ -104,8 +114,6 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
         'success': True,
         'total': len(stocks),
         'success_count': success_count,
-        'failed_count': failed_count,
-        'failed_stocks': failed_stocks
     }
 
 

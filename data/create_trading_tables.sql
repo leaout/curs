@@ -127,3 +127,18 @@ CREATE TABLE IF NOT EXISTS stock_info (
 
 CREATE INDEX IF NOT EXISTS idx_stock_info_name ON stock_info(stock_name);
 CREATE INDEX IF NOT EXISTS idx_stock_info_exchange ON stock_info(exchange);
+
+-- 创建热点股票日记录表（用于连续上榜过滤）
+CREATE TABLE IF NOT EXISTS hot_stock_daily (
+    trade_date DATE NOT NULL,
+    stock_code VARCHAR(20) NOT NULL,
+    stock_name VARCHAR(100),
+    rank INTEGER DEFAULT 0,
+    price DECIMAL(10, 2) DEFAULT 0,
+    change_pct DECIMAL(10, 2) DEFAULT 0,
+    source VARCHAR(50) DEFAULT '东方财富',
+    CONSTRAINT hot_stock_daily_pkey PRIMARY KEY (trade_date, stock_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_hot_stock_daily_trade_date ON hot_stock_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_hot_stock_daily_stock_code ON hot_stock_daily(stock_code);

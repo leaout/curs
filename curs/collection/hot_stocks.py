@@ -133,17 +133,20 @@ def get_hot_stocks(delay: float = 10.0) -> Optional[List[Dict]]:
 def sync_hot_stocks_to_db(db_manager, category: str = 'hot') -> Dict:
     """同步热点股票到数据库"""
     stocks = get_hot_stocks()
-    
+
     if not stocks:
         return {'success': False, 'message': '获取热点股票失败'}
-    
+
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    # 保存当日原始排名数据到 hot_stock_daily
+    db_manager.save_hot_stock_daily(today, stocks)
+
+    # 全部写入 stock_pool（连续上榜过滤由策略启动时自行判断）
     success_count = 0
-    failed_count = 0
-    
     for stock in stocks:
         try:
             db_manager.remove_stock_from_pool(stock['code'])
-            
             result = db_manager.add_stock_to_pool(
                 stock_code=stock['code'],
                 stock_name=stock.get('name', ''),
@@ -151,21 +154,15 @@ def sync_hot_stocks_to_db(db_manager, category: str = 'hot') -> Dict:
                 added_by='auto_sync',
                 notes=f"排名:{stock.get('rank', 0)},价格:{stock.get('price', 0)},涨跌:{stock.get('change_pct', 0)}%"
             )
-            
             if result:
                 success_count += 1
-            else:
-                failed_count += 1
-                
         except Exception as e:
             logger.error(f"同步股票失败: {stock.get('code')}, {e}")
-            failed_count += 1
-    
+
     return {
         'success': True,
         'total': len(stocks),
         'success_count': success_count,
-        'failed_count': failed_count
     }
 
 
