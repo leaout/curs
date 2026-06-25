@@ -71,6 +71,14 @@ def task_collect_hot_stocks(config: dict) -> str:
     })
 
 
+def task_collect_ths_hot_stocks(config: dict) -> str:
+    """同花顺热点股票采集任务"""
+    return execute_dynamic_task({
+        'script_path': 'data_collection/ths_hot_stocks.py',
+        'function_name': 'main'
+    })
+
+
 def task_sync_stock_info(config: dict) -> str:
     """同步股票信息任务"""
     try:
@@ -122,6 +130,7 @@ def register_all_tasks(scheduler):
     # 注册内置任务
     scheduler.register_callback('sync_hot_stocks', task_sync_hot_stocks)
     scheduler.register_callback('collect_hot_stocks', task_collect_hot_stocks)
+    scheduler.register_callback('collect_ths_hot_stocks', task_collect_ths_hot_stocks)
     scheduler.register_callback('import_collected_data', task_import_collected_data)
     scheduler.register_callback('sync_stock_info', task_sync_stock_info)
     scheduler.register_callback('profit_analysis', task_profit_analysis)
