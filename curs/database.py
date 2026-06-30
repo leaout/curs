@@ -568,6 +568,18 @@ class DatabaseManager:
         results = self.execute_query(query, (min_consecutive_days, min_consecutive_days))
         return [row['stock_code'] for row in results] if results else []
 
+    def get_top_ranked_hot_stocks(self, limit: int = 30) -> List[str]:
+        """从 hot_stock_daily 中获取最新交易日排名前 N 的热点股票"""
+        query = """
+            SELECT stock_code
+            FROM hot_stock_daily
+            WHERE trade_date = (SELECT MAX(trade_date) FROM hot_stock_daily)
+            ORDER BY rank ASC
+            LIMIT %s
+        """
+        results = self.execute_query(query, (limit,))
+        return [row['stock_code'] for row in results] if results else []
+
     def get_all_active_stocks_from_pool(self) -> List[str]:
         """获取股票池中所有激活的股票代码"""
         # query = "SELECT stock_code FROM stock_pool WHERE is_active = TRUE ORDER BY stock_code"
