@@ -19,7 +19,7 @@ def _load_db_config():
             if config and 'database' in config:
                 db = config['database']
                 return {
-                    'host': db.get('host', '192.168.2.12'),
+                    'host': db.get('host', '192.168.2.238'),
                     'port': db.get('port', 6432),
                     'database': db.get('database', 'postgres'),
                     'user': db.get('user', 'postgres'),
@@ -36,7 +36,7 @@ class DatabaseManager:
 
     def __init__(self, host=None, port=None, database=None,
                  user=None, password=None):
-        self.host = host or _default_config.get('host', '192.168.2.12')
+        self.host = host or _default_config.get('host', '192.168.2.238')
         self.port = port or _default_config.get('port', 6432)
         self.database = database or _default_config.get('database', 'postgres')
         self.user = user or _default_config.get('user', 'postgres')
@@ -78,6 +78,7 @@ class DatabaseManager:
                 cursor.execute(query, params)
                 if cursor.description:  # 如果是SELECT查询
                     results = cursor.fetchall()
+                    self.connection.commit()
                     return [dict(row) for row in results]
                 else:  # 如果是INSERT/UPDATE/DELETE查询
                     self.connection.commit()
@@ -1103,9 +1104,13 @@ def get_db_manager() -> DatabaseManager:
 
 
 def init_db():
-    """初始化数据库所有表"""
+    """初始化数据库所有表（并发初始化时通过 advisory lock 串行化）"""
     db = get_db_manager()
-    db.create_tables()
-    db.create_scheduled_tasks_table()
-    db.create_strategy_config_table()
+    db.execute_query("SELECT pg_advisory_lock(897531)")
+    try:
+        db.create_tables()
+        db.create_scheduled_tasks_table()
+        db.create_strategy_config_table()
+    finally:
+        db.execute_query("SELECT pg_advisory_unlock(897531)")
     logger.info("数据库表初始化完成")
