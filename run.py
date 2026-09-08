@@ -29,7 +29,13 @@ logger = logging.getLogger(__name__)
 
 
 def check_and_start_qmt(config):
-    """通过QMT账户连接成功作为判断，如果连接不上则启动QMT"""
+    """检查并启动交易连接（QMT 或东方财富）"""
+    broker_type = config.get('broker', 'qmt')
+
+    if broker_type == 'eastmoney':
+        logger.info("使用东方财富 broker，跳过 QMT 检查")
+        return True
+
     try:
         from curs.broker.qmt_account import QmtStockAccount
 

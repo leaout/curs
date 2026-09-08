@@ -24,7 +24,7 @@ def _get_db_config():
         config = load_yaml(config_path) or {}
         db = config.get('database', {})
         DB_CONFIG = {
-            'host': db.get('host', '192.168.2.12'),
+            'host': db.get('host', '192.168.2.238'),
             'port': db.get('port', 6432),
             'database': db.get('database', 'postgres'),
             'user': db.get('user', 'postgres'),

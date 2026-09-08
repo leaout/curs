@@ -68,7 +68,7 @@ version: 0.1.0
 
 # Database config
 database:
-  host: 192.168.2.12
+  host: 192.168.2.238
   port: 6432
   database: postgres
   user: postgres
@@ -136,7 +136,7 @@ curs/
 Create tables before first run:
 
 ```bash
-psql -h 192.168.2.12 -U postgres -d postgres -f data/create_scheduled_tasks.sql
+psql -h 192.168.2.238 -U postgres -d postgres -f data/create_scheduled_tasks.sql
 ```
 
 Or via Web UI (auto-created on first access).

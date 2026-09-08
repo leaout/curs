@@ -68,7 +68,7 @@ version: 0.1.0
 
 # 数据库配置
 database:
-  host: 192.168.2.12
+  host: 192.168.2.238
   port: 6432
   database: postgres
   user: postgres
@@ -146,7 +146,7 @@ curs/
 
 ```bash
 # 创建数据库表
-psql -h 192.168.2.12 -U postgres -d postgres -f data/create_scheduled_tasks.sql
+psql -h 192.168.2.238 -U postgres -d postgres -f data/create_scheduled_tasks.sql
 ```
 
 或者通过 Web 界面自动创建（首次访问时会尝试创建）。

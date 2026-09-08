@@ -5,17 +5,26 @@ version: 0.1.0
 
 # 数据库配置
 database:
-  host: 192.168.2.12
+  host: 192.168.2.238
   port: 6432
   database: postgres
   user: postgres
   password: ""
 
-# QMT 配置
+# 交易商配置（支持 qmt 或 eastmoney）
+broker: qmt  # 可选: qmt | eastmoney
+
+# QMT 配置（broker: qmt 时使用）
 qmt:
   path: ""
   account_id: ""
   trader_name: ""
+
+# 东方财富配置（broker: eastmoney 时使用）
+eastmoney:
+  account_no: ""      # 资金账号
+  password: ""        # 交易密码（敏感，请放 config.local.yml）
+  session_file: "eastmoney_trader.session"
 
 # 策略配置
 strategy:

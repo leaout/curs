@@ -868,7 +868,7 @@ def api_update_stock_category():
         return {'success': False, 'message': str(e)}, 500
 
 def _get_qmt_accounts():
-    """从 StrategyManager 获取所有 QmtStockAccount"""
+    """从 StrategyManager 获取所有交易账户（QMT 或东方财富）"""
     try:
         from curs.strategy_manager import StrategyManager
         manager = StrategyManager.get_instance()
@@ -894,7 +894,7 @@ def api_positions():
     try:
         accounts = _get_qmt_accounts()
         if not accounts:
-            return {'error': 'QMT账户未初始化'}, 500
+            return {'error': '交易账户未初始化'}, 500
 
         _, qmt_account = accounts[0]
         positions = qmt_account.get_positions()
@@ -938,7 +938,7 @@ def api_liquidate():
     try:
         accounts = _get_qmt_accounts()
         if not accounts:
-            return {'success': False, 'message': 'QMT账户未初始化'}, 500
+            return {'success': False, 'message': '交易账户未初始化'}, 500
 
         _, qmt_account = accounts[0]
         results = qmt_account.liquidate_all_positions()
@@ -960,7 +960,7 @@ def api_liquidate_stock(stock_code):
 
         accounts = _get_qmt_accounts()
         if not accounts:
-            return {'success': False, 'message': 'QMT账户未初始化'}, 500
+            return {'success': False, 'message': '交易账户未初始化'}, 500
 
         _, qmt_account = accounts[0]
         order_id = qmt_account.sell_all(stock_code)
@@ -1129,7 +1129,7 @@ def index():
 
                 <div class="nav-card">
                     <h3>💼 持仓管理</h3>
-                    <p>查看QMT持仓信息，支持一键清仓和单股票清仓操作</p>
+                    <p>查看交易账户持仓信息，支持一键清仓和单股票清仓操作</p>
                     <a href="/positions" class="nav-button">进入持仓管理</a>
                 </div>
 
@@ -1354,7 +1354,7 @@ def api_task_types():
         'types': [
             {'id': 'collect_hot_stocks', 'name': '东方财富热点股票采集', 'description': '采集东方财富热点股票并同步到股票池', 'config_hint': '无需配置，保持默认即可'},
             {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '从网络获取热点股票并同步到数据库', 'config_hint': '{"category": "hot"}'},
-            {'id': 'sync_stock_info', 'name': '同步股票信息', 'description': '从QMT同步股票基本信息'},
+            {'id': 'sync_stock_info', 'name': '同步股票信息', 'description': '从交易账户同步股票基本信息'},
             {'id': 'profit_analysis', 'name': '盈利分析', 'description': '分析策略信号的盈利情况'},
             {'id': 'clear_hot_stocks', 'name': '清除热点股票', 'description': '清除当天添加的热点股票'},
             {'id': 'custom_script', 'name': '自定义脚本任务', 'description': '执行自定义Python脚本', 'config_hint': '{"script_path": "路径/脚本.py", "function_name": "函数名"}'},
