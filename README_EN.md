@@ -7,6 +7,7 @@ Curs is a personal automated quantitative investment platform.
 ## Features
 
 - **Real-time Quotes** - Get real-time Tick data from QMT
+- **Multiple Brokers** - Use either QMT or Eastmoney Securities for the trading account
 - **Strategy Trading** - Multi-strategy support with hot reloading
 - **Signal Management** - Auto-generate, store and execute trading signals
 - **Position Management** - Real-time position monitoring, one-click liquidation
@@ -38,7 +39,8 @@ graph TD
 
 - Python 3.10+ (recommended)
 - PostgreSQL 12+
-- QMT client (required for live trading)
+- QMT/MiniQMT client (currently required for real-time quotes)
+- One live trading account: either QMT or an enabled Eastmoney Securities account
 
 ## Installation
 
@@ -74,11 +76,20 @@ database:
   user: postgres
   password: ""  # Use config.local.yml
 
-# QMT config
+# Broker: qmt or eastmoney
+broker: qmt
+
+# QMT config (used when broker: qmt)
 qmt:
   path: ""
   account_id: ""  # Use config.local.yml
   trader_name: ""
+
+# Eastmoney config (used when broker: eastmoney)
+eastmoney:
+  account_no: ""
+  password: ""  # Keep this in config.local.yml or an environment variable
+  session_file: data/eastmoney_trader.session
 
 # Strategy config
 strategy:
@@ -99,6 +110,17 @@ qmt:
   trader_name: curs
 ```
 
+For Eastmoney, use this local override instead:
+
+```yaml
+broker: eastmoney
+
+eastmoney:
+  account_no: "YOUR_FUND_ACCOUNT"
+  password: "YOUR_TRADING_PASSWORD"
+  session_file: data/eastmoney_trader.session
+```
+
 Or use environment variables:
 
 ```bash
@@ -106,13 +128,45 @@ set CURS_DB_PASSWORD=your_password
 set CURS_QMT_ACCOUNT_ID=YOUR_ACCOUNT_ID
 ```
 
+Eastmoney can also be configured entirely through environment variables:
+
+```bat
+set CURS_BROKER=eastmoney
+set CURS_EASTMONEY_ACCOUNT_NO=YOUR_FUND_ACCOUNT
+set CURS_EASTMONEY_PASSWORD=YOUR_TRADING_PASSWORD
+set CURS_EASTMONEY_SESSION_FILE=data/eastmoney_trader.session
+```
+
+## Eastmoney Securities Setup
+
+The Eastmoney integration logs in to the web trading gateway with a fund account and trading password and does not route orders through QMT. On first login it recognizes the image captcha automatically and stores a reusable login session in `session_file`. It logs in again when that session expires. The current quote engine is still based on `xtquant`, so the MiniQMT quote service must be running for real-time strategies.
+
+1. Verify that the account can sign in to Eastmoney web trading and that trading permissions are enabled.
+2. Run `pip install -r requirements.txt` to install `pycryptodome`, `ddddocr`, and `pillow`.
+3. Set `broker: eastmoney`, the fund account, and trading password in the gitignored `config.local.yml`.
+4. Start the MiniQMT quote service; Eastmoney replaces only the trading account, not the current quote source.
+5. For the first run, use `python run.py --engine-only -v` and look for an “Eastmoney account login succeeded” log entry.
+6. Start the full service, open Position Management, and verify cash and positions. Disable live trading in Strategy Management while validating signals, then enable it only after verification.
+
+Strategies should use the common factory instead of constructing a broker directly:
+
+```python
+from curs.broker import create_account
+
+context.account = create_account(config, total_cash=100000)
+```
+
+The adapter currently supports cash and position queries, limit/market-parameter orders, cancellation, today's orders and trades, and liquidation. A-share T+1 rules still apply; liquidation only sells the available quantity reported by the broker. The quote engine still uses the QMT/xtquant data path, so selecting Eastmoney changes the trading account, not the market-data source.
+
+> Risk notice: this integration depends on Eastmoney's web trading interface and may stop working if its API or login checks change. Both `config.local.yml` and `*.session` contain sensitive data and must not be committed, shared, or placed in a synced folder. Validate in signal mode and with small amounts first.
+
 ## Project Structure
 
 ```
 curs/
 ├── curs/
 │   ├── api/              # API endpoints
-│   ├── broker/           # Trading interface (QMT)
+│   ├── broker/           # Trading interfaces (QMT / Eastmoney)
 │   ├── collection/       # Data collection
 │   ├── core/             # Core engine
 │   ├── data_source/      # Historical data
@@ -192,14 +246,14 @@ run.py (single process)
 ├── Web Service (Flask, port 5000)
 └── Trading Engine (Engine)
     ├── Strategy Manager (StrategyManager)
-    ├── QMT Account (QmtStockAccount)
+    ├── Trading Account (QmtStockAccount / EastMoneyAccount)
     └── Quote Engine
 ```
 
 - **Strategy Mode Toggle**: Web UI can toggle strategies between live/signal mode
   - Live mode: receive quotes + execute orders
   - Signal mode: receive quotes + generate signals to DB, skip real orders
-- **QMT Auto-start**: `run.py` auto-detects QMT connection on startup, auto-launches if not connected
+- **Broker startup**: QMT mode checks and starts QMT; Eastmoney mode logs in while strategies initialize
 - **curs_main.py**: Backward-compatible shell, redirects to `run.py`
 
 ## Web Interface
@@ -250,7 +304,7 @@ Via Web UI `Scheduled Tasks` page:
 |--------|-------------|
 | collection | Data collection (hot stocks,龙虎榜, etc.) |
 | data_source | Historical data storage |
-| broker | QMT trading interface |
+| broker | QMT / Eastmoney trading interfaces |
 | strategy | Strategy loading and execution |
 | core | Core engine (event dispatch, data feed) |
 | utils | Utility functions |

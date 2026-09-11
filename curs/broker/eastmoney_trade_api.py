@@ -121,6 +121,7 @@ class EastMoneyTradeAPI:
         self.session_file = session_file
         self.validate_key: Optional[str] = None
         self.account_no: str = ""
+        self._cached_account_no: str = ""
         self.session = requests.Session()
         self.session.verify = False
         self.session.headers.update(HEADERS)
@@ -132,14 +133,22 @@ class EastMoneyTradeAPI:
     # ─── Session 持久化 ──────────────────────────────────
 
     def _save_session(self):
+        session_dir = os.path.dirname(os.path.abspath(self.session_file))
+        os.makedirs(session_dir, exist_ok=True)
         with open(self.session_file, "wb") as f:
-            pickle.dump((self.validate_key, self.session), f)
+            pickle.dump((self.account_no, self.validate_key, self.session), f)
 
     def _reload_session(self) -> bool:
         if os.path.exists(self.session_file):
             try:
                 with open(self.session_file, "rb") as f:
-                    self.validate_key, self.session = pickle.load(f)
+                    cached = pickle.load(f)
+                if len(cached) == 3:
+                    self._cached_account_no, self.validate_key, self.session = cached
+                else:
+                    # 兼容旧版二元组缓存；旧缓存无法确认所属账户，因此不复用。
+                    self.validate_key = None
+                    return False
                 return True
             except Exception:
                 pass
@@ -165,13 +174,15 @@ class EastMoneyTradeAPI:
         成功返回 {"success": True}
         """
         # 检查缓存会话是否有效
-        if self.validate_key:
+        if self.validate_key and self._cached_account_no == account_no:
             try:
                 self._heartbeat()
                 self.account_no = account_no
                 return {"success": True, "cached": True}
             except Exception:
                 self.validate_key = None
+        elif self.validate_key:
+            self.validate_key = None
 
         self.account_no = account_no
 

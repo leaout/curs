@@ -84,6 +84,30 @@ class TestLoadYaml(unittest.TestCase):
             self.assertEqual(config['qmt']['path'], '/custom/path')
             self.assertEqual(config['qmt']['account_id'], '456')
 
+    def test_env_override_eastmoney(self):
+        """测试东方财富交易商环境变量覆盖"""
+        config_data = {
+            'broker': 'qmt',
+            'eastmoney': {'account_no': '', 'password': ''}
+        }
+
+        with open(self.config_file, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f)
+
+        with patch.dict(os.environ, {
+            'CURS_BROKER': 'eastmoney',
+            'CURS_EASTMONEY_ACCOUNT_NO': 'test-account',
+            'CURS_EASTMONEY_PASSWORD': 'test-password',
+            'CURS_EASTMONEY_SESSION_FILE': 'data/test.session',
+        }):
+            from curs.utils.config import load_yaml
+            config = load_yaml(self.config_file)
+
+            self.assertEqual(config['broker'], 'eastmoney')
+            self.assertEqual(config['eastmoney']['account_no'], 'test-account')
+            self.assertEqual(config['eastmoney']['password'], 'test-password')
+            self.assertEqual(config['eastmoney']['session_file'], 'data/test.session')
+
 
 class TestMergeConfig(unittest.TestCase):
     """测试配置合并功能"""

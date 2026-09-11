@@ -7,6 +7,7 @@ Curs 是一个个人自动化量化投资平台。
 ## 功能特性
 
 - **实时行情** - 支持从 QMT 获取实时 Tick 数据
+- **多交易商** - 交易账户支持 QMT 或东方财富证券
 - **策略交易** - 支持多策略同时运行，策略热加载
 - **信号管理** - 买卖信号自动生成、存储和执行
 - **持仓管理** - 实时持仓监控，一键清仓
@@ -38,7 +39,8 @@ graph TD
 
 - Python 3.10+ (推荐)
 - PostgreSQL 12+
-- QMT 客户端（实盘交易需要）
+- QMT/MiniQMT 客户端（当前实时行情需要）
+- 实盘账户：QMT 交易账户或可用的东方财富证券账户（二选一）
 
 ## 安装
 
@@ -74,11 +76,20 @@ database:
   user: postgres
   password: ""  # 建议使用 config.local.yml
 
-# QMT 配置
+# 交易商，可选 qmt 或 eastmoney
+broker: qmt
+
+# QMT 配置（broker: qmt 时使用）
 qmt:
   path: ""
   account_id: ""  # 建议使用 config.local.yml
   trader_name: ""
+
+# 东方财富配置（broker: eastmoney 时使用）
+eastmoney:
+  account_no: ""
+  password: ""  # 必须放在 config.local.yml 或环境变量中
+  session_file: data/eastmoney_trader.session
 
 # 策略配置
 strategy:
@@ -99,6 +110,17 @@ qmt:
   trader_name: curs
 ```
 
+使用东方财富时，本地配置改为：
+
+```yaml
+broker: eastmoney
+
+eastmoney:
+  account_no: "YOUR_FUND_ACCOUNT"
+  password: "YOUR_TRADING_PASSWORD"
+  session_file: data/eastmoney_trader.session
+```
+
 或使用环境变量：
 
 ```bash
@@ -106,13 +128,45 @@ set CURS_DB_PASSWORD=your_password
 set CURS_QMT_ACCOUNT_ID=YOUR_ACCOUNT_ID
 ```
 
+东方财富也可完全通过环境变量配置：
+
+```bat
+set CURS_BROKER=eastmoney
+set CURS_EASTMONEY_ACCOUNT_NO=YOUR_FUND_ACCOUNT
+set CURS_EASTMONEY_PASSWORD=YOUR_TRADING_PASSWORD
+set CURS_EASTMONEY_SESSION_FILE=data/eastmoney_trader.session
+```
+
+## 东方财富证券接入
+
+东方财富接入使用资金账号和交易密码登录网页交易网关，不通过 QMT 下单。首次登录会自动识别图片验证码，并将登录会话缓存到 `session_file`；缓存失效后会自动重新登录。由于当前行情引擎仍基于 `xtquant`，运行实时策略前仍需启动 MiniQMT 行情服务。
+
+1. 确认东方财富证券网页交易可正常登录，账户未被锁定，交易权限正常。
+2. 执行 `pip install -r requirements.txt`，安装 `pycryptodome`、`ddddocr` 和 `pillow`。
+3. 在已被 Git 忽略的 `config.local.yml` 中设置 `broker: eastmoney`、资金账号和交易密码。
+4. 启动 MiniQMT 行情服务；东方财富仅替换交易账户，不替换现有行情源。
+5. 首次建议执行 `python run.py --engine-only -v`，观察日志中是否出现“东方财富账户登录成功”。
+6. 启动完整服务后访问持仓管理页面，核对资金和持仓。先在 Web 策略管理中关闭实盘，仅验证信号；确认无误后再开启实盘。
+
+策略通过统一工厂创建账户，无需写死交易商：
+
+```python
+from curs.broker import create_account
+
+context.account = create_account(config, total_cash=100000)
+```
+
+目前东方财富适配支持资金与持仓查询、限价/市价参数买卖、撤单、当日委托与成交、一键清仓。A 股仍遵循 T+1；清仓只卖出接口返回的可用数量。行情引擎当前仍使用 QMT/xtquant 数据链路，因此选择东方财富只替换交易账户，不会替换行情源。
+
+> 风险提示：该接入依赖东方财富网页交易接口，接口或登录校验变化可能导致不可用。`config.local.yml` 和 `*.session` 都包含敏感信息，不应提交、分享或放入同步盘。请先小额、信号模式验证，实盘交易风险由使用者自行承担。
+
 ## 项目结构
 
 ```
 curs/
 ├── curs/
 │   ├── api/              # API 接口
-│   ├── broker/           # 交易接口 (QMT)
+│   ├── broker/           # 交易接口 (QMT / 东方财富)
 │   ├── collection/       # 数据采集
 │   │   └── eastmoney_hot_stocks.py  # 东财热点股票
 │   ├── core/             # 核心引擎
@@ -202,14 +256,14 @@ run.py (单进程)
 ├── Web 服务 (Flask, 端口 5000)
 └── 交易引擎 (Engine)
     ├── 策略管理器 (StrategyManager)
-    ├── QMT 账户 (QmtStockAccount)
+    ├── 交易账户 (QmtStockAccount / EastMoneyAccount)
     └── 行情引擎 (Quote Engine)
 ```
 
 - **策略模式切换**：Web 页面可直接切换策略的实盘/信号模式
   - 实盘模式：正常接收行情 + 执行下单
   - 信号模式：接收行情 + 生成信号写 DB，跳过真实下单
-- **QMT 自动启动**：`run.py` 启动时自动检测 QMT 连接，未连接时自动启动
+- **交易商启动**：QMT 模式自动检测并启动 QMT；东方财富模式在策略初始化时登录
 - **curs_main.py**：兼容壳，重定向到 `run.py`
 
 ## Web 界面功能
@@ -260,7 +314,7 @@ run.py (单进程)
 |------|------|
 | collection | 数据采集（热点股票、龙虎榜等） |
 | data_source | 历史数据存储和读取 |
-| broker | QMT 交易接口封装 |
+| broker | QMT / 东方财富交易接口封装 |
 | strategy | 策略加载和执行框架 |
 | core | 核心引擎（事件调度、数据分发） |
 | utils | 工具函数 |

@@ -24,7 +24,7 @@ qmt:
 eastmoney:
   account_no: ""      # 资金账号
   password: ""        # 交易密码（敏感，请放 config.local.yml）
-  session_file: "eastmoney_trader.session"
+  session_file: "data/eastmoney_trader.session"  # 登录会话缓存（勿提交）
 
 # 策略配置
 strategy:

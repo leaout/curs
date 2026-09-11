@@ -4,10 +4,8 @@
 封装 eastmoney_trade_api.py，实现与 QmtStockAccount 兼容的接口
 """
 
-import math
-import time
 import logging
-from datetime import datetime
+from types import SimpleNamespace
 
 from curs.broker.account import Account, Position
 from curs.broker.eastmoney_trade_api import EastMoneyTradeAPI
@@ -34,7 +32,8 @@ class EastMoneyAccount(Account):
         # 从东方财富同步真实资金和持仓
         self._sync_balance()
 
-        logger.info(f"东方财富账户登录成功: {account_no}")
+        masked_account = f"****{account_no[-4:]}" if len(account_no) >= 4 else "****"
+        logger.info(f"东方财富账户登录成功: {masked_account}")
 
     # ─── live_trading 属性（与 QmtStockAccount 一致）──────────
 
@@ -58,6 +57,7 @@ class EastMoneyAccount(Account):
 
             # 同步持仓
             api_positions = self._api.get_positions()
+            self._positions.clear()
             for p in api_positions:
                 code = p['stock_code']
                 # 东方财富返回的是6位纯代码，需要加上交易所后缀
@@ -69,11 +69,42 @@ class EastMoneyAccount(Account):
                 pos.quantity = p['current_amount']
                 pos.avg_price = p['cost_price']
                 pos._last_price = p['last_price']
-                pos._non_closable = p['current_amount'] - p['enable_amount']
+                pos._non_closable = max(0, p['current_amount'] - p['enable_amount'])
 
             logger.debug(f"资金同步: 可用{balance['enable_balance']:.2f} 市值{balance['market_value']:.2f}")
         except Exception as e:
-            logger.error(f"资金同步失败: {e}")
+            logger.exception(f"资金同步失败: {e}")
+            raise RuntimeError(f"东方财富资金同步失败: {e}") from e
+
+    def get_positions(self):
+        """获取与 QMT 持仓对象字段兼容的实时持仓列表。"""
+        self._sync_balance()
+        result = []
+        for stock_code, pos in self._positions.items():
+            can_use_volume = max(0, pos.quantity - pos._non_closable)
+            result.append(SimpleNamespace(
+                account_id=self.account_no,
+                stock_code=stock_code,
+                volume=pos.quantity,
+                can_use_volume=can_use_volume,
+                open_price=pos.avg_price,
+                market_value=pos.market_value(),
+                frozen_volume=0,
+                on_road_volume=pos._non_closable,
+                yesterday_volume=can_use_volume,
+            ))
+        return result
+
+    def get_current_account(self):
+        """获取与 QMT 资产对象字段兼容的实时账户资产。"""
+        self._sync_balance()
+        return SimpleNamespace(
+            account_id=self.account_no,
+            cash=self.cash,
+            frozen_cash=self.frozen_cash,
+            market_value=self.market_value,
+            total_asset=self.cash + self.frozen_cash + self.market_value,
+        )
 
     @staticmethod
     def _to_xt_code(stock_code: str) -> str:
@@ -132,8 +163,9 @@ class EastMoneyAccount(Account):
     def sell(self, stock_code, price, volume):
         """卖出股票"""
         pos = self._positions.get(stock_code)
-        if not pos or pos.quantity < volume:
-            logger.warning(f"持仓不足: {stock_code} 持有{pos.quantity if pos else 0} 需要{volume}")
+        available = max(0, pos.quantity - pos._non_closable) if pos is not None else 0
+        if available < volume:
+            logger.warning(f"可用持仓不足: {stock_code} 可用{available} 需要{volume}")
             return False
 
         if not self._live_trading:
@@ -155,6 +187,22 @@ class EastMoneyAccount(Account):
             logger.error(f"卖出异常: {stock_code} {e}", exc_info=True)
             return False
 
+    def buy_fix_price(self, stock_code, volume, price):
+        """按限价买入，签名与 QMT 账户一致。"""
+        return self.buy(stock_code, price, int(volume))
+
+    def sell_fix_price(self, stock_code, volume, price):
+        """按限价卖出，签名与 QMT 账户一致。"""
+        return self.sell(stock_code, price, int(volume))
+
+    def buy_latest_price(self, stock_code, volume):
+        """按东方财富市价参数买入。"""
+        return self.buy(stock_code, 0, int(volume))
+
+    def sell_latest_price(self, stock_code, volume):
+        """按东方财富市价参数卖出。"""
+        return self.sell(stock_code, 0, int(volume))
+
     # ─── 一键清仓（force_real）──────────────────────────
 
     def sell_all(self, stock_code):
@@ -162,16 +210,17 @@ class EastMoneyAccount(Account):
         # 先从东方财富同步最新持仓
         self._sync_balance()
         pos = self._positions.get(stock_code)
-        if not pos or pos.quantity <= 0:
+        available = max(0, pos.quantity - pos._non_closable) if pos is not None else 0
+        if available <= 0:
             logger.warning(f"无持仓或可用数量为0: {stock_code}")
             return None
 
         em_code = self._to_em_code(stock_code)
         try:
             # 使用市价五档即成剩撤卖出
-            result = self._api.sell(em_code, price=0, amount=pos.quantity)
+            result = self._api.sell(em_code, price=0, amount=available)
             if result.get('success'):
-                logger.info(f"清仓委托: {stock_code} 数量={pos.quantity}")
+                logger.info(f"清仓委托: {stock_code} 数量={available}")
                 return True
             else:
                 logger.error(f"清仓失败: {stock_code} {result.get('message', '')}")
@@ -179,6 +228,21 @@ class EastMoneyAccount(Account):
         except Exception as e:
             logger.error(f"清仓异常: {stock_code} {e}", exc_info=True)
             return None
+
+    def liquidate_all_positions(self):
+        """清仓全部可用持仓，返回格式与 QMT 账户一致。"""
+        results = []
+        for position in self.get_positions():
+            if position.can_use_volume <= 0:
+                continue
+            order_id = self.sell_all(position.stock_code)
+            if order_id:
+                results.append({
+                    'stock_code': position.stock_code,
+                    'volume': position.can_use_volume,
+                    'order_id': order_id,
+                })
+        return results
 
     # ─── 撤单 ──────────────────────────────────────────
 

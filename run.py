@@ -28,13 +28,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def check_and_start_qmt(config):
+def check_and_start_broker(config):
     """检查并启动交易连接（QMT 或东方财富）"""
-    broker_type = config.get('broker', 'qmt')
+    broker_type = str(config.get('broker', 'qmt')).strip().lower()
 
     if broker_type == 'eastmoney':
-        logger.info("使用东方财富 broker，跳过 QMT 检查")
+        eastmoney_config = config.get('eastmoney', {})
+        if not eastmoney_config.get('account_no') or not eastmoney_config.get('password'):
+            logger.error("东方财富配置不完整：请配置 account_no 和 password")
+            return False
+        logger.info("使用东方财富 broker；账户将在策略初始化时登录")
         return True
+
+    if broker_type != 'qmt':
+        logger.error(f"不支持的交易商: {broker_type}（可选: qmt, eastmoney）")
+        return False
 
     try:
         from curs.broker.qmt_account import QmtStockAccount
@@ -227,8 +235,8 @@ class CursApp:
         if engine:
             # 检查并启动QMT
             config = self.load_config()
-            if not check_and_start_qmt(config):
-                logger.warning("QMT未连接，交易功能将不可用")
+            if not check_and_start_broker(config):
+                logger.warning("交易商未连接或配置不完整，交易功能将不可用")
             
             self.init_engine()
             engine_thread = threading.Thread(target=self.start_engine, daemon=True)

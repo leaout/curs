@@ -62,6 +62,7 @@ pytest.log
 *.log
 *.tmp
 *.bak
+*.session
 
 # Distributions / packaging
 *.egg-info/

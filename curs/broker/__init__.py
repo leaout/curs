@@ -20,12 +20,13 @@ def create_account(config: dict, total_cash: float = 100000):
     Returns:
         QmtStockAccount 或 EastMoneyAccount 实例
     """
-    broker_type = config.get('broker', 'qmt')
+    broker_type = str(config.get('broker', 'qmt')).strip().lower()
 
     if broker_type == 'eastmoney':
         return _create_eastmoney_account(config, total_cash)
-    else:
+    if broker_type == 'qmt':
         return _create_qmt_account(config, total_cash)
+    raise ValueError(f"不支持的交易商: {broker_type}（可选: qmt, eastmoney）")
 
 
 def _create_qmt_account(config: dict, total_cash: float):
@@ -53,7 +54,7 @@ def _create_eastmoney_account(config: dict, total_cash: float):
     em_config = config.get("eastmoney", {})
     account_no = em_config.get("account_no", "")
     password = em_config.get("password", "")
-    session_file = em_config.get("session_file", "eastmoney_trader.session")
+    session_file = em_config.get("session_file", "data/eastmoney_trader.session")
 
     if not account_no or not password:
         raise ValueError("东方财富配置不完整：account_no 或 password 缺失")
