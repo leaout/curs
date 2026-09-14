@@ -33,6 +33,7 @@ strategy:
 # Trading Agent 默认关闭；策略可由一句话生成后写入本地配置或数据库
 trading_agent:
   enabled: false
+  mode: observe  # observe | paper | live，默认观察模式永不下单
   journal_file: "data/trading_agent/events.jsonl"
   # 密钥只从环境变量读取，不要写入配置文件
   llm:

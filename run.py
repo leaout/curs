@@ -122,6 +122,8 @@ class CursApp:
         self.engine_port = engine_port
         self.web_app = None
         self.engine = None
+        self.trading_agent_service = None
+        self.trading_agent_account = None
         self.running = False
         self.threads = []
     
@@ -176,8 +178,26 @@ class CursApp:
         # 加载策略
         strategy_path = config.get('strategy', {}).get('path', './strategies')
         self._load_strategies(strategy_path, event_bus)
+
+        self._init_trading_agent(config, event_bus)
         
         logger.info("交易引擎已初始化")
+
+    def _init_trading_agent(self, config, event_bus):
+        """按配置启动 Trading Agent；默认关闭且不会影响旧引擎。"""
+        from curs.broker import create_account
+        from curs.trading_agent.service import TradingAgentService
+
+        self.trading_agent_service = TradingAgentService.get_instance()
+        agent_config = config.get('trading_agent', {})
+        if (
+            agent_config.get('enabled', False)
+            and str(config.get('broker', 'qmt')).lower() == 'qmt'
+        ):
+            self.trading_agent_account = create_account(config)
+        self.trading_agent_service.start(
+            config, event_bus, self.trading_agent_account
+        )
     
     def _load_strategies(self, strategy_path, event_bus):
         """加载策略"""
@@ -267,6 +287,12 @@ class CursApp:
         self.running = False
         if self.engine:
             self.engine.stop()
+        if self.trading_agent_service:
+            self.trading_agent_service.stop()
+        if self.trading_agent_account:
+            trader = getattr(self.trading_agent_account, 'xt_trader', None)
+            if trader and hasattr(trader, 'stop'):
+                trader.stop()
         logger.info("所有服务已停止")
 
 

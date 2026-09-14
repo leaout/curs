@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trading Agent - Curs</title>
+    <style>
+        body { margin: 0; background: #f4f6f8; color: #17212b; font-family: "Segoe UI", sans-serif; }
+        header { background: #111827; color: white; padding: 18px 28px; }
+        header a { color: #cbd5e1; margin-right: 20px; text-decoration: none; }
+        main { max-width: 980px; margin: 28px auto; padding: 0 20px; }
+        .card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 22px; margin-bottom: 18px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+        .label { color: #64748b; font-size: 13px; }
+        .value { font-size: 20px; font-weight: 600; margin-top: 6px; }
+        code, pre { background: #0f172a; color: #dbeafe; border-radius: 7px; }
+        code { padding: 2px 5px; }
+        pre { padding: 16px; overflow: auto; line-height: 1.5; }
+        .error { color: #b91c1c; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+<header>
+    <a href="/">首页</a><a href="/strategies">旧策略</a><a href="/signals">信号</a>
+    <strong>Trading Agent</strong>
+</header>
+<main>
+    <section class="card">
+        <h2>运行状态</h2>
+        <div class="grid">
+            <div><div class="label">状态</div><div class="value" id="state">加载中</div></div>
+            <div><div class="label">模式</div><div class="value" id="mode">-</div></div>
+            <div><div class="label">模型</div><div class="value" id="model">-</div></div>
+            <div><div class="label">策略数量</div><div class="value" id="strategies">-</div></div>
+        </div>
+        <p class="error" id="error"></p>
+    </section>
+    <section class="card">
+        <h2>安全模式</h2>
+        <p><code>observe</code> 只产生决策，永不下单；<code>paper</code> 模拟成交；<code>live</code> 才调用真实 Broker。</p>
+        <p>修改 <code>config.yml</code> 后重启服务生效。API Key 必须放在环境变量中，页面不会读取或显示密钥。</p>
+        <pre>trading_agent:
+  enabled: true
+  mode: observe
+  llm:
+    enabled: true
+    provider: deepseek
+    model: deepseek-chat
+    api_key_env: DEEPSEEK_API_KEY</pre>
+    </section>
+</main>
+<script>
+async function refresh() {
+    const response = await fetch('/api/trading-agent/status');
+    const data = await response.json();
+    document.getElementById('state').textContent = data.state;
+    document.getElementById('mode').textContent = data.mode;
+    document.getElementById('model').textContent = [data.provider, data.model].filter(Boolean).join(' / ') || '-';
+    document.getElementById('strategies').textContent = data.strategies;
+    document.getElementById('error').textContent = data.error || '';
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

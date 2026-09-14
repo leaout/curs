@@ -336,12 +336,15 @@ Currently implemented:
 - A unified model layer supporting OpenAI, DeepSeek, Claude, and OpenAI-compatible services.
 - Capital allocation, hard risk controls, idempotent execution, and a JSONL audit journal.
 - Compatibility adapters for existing QMT/Eastmoney accounts and a QMT Tick event bridge.
+- `run.py` lifecycle integration and a redacted `/trading-agent` status page.
+- Progressive `observe`, `paper`, and `live` execution modes.
 
 The default configuration does not start the Trading Agent or enable live orders:
 
 ```yaml
 trading_agent:
   enabled: false
+  mode: observe
   journal_file: data/trading_agent/events.jsonl
   llm:
     enabled: false
@@ -360,6 +363,8 @@ trading_agent:
   strategies: []
 ```
 
+After starting the full service, open `http://localhost:5000/trading-agent` to inspect Agent state, model, execution mode, and strategy count. The page neither displays nor stores API keys. Configuration changes currently require a restart.
+
 Model credentials must be supplied through environment variables and must not be committed. For example in PowerShell:
 
 ```powershell
@@ -368,7 +373,9 @@ $env:OPENAI_API_KEY = "your-key"
 
 To switch providers, change only the `llm` configuration. DeepSeek uses `provider: deepseek`, `model: deepseek-chat`, and `DEEPSEEK_API_KEY`. Claude uses `provider: anthropic`, a Claude model name, and `ANTHROPIC_API_KEY`. Self-hosted or other compatible services use `provider: openai_compatible` with `base_url`. Model calls require an explicit `llm.enabled: true`; failures, timeouts, and invalid JSON never produce an order.
 
-The main implementation lives under `curs/domain/`, `curs/markets/`, and `curs/trading_agent/`. This stage provides a testable runtime kernel, QMT bridge, and model-provider configuration. The next stage will add database-backed strategy registration, Engine lifecycle integration, and Web management pages.
+`observe` records decisions without placing orders, `paper` uses a simulated broker, and only `live` calls the real broker while still requiring the account-level live-trading switch. The real-time market bridge currently supports QMT only.
+
+The main implementation lives under `curs/domain/`, `curs/markets/`, and `curs/trading_agent/`. See the [Trading Agent design document](docs/TRADING_AGENT_DESIGN.md) for architecture boundaries and the delivery sequence. The next stage will add a natural-language strategy API, database-backed strategy registration, and a live decision timeline.
 
 ## Documentation
 

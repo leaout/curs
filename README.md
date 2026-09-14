@@ -346,12 +346,15 @@ run.py (单进程)
 - 统一模型适配层，支持 OpenAI、DeepSeek、Claude 和 OpenAI 兼容服务。
 - 仓位分配、硬风控、幂等订单执行和 JSONL 审计日志。
 - 现有 QMT/东方财富账户兼容适配器及 QMT Tick 事件桥接器。
+- `run.py` 生命周期接入，以及 `/trading-agent` 脱敏运行状态页面。
+- `observe`、`paper`、`live` 三种逐级开放的运行模式。
 
 默认配置不会启动 Trading Agent 或真实下单：
 
 ```yaml
 trading_agent:
   enabled: false
+  mode: observe
   journal_file: data/trading_agent/events.jsonl
   llm:
     enabled: false
@@ -370,6 +373,8 @@ trading_agent:
   strategies: []
 ```
 
+启动完整服务后访问 `http://localhost:5000/trading-agent` 查看 Agent 状态、模型、运行模式和策略数量。页面不会显示或保存 API Key。当前配置修改后需要重启服务生效。
+
 模型密钥必须通过环境变量设置，不能写入仓库。例如 PowerShell：
 
 ```powershell
@@ -378,7 +383,9 @@ $env:OPENAI_API_KEY = "你的密钥"
 
 切换供应商只需修改 `llm` 配置：DeepSeek 使用 `provider: deepseek`、`model: deepseek-chat` 和 `DEEPSEEK_API_KEY`；Claude 使用 `provider: anthropic`、Claude 模型名和 `ANTHROPIC_API_KEY`。私有部署或其他兼容服务使用 `provider: openai_compatible` 并设置 `base_url`。配置完成后仍需显式设置 `llm.enabled: true`，模型异常、超时或返回非法 JSON 时不会下单。
 
-主要代码位于 `curs/domain/`、`curs/markets/` 和 `curs/trading_agent/`。当前阶段提供可测试的运行内核、QMT 桥接和模型供应商配置；下一阶段将增加数据库策略注册、Engine 生命周期接入和 Web 管理页面。
+`observe` 只生成并记录决策，永不下单；`paper` 使用模拟 Broker；`live` 才调用真实 Broker，并且仍要求账户自身允许实盘。当前实时行情桥只支持 QMT。
+
+主要代码位于 `curs/domain/`、`curs/markets/` 和 `curs/trading_agent/`。架构边界和演进计划见 [Trading Agent 设计文档](docs/TRADING_AGENT_DESIGN.md)。下一阶段将增加一句话策略 API、数据库策略注册和实时决策时间线。
 
 ## 测试
 

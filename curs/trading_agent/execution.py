@@ -46,6 +46,21 @@ class LegacyAccountBrokerAdapter:
         )
 
 
+class PaperBrokerAdapter:
+    """不访问真实券商的模拟成交适配器。"""
+
+    def __init__(self):
+        self.orders = []
+
+    def place_order(self, intent: OrderIntent) -> ExecutionResult:
+        self.orders.append(intent)
+        return ExecutionResult(
+            accepted=True,
+            broker_order_id=f'paper-{intent.intent_id}',
+            message='paper order accepted',
+        )
+
+
 class ExecutionEngine:
     def __init__(self, broker: BrokerAdapter):
         self._broker = broker

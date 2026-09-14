@@ -178,6 +178,19 @@ def signals():
     """信号查询页面"""
     return render_template('signals.html')
 
+
+@app.route('/trading-agent')
+def trading_agent_page():
+    """Trading Agent 状态与配置说明。"""
+    return render_template('trading_agent.html')
+
+
+@app.route('/api/trading-agent/status')
+def api_trading_agent_status():
+    """返回运行状态；不暴露模型密钥。"""
+    from curs.trading_agent.service import TradingAgentService
+    return TradingAgentService.get_instance().status()
+
 @app.route('/api/signals/debug')
 def api_signals_debug():
     """调试：检查信号表状态"""

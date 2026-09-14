@@ -1,6 +1,7 @@
 # coding: utf-8
 """根据 Curs 配置组装 Trading Agent 运行时。"""
 
+from dataclasses import replace
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
@@ -8,7 +9,11 @@ from curs.trading_agent.ai_decision import (
     HoldDecisionProvider,
     StructuredDecisionProvider,
 )
-from curs.trading_agent.execution import ExecutionEngine, LegacyAccountBrokerAdapter
+from curs.trading_agent.execution import (
+    ExecutionEngine,
+    LegacyAccountBrokerAdapter,
+    PaperBrokerAdapter,
+)
 from curs.trading_agent.journal import TradingJournal
 from curs.trading_agent.legacy_account import LegacyAccountRiskContextProvider
 from curs.trading_agent.llm_providers import build_llm_completion
@@ -55,18 +60,40 @@ def build_runtime(
             limits_config.get('max_market_data_age_seconds', 90)
         ),
     )
+    mode = str(agent_config.get('mode', 'observe')).strip().lower()
+    if mode not in ('observe', 'paper', 'live'):
+        raise ValueError('trading_agent.mode must be observe, paper, or live')
+    risk_context_provider = LegacyAccountRiskContextProvider(account)
+    if mode != 'live':
+        risk_context_provider = _ModeRiskContextProvider(
+            risk_context_provider, trading_enabled=(mode == 'paper')
+        )
+    broker = (
+        LegacyAccountBrokerAdapter(account)
+        if mode == 'live' else PaperBrokerAdapter()
+    )
     account_id = _account_id(account)
     return TradingAgentRuntime(
         specs=specs,
         decision_provider=decision_provider,
-        risk_context_provider=LegacyAccountRiskContextProvider(account),
-        execution_engine=ExecutionEngine(LegacyAccountBrokerAdapter(account)),
+        risk_context_provider=risk_context_provider,
+        execution_engine=ExecutionEngine(broker),
         account_id=account_id,
         risk_gate=RiskGate(risk_limits),
         journal=TradingJournal(agent_config.get(
             'journal_file', 'data/trading_agent/events.jsonl'
         )),
     )
+
+
+class _ModeRiskContextProvider:
+    def __init__(self, provider, trading_enabled: bool):
+        self._provider = provider
+        self._trading_enabled = trading_enabled
+
+    def __call__(self, instrument_value: str):
+        context = self._provider(instrument_value)
+        return replace(context, trading_enabled=self._trading_enabled)
 
 
 def _account_id(account: Any) -> str:
