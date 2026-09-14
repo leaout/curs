@@ -330,6 +330,56 @@ run.py (单进程)
 
 完整依赖见 `requirements.txt`
 
+## Trading Agent（开发中）
+
+`codex/trading-agent` 分支包含多市场 Trading Agent 的第一阶段内核。它采用“本地分钟指标发现候选信号 → AI 返回结构化决策 → 硬风控 → 统一订单执行”的链路，AI 不能直接调用交易账户。
+
+当前已经提供：
+
+- 跨市场标的编码：A 股、美股、加密货币、外汇。
+- 标准 `Bar`、`CandidateSignal`、`Decision` 和 `OrderIntent` 模型。
+- A 股、美股、加密货币、外汇的数量与价格精度规则。
+- 安全 `StrategySpec`，只支持白名单字段和比较运算符，不执行模型生成的 Python。
+- 一句话策略生成接口和需要补充信息的反馈机制。
+- 1/5/15 分钟 Tick 聚合、增量指标、信号检测、去重与冷却。
+- 严格 AI JSON 决策协议；未配置 AI 时默认 `HOLD`。
+- 统一模型适配层，支持 OpenAI、DeepSeek、Claude 和 OpenAI 兼容服务。
+- 仓位分配、硬风控、幂等订单执行和 JSONL 审计日志。
+- 现有 QMT/东方财富账户兼容适配器及 QMT Tick 事件桥接器。
+
+默认配置不会启动 Trading Agent 或真实下单：
+
+```yaml
+trading_agent:
+  enabled: false
+  journal_file: data/trading_agent/events.jsonl
+  llm:
+    enabled: false
+    provider: openai
+    model: gpt-5
+    api_key_env: OPENAI_API_KEY
+    timeout_seconds: 8
+    max_retries: 1
+  risk:
+    max_single_order_value: 10000
+    max_symbol_exposure_pct: 0.15
+    max_total_exposure_pct: 0.50
+    max_positions: 5
+    max_daily_loss_pct: 0.02
+    max_market_data_age_seconds: 90
+  strategies: []
+```
+
+模型密钥必须通过环境变量设置，不能写入仓库。例如 PowerShell：
+
+```powershell
+$env:OPENAI_API_KEY = "你的密钥"
+```
+
+切换供应商只需修改 `llm` 配置：DeepSeek 使用 `provider: deepseek`、`model: deepseek-chat` 和 `DEEPSEEK_API_KEY`；Claude 使用 `provider: anthropic`、Claude 模型名和 `ANTHROPIC_API_KEY`。私有部署或其他兼容服务使用 `provider: openai_compatible` 并设置 `base_url`。配置完成后仍需显式设置 `llm.enabled: true`，模型异常、超时或返回非法 JSON 时不会下单。
+
+主要代码位于 `curs/domain/`、`curs/markets/` 和 `curs/trading_agent/`。当前阶段提供可测试的运行内核、QMT 桥接和模型供应商配置；下一阶段将增加数据库策略注册、Engine 生命周期接入和 Web 管理页面。
+
 ## 测试
 
 项目使用 `unittest` 测试框架，运行测试：

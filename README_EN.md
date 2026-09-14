@@ -320,6 +320,56 @@ Core:
 
 Full list in `requirements.txt`
 
+## Trading Agent (in development)
+
+The `codex/trading-agent` branch contains the first-stage multi-market Trading Agent kernel. Its flow is “local minute indicators detect a candidate → AI returns a structured decision → hard risk controls → unified order execution.” The AI cannot call a trading account directly.
+
+Currently implemented:
+
+- Cross-market instrument identifiers for China equities, US equities, crypto, and FX.
+- Standard `Bar`, `CandidateSignal`, `Decision`, and `OrderIntent` models.
+- Quantity and price precision profiles for China equities, US equities, crypto, and FX.
+- A safe `StrategySpec` using allowlisted fields and comparison operators; generated Python is never executed.
+- A natural-language strategy generation interface with clarification support.
+- 1/5/15-minute Tick aggregation, incremental indicators, signal detection, deduplication, and cooldowns.
+- A strict AI JSON decision contract; the safe default is `HOLD` when AI is not configured.
+- A unified model layer supporting OpenAI, DeepSeek, Claude, and OpenAI-compatible services.
+- Capital allocation, hard risk controls, idempotent execution, and a JSONL audit journal.
+- Compatibility adapters for existing QMT/Eastmoney accounts and a QMT Tick event bridge.
+
+The default configuration does not start the Trading Agent or enable live orders:
+
+```yaml
+trading_agent:
+  enabled: false
+  journal_file: data/trading_agent/events.jsonl
+  llm:
+    enabled: false
+    provider: openai
+    model: gpt-5
+    api_key_env: OPENAI_API_KEY
+    timeout_seconds: 8
+    max_retries: 1
+  risk:
+    max_single_order_value: 10000
+    max_symbol_exposure_pct: 0.15
+    max_total_exposure_pct: 0.50
+    max_positions: 5
+    max_daily_loss_pct: 0.02
+    max_market_data_age_seconds: 90
+  strategies: []
+```
+
+Model credentials must be supplied through environment variables and must not be committed. For example in PowerShell:
+
+```powershell
+$env:OPENAI_API_KEY = "your-key"
+```
+
+To switch providers, change only the `llm` configuration. DeepSeek uses `provider: deepseek`, `model: deepseek-chat`, and `DEEPSEEK_API_KEY`. Claude uses `provider: anthropic`, a Claude model name, and `ANTHROPIC_API_KEY`. Self-hosted or other compatible services use `provider: openai_compatible` with `base_url`. Model calls require an explicit `llm.enabled: true`; failures, timeouts, and invalid JSON never produce an order.
+
+The main implementation lives under `curs/domain/`, `curs/markets/`, and `curs/trading_agent/`. This stage provides a testable runtime kernel, QMT bridge, and model-provider configuration. The next stage will add database-backed strategy registration, Engine lifecycle integration, and Web management pages.
+
 ## Documentation
 
 - [中文文档](README.md)
