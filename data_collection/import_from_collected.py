@@ -28,7 +28,7 @@ def _get_db_config():
             'port': db.get('port', 6432),
             'database': db.get('database', 'postgres'),
             'user': db.get('user', 'postgres'),
-            'password': db.get('password', 'chenly.1'),
+            'password': db.get('password', ''),
         }
     return DB_CONFIG
 
@@ -87,6 +87,7 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
     cur.execute("DELETE FROM stock_pool WHERE category = 'hot'")
 
     success_count = 0
+    failed_stocks = []
     for stock in stocks:
         try:
             cur.execute("""
@@ -106,6 +107,7 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
             success_count += 1
         except Exception as e:
             logger.error(f"导入失败 {stock.get('code')}: {e}")
+            failed_stocks.append(stock.get('code', 'unknown'))
 
     cur.close()
     conn.close()
@@ -114,6 +116,8 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
         'success': True,
         'total': len(stocks),
         'success_count': success_count,
+        'failed_count': len(failed_stocks),
+        'failed_stocks': failed_stocks,
     }
 
 

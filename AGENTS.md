@@ -1,184 +1,89 @@
-# AGENTS.md - Development Guide for Curs
+# AGENTS.md - Curs Vibe Trading Development Guide
 
-Curs is a personal automated quantitative investment platform written in Python, specializing in limit-up stock trading strategies.
+Curs is being rebuilt as a standalone multi-market Trading Agent. The V2 backend lives in `trading_v2/`; the React workspace lives in `web_v2/`.
 
-## 1. Build & Test Commands
+## 1. Build, run, and test
 
-### Installation
-```bash
-pip install -r requirements.txt
-python setup.py install
+### Backend
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-v2.txt
+.\.venv\Scripts\python.exe -m trading_v2
+.\.venv\Scripts\python.exe -m unittest discover -s test -p "test_trading_v2*.py" -v
 ```
 
-### Running Tests
-```bash
-# Run all tests
-python -m unittest discover -s test
+The backend defaults to `127.0.0.1:8010`. Runtime settings use the `TRADING_V2_` environment prefix.
 
-# Run a single test file
-python -m unittest test.curs_test
+### Frontend
 
-# Run a specific test function
-python -m unittest test.curs_test.test_eval
+```powershell
+cd web_v2
+npm install
+npm run dev
+npm run build
 ```
 
-### Running the Application
-```bash
-# Use unified entry point (recommended) - Single process (Web + Engine)
-python run.py                    # Start all services
-python run.py --help            # View help
+The Vite development server defaults to port 5173 and proxies `/api` to the backend.
 
-# Start individually
-python run.py --web-only       # Web service only
-python run.py --engine-only     # Trading engine only
+### Retained modules
 
-# Specify port
-python run.py -p 8080          # Web port 8080
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s test -v
 ```
 
-### Legacy (deprecated)
-```bash
-python curs_main.py              # Old entry (compatibility shell → run.py)
-python web/app.py               # Old Web entry
-```
+Do not restore the removed Flask UI, `run.py`, `curs_main.py`, or the legacy service assembly.
 
-## 2. Code Style Guidelines
+## 2. Architecture boundaries
 
-### Architecture
-- **Single Process**: `run.py` runs Web (Flask, port 5000) and Engine in one process
-- `curs_main.py` is a backward-compatible shell that redirects to `run.py`
-- QMT startup is integrated into `run.py` - auto-detects and auto-launches
-- Web toggle routes try direct `StrategyManager` first, fall back to HTTP proxy for legacy dual-process
+- `trading_v2/domain/` must not import FastAPI, database clients, provider SDKs, or legacy `curs` modules.
+- V2 business services use explicit interfaces for market data, models, and brokers. Do not build a generic plugin system.
+- Legacy `curs` code may only be imported by a V2 adapter.
+- Reuse is limited to QMT/Eastmoney broker capabilities, market-data capabilities, database helpers, and data collection.
+- A strategy is a persistent `TradingSession`; chat changes create immutable prompt and strategy versions.
+- Local code evaluates bars and indicators. Invoke a model only for candidate signals.
+- A model may produce structured decisions but may never call a broker directly.
+- Deterministic risk checks and execution authorization are mandatory after every model decision.
+- All important state transitions must be auditable and idempotent.
+- The UI must clearly distinguish live, delayed, stale, and demo data.
 
-### Windows Batch Scripts
-- All scripts in `E:\script\` use `cd /d` for directory changes (NOT `pushd`/`popd` with stdout redirect)
-- `startqmt.bat` - starts QMT non-blocking via `start "QMT" cmd /c startminiqmt.bat`
-- `restart_premarket.bat` - kills curs → restarts QMT → starts curs (log to `logs/premarket_restart.log`)
+## 3. Python style
 
-### Encoding
-- Always use `# coding: utf-8` at the top of all Python files
+- Add `# coding: utf-8` to Python files.
+- Order imports as standard library, third party, then local modules.
+- Use `snake_case` for functions and variables, `CamelCase` for classes, and `SCREAMING_SNAKE_CASE` for constants.
+- Use type hints at public boundaries.
+- Use `logging.getLogger(__name__)`; use `logger.exception()` when a stack trace is useful.
+- Catch specific exceptions at provider boundaries. Never silently turn malformed data into a trading action.
+- Require timezone-aware datetimes and normalize cross-system timestamps to UTC.
+- Use `Decimal` for money and price domain values.
+- Never log or return API keys, broker passwords, cookies, or full account credentials.
 
-### Import Conventions
-- Standard library imports first
-- Third-party imports second
-- Local/curs module imports last
-- Group imports by type with blank lines between groups
-```python
-import os
-import sys
-import subprocess
-import signal
-import argparse
-import time
+## 4. Frontend style
 
-from flask import Flask, render_template, request, jsonify
-import threading
-import json
-import csv
-import logging
-import math
+- Use React and TypeScript under `web_v2/`.
+- Keep API access in `src/api/` and shared contracts in `src/types.ts`.
+- The chart, chat, prompt versions, and event timeline must share stable correlation identifiers.
+- Never display mock values as live values. Fallback data must show `DEMO DATA`.
+- Keep the workspace usable on desktop and narrow screens.
+- Run `npm run build` before committing frontend changes.
 
-from curs.core.engine import Engine
-from curs.utils.config import load_yaml
-from curs.cursglobal import *
-from curs.strategy import *
-```
+## 5. Configuration
 
-### Naming Conventions
-- **Variables/Functions**: snake_case (e.g., `check_and_start_qmt`, `connection_success`)
-- **Classes**: CamelCase (e.g., `Strategy`, `Engine`, `QmtStockAccount`)
-- **Constants**: SCREAMING_SNAKE_CASE
-- **Private members**: prefix with `_` (e.g., `_user_context`, `_init`)
+- Commit examples only: `.env.v2.example` and `web_v2/.env.example`.
+- Keep local secrets in ignored `.env`, `config.local.yml`, environment variables, or a secret manager.
+- Broker configuration remains flat in `config.yml` under `qmt` and `eastmoney`.
+- The default execution mode is `observe`.
+- Live trading requires an account-level enable flag, healthy market data and broker connections, deterministic risk approval, and complete audit context.
 
-### Type Hints
-- Use type hints for function parameters and return types where beneficial
-```python
-def create_data_dir() -> str:
-def __init__(self, event_bus, scope, ucontext):
-```
+## 6. Documentation
 
-### Error Handling
-- Use Python's built-in logging for error reporting
-- Use `try/except` blocks with specific exception types when possible
-- Always log exceptions with `logger.exception()` for stack traces
-- **Critical**: Wrap strategy functions with try-except to prevent service crashes:
-```python
-def handle_tick(context, ticks):
-    try:
-        _handle_tick_inner(context, ticks)
-    except Exception as e:
-        logger.error(f"处理tick异常: {e}", exc_info=True)
-```
+- Update `README.md` and `README_EN.md` together.
+- Keep the cross-language links at the top of both files.
+- Update the relevant documents in `docs/v2/` when domain contracts, APIs, or lifecycle rules change.
 
-### Logging
-- Use `logging.getLogger(__name__)` to create module-level loggers
-- Log levels: `logger.debug()`, `logger.info()`, `logger.warning()`, `logger.error()`, `logger.exception()`
-- Log files stored in `logs/` directory with 5-day rotation
-- Simplified format: `"%(asctime)s %(levelname)s - %(message)s"`
+## 7. Git
 
-### File Structure
-```
-curs/
-├── core/           # Core engine and scheduling
-├── strategy/       # Strategy loading and execution
-├── broker/         # Trading broker integration (QMT)
-│   ├── qmt_account.py    # QMT account management
-│   ├── qmt_quote.py      # QMT quote engine
-│   ├── order_tracker.py  # Order status tracking
-│   ├── profit_stats.py   # Profit statistics
-│   └── optimized_quote.py # Optimized quote engine
-├── data_source/    # Historical data handling
-├── collection/     # Data collection modules (hot_stocks.py)
-├── log_handler/    # Logging configuration
-├── utils/         # Utility functions
-├── api/            # API endpoints
-└── train/         # Training modules
-```
-
-### Key Dependencies
-- pandas, numpy - data processing
-- pytdx, xtquant - market data retrieval and trading
-- Flask - web interface
-- psycopg2-binary - PostgreSQL database
-- requests, aiohttp - HTTP operations
-- pyyaml - configuration parsing
-- akshare - financial data APIs
-
-### Configuration
-- Application configuration in `config.yml` or `config.local.yml`
-- Config structure uses flat keys (e.g., `config["qmt"]["path"]`)
-- **NOT** nested under `base.accounts`
-```python
-# Correct
-qmt_config = config.get("qmt", {})
-qmt_path = qmt_config.get("path", "")
-
-# Wrong (old style)
-qmt_path = config["base"]["accounts"]["qmt_path"]
-```
-
-### Strategy Development
-- Strategies define functions: `init`, `before_trading`, `handle_tick`, `after_trading`
-- Access market data through the event bus system
-- Use `context` object to store strategy state
-- **T+1 Trading**: A-share stocks cannot be sold on the same day they are bought
-- **Order Tracking**: Use `OrderTracker` class to track order status
-
-### Database
-- Use `get_db_manager()` to get database manager instance
-- Tables: `strategy_signals`, `stock_pool`, `stock_info`, `profit_stats`, `zt_stocks`
-- Handle `None` returns from `execute_query()` gracefully
-
-## 3. Documentation Rules
-
-### README Maintenance
-- Always update **both** `README.md` (Chinese) and `README_EN.md` (English) together
-- When one is modified, the other should be updated to match
-- Add cross-language links at the top: `[English Version](README_EN.md)` in Chinese, `[中文版](README.md)` in English
-- Add Documentation section at the bottom linking to both versions
-
-### Git Commit Rules
-- **Always ask user before committing** - Never auto-commit
-- Show changes with `git status` and `git diff` first
-- Get user confirmation before executing commit
-- Do not push to remote unless explicitly requested
+- Show `git status` and the relevant diff before committing.
+- Ask the user before committing unless the current user request already explicitly authorizes a commit.
+- Do not push unless explicitly requested.
+- Never commit generated `node_modules/`, `dist/`, local environments, session files, credentials, or runtime logs.

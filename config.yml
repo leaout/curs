@@ -25,32 +25,3 @@ eastmoney:
   account_no: ""      # 资金账号
   password: ""        # 交易密码（敏感，请放 config.local.yml）
   session_file: "data/eastmoney_trader.session"  # 登录会话缓存（勿提交）
-
-# 策略配置
-strategy:
-  path: ./strategies
-
-# Trading Agent 默认关闭；策略可由一句话生成后写入本地配置或数据库
-trading_agent:
-  enabled: false
-  mode: observe  # observe | paper | live，默认观察模式永不下单
-  journal_file: "data/trading_agent/events.jsonl"
-  # 密钥只从环境变量读取，不要写入配置文件
-  llm:
-    enabled: false
-    provider: openai  # openai | deepseek | anthropic | openai_compatible
-    model: ""
-    api_key_env: OPENAI_API_KEY
-    base_url: ""
-    timeout_seconds: 8
-    max_retries: 1
-    max_output_tokens: 800
-    temperature: 0
-  risk:
-    max_single_order_value: 10000
-    max_symbol_exposure_pct: 0.15
-    max_total_exposure_pct: 0.50
-    max_positions: 5
-    max_daily_loss_pct: 0.02
-    max_market_data_age_seconds: 90
-  strategies: []

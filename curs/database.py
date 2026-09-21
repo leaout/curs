@@ -40,7 +40,7 @@ class DatabaseManager:
         self.port = port or _default_config.get('port', 6432)
         self.database = database or _default_config.get('database', 'postgres')
         self.user = user or _default_config.get('user', 'postgres')
-        self.password = password or _default_config.get('password', 'chenly.1')
+        self.password = password or _default_config.get('password', '')
         self.connection = None
 
     def connect(self):

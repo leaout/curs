@@ -11,6 +11,6 @@ if %errorlevel% neq 0 (
 )
 
 echo [%date% %time%] Importing data to database...
-".venv\Scripts\python.exe" run.py --import-data
+".venv\Scripts\python.exe" data_collection\import_from_collected.py
 
 echo [%date% %time%] Import complete
