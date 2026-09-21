@@ -375,7 +375,47 @@ To switch providers, change only the `llm` configuration. DeepSeek uses `provide
 
 `observe` records decisions without placing orders, `paper` uses a simulated broker, and only `live` calls the real broker while still requiring the account-level live-trading switch. The real-time market bridge currently supports QMT only.
 
-The main implementation lives under `curs/domain/`, `curs/markets/`, and `curs/trading_agent/`. See the [Trading Agent design document](docs/TRADING_AGENT_DESIGN.md) for architecture boundaries and the delivery sequence. The next stage will add a natural-language strategy API, database-backed strategy registration, and a live decision timeline.
+Those directories contain the first compatibility-oriented implementation. This branch is now building a fully independent V2; the legacy Flask UI, Engine, and `StrategyManager` are not foundations of the new system.
+
+## Vibe Trading V2
+
+V2 models each strategy as a long-lived model conversation session. A user creates a strategy with one sentence, and later chat changes create immutable prompt/strategy versions. Local code detects candidates on closed bars; only candidates invoke the model, after which deterministic risk controls and a broker adapter decide whether an order may be submitted. The model never receives direct trading authority.
+
+This refactoring milestone includes:
+
+- A standalone FastAPI control plane, typed domain models, a bounded SSE event stream, and foundations for `observe / paper / live` modes.
+- A standalone React + TypeScript workspace with sessions, candlesticks, signal overlays, prompt versions, chat, and a decision timeline.
+- A cpptdx HTTP adapter for China-equity snapshots, minute bars, health checks, and normalized market models.
+- V2 market endpoints: `/api/v2/market/status`, `/api/v2/market/bars`, and `/api/v2/market/snapshots`.
+- An explicit `DEMO DATA` state when cpptdx or the backend is unavailable; demo quotes are never presented as live data.
+
+Start the backend:
+
+```powershell
+cd E:\pro\curs-trading-agent
+.\.venv\Scripts\python.exe -m pip install -r requirements-v2.txt
+Copy-Item .env.v2.example .env
+.\.venv\Scripts\python.exe -m trading_v2
+```
+
+The backend listens on `http://127.0.0.1:8010` and exposes OpenAPI at `http://127.0.0.1:8010/docs`. cpptdx defaults to `http://127.0.0.1:8022`; override it with `TRADING_V2_CPPTDX_BASE_URL`.
+
+Start the frontend:
+
+```powershell
+cd E:\pro\curs-trading-agent\web_v2
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. The development server proxies `/api` to port 8010. The current workspace can query real cpptdx bars; durable sessions, model calls, and broker execution are later milestones, so this version must not be used for live automated trading.
+
+Design documents:
+
+- [V2 architecture](docs/v2/ARCHITECTURE.md)
+- [V2 data model](docs/v2/DATA_MODEL.md)
+- [V2 API](docs/v2/API.md)
+- [V2 trading lifecycle](docs/v2/TRADING_LIFECYCLE.md)
 
 ## Documentation
 

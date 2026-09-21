@@ -385,7 +385,47 @@ $env:OPENAI_API_KEY = "你的密钥"
 
 `observe` 只生成并记录决策，永不下单；`paper` 使用模拟 Broker；`live` 才调用真实 Broker，并且仍要求账户自身允许实盘。当前实时行情桥只支持 QMT。
 
-主要代码位于 `curs/domain/`、`curs/markets/` 和 `curs/trading_agent/`。架构边界和演进计划见 [Trading Agent 设计文档](docs/TRADING_AGENT_DESIGN.md)。下一阶段将增加一句话策略 API、数据库策略注册和实时决策时间线。
+以上目录是第一阶段兼容实现。当前分支正在建设完全独立的 V2，旧 Flask UI、Engine 和 `StrategyManager` 不再作为新系统的基础。
+
+## Vibe Trading V2
+
+V2 将一个策略建模为一个长期大模型对话 Session：用户用一句话创建策略，后续聊天生成不可变 Prompt/策略版本；本地代码在闭合 K 线上检测候选信号，只有候选出现时才调用模型，随后经过确定性风控和 Broker Adapter。模型不会直接获得交易权限。
+
+本次重构里程碑包含：
+
+- 独立 FastAPI 控制面、强类型领域模型、有界 SSE 事件流与 `observe / paper / live` 模式基础。
+- 独立 React + TypeScript 工作台，包含策略会话、K 线、信号覆盖层、Prompt 版本、聊天和决策时间线。
+- cpptdx HTTP Adapter，支持 A 股批量快照、分钟 K 线、健康检查和标准行情模型。
+- V2 行情 API：`/api/v2/market/status`、`/api/v2/market/bars`、`/api/v2/market/snapshots`。
+- UI 在 cpptdx/后端未运行时明确显示 `DEMO DATA`，不会把演示数据伪装为实时行情。
+
+后端启动：
+
+```powershell
+cd E:\pro\curs-trading-agent
+.\.venv\Scripts\python.exe -m pip install -r requirements-v2.txt
+Copy-Item .env.v2.example .env
+.\.venv\Scripts\python.exe -m trading_v2
+```
+
+默认地址为 `http://127.0.0.1:8010`，OpenAPI 文档为 `http://127.0.0.1:8010/docs`。cpptdx 默认地址是 `http://127.0.0.1:8022`，可通过 `TRADING_V2_CPPTDX_BASE_URL` 修改。
+
+前端启动：
+
+```powershell
+cd E:\pro\curs-trading-agent\web_v2
+npm install
+npm run dev
+```
+
+打开 `http://127.0.0.1:5173`。开发服务器会把 `/api` 代理到 V2 后端的 8010 端口。当前工作台支持 cpptdx K 线真实查询；Session 持久化、模型调用和 Broker 下单仍是后续里程碑，因此本版不能用于真实自动交易。
+
+详细设计：
+
+- [V2 架构](docs/v2/ARCHITECTURE.md)
+- [V2 数据模型](docs/v2/DATA_MODEL.md)
+- [V2 API](docs/v2/API.md)
+- [V2 交易生命周期](docs/v2/TRADING_LIFECYCLE.md)
 
 ## 测试
 
@@ -403,6 +443,11 @@ python -m unittest test.test_config.TestConfigLoader.test_load_config
 ```
 
 CI 使用 GitHub Actions 自动运行测试（仅运行已验证通过的测试文件）。
+
+## 文档
+
+- [中文文档](README.md)
+- [English Documentation](README_EN.md)
 
 ## 开发方向
 

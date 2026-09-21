@@ -171,6 +171,10 @@ pip-delete-this-directory.txt
 # build directories
 build/
 dist/
+node_modules/
+*.tsbuildinfo
+web_v2/vite.config.js
+web_v2/vite.config.d.ts
 
 # Other
 *.DS_Store
