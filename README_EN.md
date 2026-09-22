@@ -4,7 +4,7 @@
 
 Curs is being rebuilt as a multi-market Trading Agent. Each strategy is a long-lived model conversation session: users create and revise strategies through chat, while signals, model decisions, risk checks, and order events appear on the chart and audit timeline.
 
-The legacy Flask UI, `run.py` service entry point, and first-generation service assembly have been removed. V2 is isolated from the old architecture and retains only broker, market-data, database, and collection capabilities that can be migrated behind adapters.
+The legacy Flask UI, `run.py` service entry point, first-generation service assembly, and retired trading-terminal integration have been removed. V2 is isolated from the old architecture and retains only the Eastmoney broker, market-data, database, and collection capabilities that can be migrated behind adapters.
 
 ## Current milestone
 
@@ -20,12 +20,15 @@ Implemented:
 - Model adapters for OpenAI, DeepSeek, Claude, and OpenAI-compatible APIs. API keys are only read from environment variables.
 - One-sentence strategy creation compiled into a strict allowlisted JSON schema. Missing model configuration or invalid output remains a safe draft.
 - The Web workspace now uses the real Session API for creation, chat revisions, version history, pause, and resume.
+- A closed-bar signal engine with allowlisted MA, EMA, RSI, MACD, ATR, VWAP, volume-ratio, comparison, and crossover rules.
+- Running sessions scan the latest closed bars every five seconds; candidate signals are persisted and deduplicated by strategy version and bar.
+- Candidate signals update through SSE and appear on the candlestick overlay and decision timeline.
 
 Not implemented yet:
 
-- Paper Broker, QMT/Eastmoney V2 broker adapters, and live order execution.
-- QMT as the real-time primary feed with cpptdx failover.
-- Closed-bar indicators, candidate signals, model trading decisions, deterministic risk checks, and persistent audit events.
+- Paper Broker, an Eastmoney V2 broker adapter, and live order execution.
+- Cross-market real-time providers with cpptdx routing and failover.
+- Model trading decisions after candidate signals, deterministic risk checks, a Paper Broker, and a complete audit-event journal.
 
 This version is for architecture and UI integration. It must not be used for live automated trading.
 
@@ -35,7 +38,7 @@ This version is for architecture and UI integration. It must not be used for liv
 trading_v2/       # Standalone FastAPI, domain models, events, market APIs
 web_v2/           # React + TypeScript Vibe Trading workspace
 docs/v2/          # Architecture, data model, API, and lifecycle documents
-curs/broker/      # Retained QMT and Eastmoney broker capabilities
+curs/broker/      # Retained Eastmoney broker capability
 curs/collection/  # Retained data collection capabilities
 data_collection/  # Daily hot-stock collection and import
 test/             # V2 and retained-module tests
@@ -92,7 +95,15 @@ Without database configuration, the service uses `data/trading_v2.db` and runs i
 TRADING_V2_DATABASE_URL=postgresql+psycopg2://user:password@127.0.0.1:5432/curs_trading
 ```
 
-The service currently creates `trading_sessions_v2`, `trading_messages_v2`, and `trading_prompt_versions_v2` automatically. Schema migrations will be added before live trading is enabled.
+The service currently creates `trading_sessions_v2`, `trading_messages_v2`, `trading_prompt_versions_v2`, and `candidate_signals_v2` automatically. Schema migrations will be added before live trading is enabled.
+
+Once a valid strategy is resumed into the running state, the background scanner fetches market data and only evaluates bars with `is_closed=true`. One scan can also be requested manually:
+
+```http
+POST /api/v2/sessions/{session_id}/evaluate
+```
+
+Only one candidate is stored for the same session, strategy version, instrument, timeframe, bar close, and side. Candidates are observation-only at this stage; they neither invoke a decision model nor place orders.
 
 ## Model configuration
 
@@ -129,17 +140,12 @@ cpptdx is used for China-equity minute bars, snapshots, and gap filling. It does
 
 ## Broker configuration
 
-Retained QMT and Eastmoney code lives under `curs/broker/`. V2 adapters are not wired yet, so configuring a broker does not grant V2 order authority.
+The retired trading terminal and its SDK have been fully removed from code, dependencies, and configuration. The retained Eastmoney code lives under `curs/broker/`. Its V2 adapter is not wired yet, so configuring it does not grant V2 order authority.
 
 Example:
 
 ```yaml
-broker: qmt
-
-qmt:
-  path: ""
-  account_id: ""
-  trader_name: ""
+broker: eastmoney
 
 eastmoney:
   account_no: ""
@@ -147,7 +153,7 @@ eastmoney:
   session_file: "data/eastmoney_trader.session"
 ```
 
-Eastmoney depends on a web trading interface and may break when its API or login checks change. Begin with a read-only connection test, then validate with paper or approval mode.
+Eastmoney depends on a web trading interface and may break when its API or login checks change. Begin with a read-only connection test, then validate with paper or approval mode. Future markets will use new standard broker adapters instead of retaining compatibility with the removed terminal integration.
 
 ## Tests
 

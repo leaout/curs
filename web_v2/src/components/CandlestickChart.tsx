@@ -78,9 +78,19 @@ export function CandlestickChart({ candles, signals }: CandlestickChartProps) {
       price: geometry.priceMax - (geometry.priceMax - geometry.priceMin) * ratio,
     };
   });
+  const barDuration = candles.length > 1
+    ? Math.max(1, candles[1].timestamp - candles[0].timestamp)
+    : 60_000;
   const signalPositions = signals
     .map((signal) => {
-      const index = candles.findIndex((candle) => Math.abs(candle.timestamp - signal.timestamp) < 3 * 60 * 1000);
+      let index = candles.findIndex((candle) =>
+        candle.timestamp < signal.timestamp && candle.timestamp + barDuration >= signal.timestamp,
+      );
+      if (index < 0) {
+        const distances = candles.map((candle) => Math.abs(candle.timestamp - signal.timestamp));
+        const nearest = Math.min(...distances);
+        index = nearest <= barDuration ? distances.indexOf(nearest) : -1;
+      }
       return index < 0 ? null : { signal, index };
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null);

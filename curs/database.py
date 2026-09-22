@@ -648,34 +648,6 @@ class DatabaseManager:
         
         return self.execute_query(query, params)
 
-    def sync_stock_info_from_qmt(self) -> Dict:
-        """从QMT同步股票信息"""
-        try:
-            from xtquant import xtdata
-            
-            stocks = xtdata.get_stock_list_in_sector("沪深A股")
-            stock_list = []
-            
-            for stock_code in stocks:
-                detail = xtdata.get_instrument_detail(stock_code, False)
-                if detail:
-                    exchange = detail.get('ExchangeID', '').lower()
-                    name = detail.get('InstrumentName', '')
-                    list_date = detail.get('OpenDate')
-                    
-                    stock_list.append({
-                        'stock_code': stock_code,
-                        'stock_name': name,
-                        'exchange': exchange,
-                        'list_date': list_date
-                    })
-            
-            return self.batch_update_stock_info(stock_list)
-            
-        except Exception as e:
-            logger.error(f"从QMT同步股票信息失败: {e}")
-            return {'success_count': 0, 'failed_count': 0, 'total_count': 0, 'error': str(e)}
-
     # ===== 盈利统计方法 =====
 
     def save_profit_record(self, stock_code: str, order_id: str, buy_price: float,

@@ -11,7 +11,7 @@
 
 ## 2. 会话与版本
 
-当前数据库先以三个 V2 表实现最小闭环：`trading_sessions_v2`、`trading_messages_v2`、`trading_prompt_versions_v2`。其中 PromptVersion 同时保存自然语言输入、编译后的策略 JSON、模型身份和警告；正式发布/回滚加入后再拆分独立 `strategy_versions`。
+当前数据库以四个 V2 表实现最小闭环：`trading_sessions_v2`、`trading_messages_v2`、`trading_prompt_versions_v2`、`candidate_signals_v2`。其中 PromptVersion 同时保存自然语言输入、编译后的策略 JSON、模型身份和警告；正式发布/回滚加入后再拆分独立 `strategy_versions`。
 
 ### 2.1 `trading_sessions`
 
@@ -104,6 +104,8 @@ quality = fresh | stale | gap | corrected
 ## 4. 信号、决策与运行
 
 ### 4.1 `candidate_signals`
+
+当前实际表名为 `candidate_signals_v2`，已保存候选信号、触发指标快照和过期时间。完整的 correlation/status 生命周期将在模型决策切片补充。
 
 | 字段 | 含义 |
 | --- | --- |

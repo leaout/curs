@@ -1,30 +1,23 @@
 # coding: utf-8
-# from .tdx_to_buddle import *
-from curs.const import *
-from curs.events import *
-# from curs.real_quote import *
-import numpy as np
-import datetime
 import logging
-from curs.broker.qmt_quote import *
-from curs.broker.optimized_quote import OptimizedQuoteEngine
-from curs.events_parallel import TickCache
+import time
+from threading import Thread
+
 from curs.core.schedule import EventsScheduler
 
 logger = logging.getLogger(__name__)
 
 class Engine:
-    def __init__(self,event_bus,cursglobal, use_optimized: bool = True):
+    """Legacy scheduler shell retained without a bundled market provider."""
+
+    def __init__(self, event_bus, cursglobal, use_optimized: bool = False):
         Engine._quote_engine = self
         self.__event_bus = event_bus
         self.__is_runing = False
         self.__cursglobal = cursglobal
         self.__scheduler = EventsScheduler(event_bus)
         
-        # 性能优化选项
-        self.__use_optimized = use_optimized
         self.__quote_engine = None
-        self.__tick_cache = TickCache(ttl_seconds=0.5)
 
     @classmethod
     def get_instance(cls):
@@ -48,23 +41,9 @@ class Engine:
 
 
     def __process(self):
-        if self.__use_optimized:
-            # 使用优化的行情引擎
-            logger.info("使用优化版行情引擎")
-            self.__quote_engine = OptimizedQuoteEngine(
-                self.__event_bus, 
-                stock_pool_name='hot'
-            )
-            self.__quote_engine.start()
-            
-            # 保持运行
-            while self.__is_runing:
-                time.sleep(3)
-        else:
-            # 使用原始行情引擎
-            record_tick(self.__event_bus)
-            while self.__is_runing:
-                time.sleep(3)
+        logger.info("旧 Engine 未配置行情源，仅运行事件调度器")
+        while self.__is_runing:
+            time.sleep(3)
 
     def start(self):
         self.init_security_map()
@@ -82,7 +61,7 @@ class Engine:
 
     # @classmethod
     def add_min_subcriber(self,subcriber):
-        self._min_substocks.append(subcriber)
+        raise RuntimeError("旧 Engine 不再提供行情订阅，请使用 trading_v2.market")
     
     def reload_stock_pool(self):
         """重新加载股票池"""

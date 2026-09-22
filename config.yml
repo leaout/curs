@@ -11,14 +11,8 @@ database:
   user: postgres
   password: ""
 
-# 交易商配置（支持 qmt 或 eastmoney）
-broker: qmt  # 可选: qmt | eastmoney
-
-# QMT 配置（broker: qmt 时使用）
-qmt:
-  path: ""
-  account_id: ""
-  trader_name: ""
+# 交易商配置
+broker: eastmoney
 
 # 东方财富配置（broker: eastmoney 时使用）
 eastmoney:

@@ -6,8 +6,8 @@ import { CandlestickChart } from "./components/CandlestickChart";
 import { ChatPanel } from "./components/ChatPanel";
 import { EventTimeline } from "./components/EventTimeline";
 import { SessionSidebar } from "./components/SessionSidebar";
-import { createMockCandles, mockSignals } from "./mockData";
-import type { ChatMessage, StrategyPromptVersion, TradingSession } from "./types";
+import { createMockCandles } from "./mockData";
+import type { AgentEvent, ChartSignal, ChatMessage, StrategyPromptVersion, TradingSession } from "./types";
 
 const timeframes = ["1m", "5m", "15m", "30m", "1h", "1D"];
 
@@ -17,6 +17,8 @@ function App() {
   const [timeframe, setTimeframe] = useState("5m");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [versions, setVersions] = useState<StrategyPromptVersion[]>([]);
+  const [signals, setSignals] = useState<ChartSignal[]>([]);
+  const [events, setEvents] = useState<AgentEvent[]>([]);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,6 +51,8 @@ function App() {
     if (!selectedId) {
       setMessages([]);
       setVersions([]);
+      setSignals([]);
+      setEvents([]);
       return;
     }
     let cancelled = false;
@@ -56,6 +60,8 @@ function App() {
       if (cancelled) return;
       setMessages(snapshot.messages);
       setVersions(snapshot.promptVersions);
+      setSignals(snapshot.signals);
+      setEvents(snapshot.events);
       setTimeframe(snapshot.session.timeframe);
     }).catch(() => {
       if (!cancelled) setError("会话详情加载失败，请刷新后重试。");
@@ -70,26 +76,31 @@ function App() {
       return;
     }
     let cancelled = false;
-    apiClient.getMarketBars(
-      `${selected.assetClass}:${selected.venue}:${selected.symbol}`,
-      timeframe,
-      120,
-    ).then((bars) => {
-      if (!cancelled && bars.length >= 2) {
-        setCandles(bars);
-        setUsingDemoData(false);
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setCandles(createMockCandles());
-        setUsingDemoData(true);
-      }
-    });
-    return () => { cancelled = true; };
+    const refreshBars = () => apiClient.getMarketBars(
+        `${selected.assetClass}:${selected.venue}:${selected.symbol}`,
+        timeframe,
+        120,
+      ).then((bars) => {
+        if (!cancelled && bars.length >= 2) {
+          setCandles(bars);
+          setUsingDemoData(false);
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setCandles(createMockCandles());
+          setUsingDemoData(true);
+        }
+      });
+    refreshBars();
+    const refreshTimer = window.setInterval(refreshBars, 15_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(refreshTimer);
+    };
   }, [selected, timeframe]);
 
   useEffect(() => {
-    if (!selectedId || import.meta.env.VITE_ENABLE_SSE !== "true") return undefined;
+    if (!selectedId || import.meta.env.VITE_ENABLE_SSE === "false") return undefined;
     const stream = new SessionEventStream();
     stream.connect(selectedId);
     const unsubscribe = stream.subscribe(() => {
@@ -97,6 +108,8 @@ function App() {
       apiClient.getSession(selectedId).then((snapshot) => {
         setMessages(snapshot.messages);
         setVersions(snapshot.promptVersions);
+        setSignals(snapshot.signals);
+        setEvents(snapshot.events);
       }).catch(() => undefined);
     });
     return () => {
@@ -126,7 +139,7 @@ function App() {
   const togglePause = async () => {
     if (!selected) return;
     try {
-      const updated = await apiClient.setPaused(selected.id, selected.status !== "paused");
+      const updated = await apiClient.setPaused(selected.id, selected.status === "running");
       setSessions((items) => items.map((item) => item.id === updated.id ? updated : item));
     } catch {
       setError("策略状态更新失败。");
@@ -150,6 +163,8 @@ function App() {
       const snapshot = await apiClient.getSession(selected.id);
       setMessages(snapshot.messages);
       setVersions(snapshot.promptVersions);
+      setSignals(snapshot.signals);
+      setEvents(snapshot.events);
       setSessions((items) => items.map((item) => item.id === selected.id ? snapshot.session : item));
     } catch {
       setMessages((items) => [...items, {
@@ -184,8 +199,8 @@ function App() {
             <span>交易权限<strong>仅观察</strong></span>
             <span>Broker<strong>未接入</strong></span>
           </div>
-          {selected && <button className={`pause-button ${selected.status === "paused" ? "resume" : ""}`} onClick={togglePause}>
-            {selected.status === "paused" ? "▶ 继续运行" : "Ⅱ 暂停策略"}
+          {selected && <button className={`pause-button ${selected.status !== "running" ? "resume" : ""}`} onClick={togglePause}>
+            {selected.status === "draft" ? "▶ 启动策略" : selected.status === "paused" ? "▶ 继续运行" : "Ⅱ 暂停策略"}
           </button>}
         </div>
       </header>
@@ -243,7 +258,7 @@ function App() {
               </div>
               <div className="chart-stage">
                 {usingDemoData && <span className="demo-watermark">DEMO DATA</span>}
-                <CandlestickChart candles={candles} signals={chartLayer === "signals" && usingDemoData ? mockSignals : []} />
+                <CandlestickChart candles={candles} signals={chartLayer === "signals" ? signals : []} />
               </div>
 
               <div className="chart-stats">
@@ -254,7 +269,7 @@ function App() {
                 <span><small>执行权限</small><strong>仅观察</strong></span>
               </div>
             </section>
-            <EventTimeline events={[]} />
+            <EventTimeline events={events} />
           </div>
 
           <ChatPanel messages={messages} versions={versions} busy={sending} onSend={sendMessage} />

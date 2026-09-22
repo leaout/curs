@@ -1,7 +1,7 @@
 # coding: utf-8
 """
 东方财富证券 Broker 适配层
-封装 eastmoney_trade_api.py，实现与 QmtStockAccount 兼容的接口
+封装 eastmoney_trade_api.py，实现标准账户与下单接口
 """
 
 import logging
@@ -35,7 +35,7 @@ class EastMoneyAccount(Account):
         masked_account = f"****{account_no[-4:]}" if len(account_no) >= 4 else "****"
         logger.info(f"东方财富账户登录成功: {masked_account}")
 
-    # ─── live_trading 属性（与 QmtStockAccount 一致）──────────
+    # ─── live_trading 属性 ───────────────────────────────
 
     @property
     def live_trading(self):
@@ -61,7 +61,7 @@ class EastMoneyAccount(Account):
             for p in api_positions:
                 code = p['stock_code']
                 # 东方财富返回的是6位纯代码，需要加上交易所后缀
-                code_with_suffix = self._to_xt_code(code)
+                code_with_suffix = self._to_broker_code(code)
                 pos = self.positions.get(code_with_suffix)
                 if pos is None:
                     pos = Position()
@@ -77,7 +77,7 @@ class EastMoneyAccount(Account):
             raise RuntimeError(f"东方财富资金同步失败: {e}") from e
 
     def get_positions(self):
-        """获取与 QMT 持仓对象字段兼容的实时持仓列表。"""
+        """获取标准字段表示的实时持仓列表。"""
         self._sync_balance()
         result = []
         for stock_code, pos in self._positions.items():
@@ -96,7 +96,7 @@ class EastMoneyAccount(Account):
         return result
 
     def get_current_account(self):
-        """获取与 QMT 资产对象字段兼容的实时账户资产。"""
+        """获取标准字段表示的实时账户资产。"""
         self._sync_balance()
         return SimpleNamespace(
             account_id=self.account_no,
@@ -107,9 +107,9 @@ class EastMoneyAccount(Account):
         )
 
     @staticmethod
-    def _to_xt_code(stock_code: str) -> str:
+    def _to_broker_code(stock_code: str) -> str:
         """
-        东方财富6位代码 → xtquant 格式（带交易所后缀）
+        东方财富6位代码 → 带交易所后缀的内部代码
         600xxx, 601xxx, 603xxx, 605xxx → .SH
         000xxx, 001xxx, 002xxx, 300xxx → .SZ
         400xxx, 8xxxxx → .BJ
@@ -126,7 +126,7 @@ class EastMoneyAccount(Account):
 
     @staticmethod
     def _to_em_code(stock_code: str) -> str:
-        """xtquant 格式 → 东方财富6位纯代码"""
+        """带交易所后缀的内部代码 → 东方财富6位纯代码"""
         if '.' in stock_code:
             return stock_code.split('.')[0]
         return stock_code[:6]
@@ -188,11 +188,11 @@ class EastMoneyAccount(Account):
             return False
 
     def buy_fix_price(self, stock_code, volume, price):
-        """按限价买入，签名与 QMT 账户一致。"""
+        """按限价买入。"""
         return self.buy(stock_code, price, int(volume))
 
     def sell_fix_price(self, stock_code, volume, price):
-        """按限价卖出，签名与 QMT 账户一致。"""
+        """按限价卖出。"""
         return self.sell(stock_code, price, int(volume))
 
     def buy_latest_price(self, stock_code, volume):
@@ -230,7 +230,7 @@ class EastMoneyAccount(Account):
             return None
 
     def liquidate_all_positions(self):
-        """清仓全部可用持仓，返回格式与 QMT 账户一致。"""
+        """清仓全部可用持仓。"""
         results = []
         for position in self.get_positions():
             if position.can_use_volume <= 0:

@@ -120,6 +120,10 @@ class SessionRepository:
             )
 
     def latest_strategy(self, session_id: str) -> dict | None:
+        result = self.latest_strategy_with_version(session_id)
+        return result[1] if result else None
+
+    def latest_strategy_with_version(self, session_id: str) -> tuple[int, dict] | None:
         with self.database.sessions() as db:
             record = db.scalar(
                 select(PromptVersionRecord)
@@ -129,7 +133,9 @@ class SessionRepository:
                 )
                 .order_by(PromptVersionRecord.version.desc())
             )
-            return json.loads(record.strategy_json) if record and record.strategy_json else None
+            if record is None or not record.strategy_json:
+                return None
+            return record.version, json.loads(record.strategy_json)
 
     def create_session(
         self,

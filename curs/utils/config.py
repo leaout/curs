@@ -54,20 +54,6 @@ def _load_env_overrides(config):
         if value:
             config['database'][config_key] = value
     
-    # QMT 配置
-    if 'qmt' not in config:
-        config['qmt'] = {}
-    
-    qmt_env_map = {
-        'CURS_QMT_PATH': 'path',
-        'CURS_QMT_ACCOUNT_ID': 'account_id',
-        'CURS_QMT_TRADER_NAME': 'trader_name',
-    }
-    for env_key, config_key in qmt_env_map.items():
-        value = os.environ.get(env_key)
-        if value:
-            config['qmt'][config_key] = value
-
     # 交易商及东方财富配置
     broker_type = os.environ.get('CURS_BROKER')
     if broker_type:

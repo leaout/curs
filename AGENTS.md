@@ -38,7 +38,7 @@ Do not restore the removed Flask UI, `run.py`, `curs_main.py`, or the legacy ser
 - `trading_v2/domain/` must not import FastAPI, database clients, provider SDKs, or legacy `curs` modules.
 - V2 business services use explicit interfaces for market data, models, and brokers. Do not build a generic plugin system.
 - Legacy `curs` code may only be imported by a V2 adapter.
-- Reuse is limited to QMT/Eastmoney broker capabilities, market-data capabilities, database helpers, and data collection.
+- Reuse is limited to Eastmoney broker capabilities, market-data capabilities, database helpers, and data collection.
 - A strategy is a persistent `TradingSession`; chat changes create immutable prompt and strategy versions.
 - Local code evaluates bars and indicators. Invoke a model only for candidate signals.
 - A model may produce structured decisions but may never call a broker directly.
@@ -71,7 +71,7 @@ Do not restore the removed Flask UI, `run.py`, `curs_main.py`, or the legacy ser
 
 - Commit examples only: `.env.v2.example` and `web_v2/.env.example`.
 - Keep local secrets in ignored `.env`, `config.local.yml`, environment variables, or a secret manager.
-- Broker configuration remains flat in `config.yml` under `qmt` and `eastmoney`.
+- Broker configuration remains flat in `config.yml` under `eastmoney`.
 - The default execution mode is `observe`.
 - Live trading requires an account-level enable flag, healthy market data and broker connections, deterministic risk approval, and complete audit context.
 

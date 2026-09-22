@@ -1,5 +1,5 @@
 # coding: utf-8
-"""从现有 QMT/东方财富账户构造统一风控快照。"""
+"""从现有东方财富账户构造统一风控快照。"""
 
 from decimal import Decimal
 

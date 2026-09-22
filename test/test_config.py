@@ -22,7 +22,7 @@ class TestLoadYaml(unittest.TestCase):
         """测试基本配置加载"""
         config_data = {
             'database': {'host': 'localhost', 'port': 5432},
-            'qmt': {'path': '/path/to/qmt'}
+            'broker': 'eastmoney'
         }
         with open(self.config_file, 'w', encoding='utf-8') as f:
             yaml.dump(config_data, f)
@@ -32,7 +32,7 @@ class TestLoadYaml(unittest.TestCase):
 
         self.assertEqual(config['database']['host'], 'localhost')
         self.assertEqual(config['database']['port'], 5432)
-        self.assertEqual(config['qmt']['path'], '/path/to/qmt')
+        self.assertEqual(config['broker'], 'eastmoney')
 
     def test_load_local_config_override(self):
         """测试本地配置覆盖"""
@@ -67,27 +67,10 @@ class TestLoadYaml(unittest.TestCase):
             self.assertEqual(config['database']['host'], 'remotehost')
             self.assertEqual(config['database']['port'], '5433')
 
-    def test_env_override_qmt(self):
-        """测试QMT环境变量覆盖"""
-        config_data = {'qmt': {'path': '/default/path', 'account_id': '123'}}
-
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            yaml.dump(config_data, f)
-
-        with patch.dict(os.environ, {
-            'CURS_QMT_PATH': '/custom/path',
-            'CURS_QMT_ACCOUNT_ID': '456'
-        }):
-            from curs.utils.config import load_yaml
-            config = load_yaml(self.config_file)
-
-            self.assertEqual(config['qmt']['path'], '/custom/path')
-            self.assertEqual(config['qmt']['account_id'], '456')
-
     def test_env_override_eastmoney(self):
         """测试东方财富交易商环境变量覆盖"""
         config_data = {
-            'broker': 'qmt',
+            'broker': 'eastmoney',
             'eastmoney': {'account_no': '', 'password': ''}
         }
 

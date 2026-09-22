@@ -1,6 +1,8 @@
 import type {
+  AgentEvent,
   Candle,
   ChatMessage,
+  ChartSignal,
   SessionSnapshot,
   StrategyPromptVersion,
   TradingSession,
@@ -55,6 +57,28 @@ interface ApiSessionSnapshot {
   session: ApiSession;
   messages: ApiMessage[];
   prompt_versions: ApiPromptVersion[];
+  signals: ApiSignal[];
+  events: ApiEvent[];
+}
+
+interface ApiSignal {
+  id: string;
+  timestamp: string;
+  price: number;
+  side: ChartSignal["side"];
+  state: ChartSignal["state"];
+  label: string;
+  confidence?: number;
+}
+
+interface ApiEvent {
+  id: string;
+  timestamp: string;
+  type: AgentEvent["type"];
+  title: string;
+  detail: string;
+  state: AgentEvent["state"];
+  duration_ms?: number;
 }
 
 export class ApiError extends Error {
@@ -131,13 +155,35 @@ const mapVersion = (version: ApiPromptVersion): StrategyPromptVersion => ({
   active: version.active,
 });
 
+const mapSignal = (signal: ApiSignal): ChartSignal => ({
+  id: signal.id,
+  timestamp: Date.parse(signal.timestamp),
+  price: Number(signal.price),
+  side: signal.side,
+  state: signal.state,
+  label: signal.label,
+  confidence: signal.confidence,
+});
+
+const mapEvent = (event: ApiEvent): AgentEvent => ({
+  id: event.id,
+  timestamp: new Date(event.timestamp).toLocaleTimeString("zh-CN", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }),
+  type: event.type,
+  title: event.title,
+  detail: event.detail,
+  state: event.state,
+  durationMs: event.duration_ms,
+});
+
 const mapSnapshot = (snapshot: ApiSessionSnapshot): SessionSnapshot => ({
   session: mapSession(snapshot.session),
   messages: snapshot.messages.map(mapMessage),
   promptVersions: snapshot.prompt_versions.map(mapVersion),
   candles: [],
-  signals: [],
-  events: [],
+  signals: snapshot.signals.map(mapSignal),
+  events: snapshot.events.map(mapEvent),
 });
 
 export const apiClient = {

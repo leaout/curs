@@ -20,7 +20,7 @@ class BrokerAdapter(Protocol):
 
 
 class LegacyAccountBrokerAdapter:
-    """让 QmtStockAccount/EastMoneyAccount 接受统一 OrderIntent。"""
+    """让保留的账户实现接受统一 OrderIntent。"""
 
     def __init__(self, account: Any):
         self._account = account

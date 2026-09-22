@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from curs.domain.models import InstrumentId, TradeTick
 from curs.trading_agent.bar_aggregator import MultiTimeframeBarAggregator
-from curs.trading_agent.qmt_bridge import QmtTickNormalizer
 
 
 class TestMultiTimeframeBarAggregator(unittest.TestCase):
@@ -54,28 +53,6 @@ class TestMultiTimeframeBarAggregator(unittest.TestCase):
 
         self.assertEqual(result, [])
         self.assertEqual(closed[0].high, Decimal('100'))
-
-
-class TestQmtTickNormalizer(unittest.TestCase):
-    def test_maps_qmt_symbol_and_cumulative_volume(self):
-        normalizer = QmtTickNormalizer()
-        timestamp_ms = 1789092000000
-
-        first = normalizer.normalize('600000.SH', {
-            'lastPrice': 10.5,
-            'volume': 1000,
-            'time': timestamp_ms,
-        })
-        second = normalizer.normalize('600000.SH', {
-            'lastPrice': 10.6,
-            'volume': 1250,
-            'time': timestamp_ms + 1000,
-        })
-
-        self.assertEqual(str(first.instrument), 'CN_EQUITY:XSHG:600000')
-        self.assertEqual(first.volume, Decimal('0'))
-        self.assertEqual(second.volume, Decimal('250'))
-
 
 if __name__ == '__main__':
     unittest.main()

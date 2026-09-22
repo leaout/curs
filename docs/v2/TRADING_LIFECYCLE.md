@@ -43,7 +43,7 @@ UI 展示自然语言摘要 + 字段 Diff
 ## 3. 实时行情生命周期
 
 ```text
-cpptdx / QMT 原始数据
+行情 Provider 原始数据
   ↓ Adapter 标准化
 时间戳、交易日、代码和数值校验
   ↓
@@ -57,7 +57,7 @@ bar.closed（进入指标和信号引擎）
 ```
 
 - cpptdx 主要用于分钟 K 线、快照、历史补齐和备用行情。
-- QMT 主要用于实时 Tick 推送及 Broker 相关行情。
+- 实时 Tick 由各市场的标准 MarketDataProvider 提供。
 - 未闭合 K 线可以显示，但不能触发正式策略。
 - 数据过期、缺口、交易日错误或来源冲突时标记质量问题并暂停对应标的决策。
 - 主备切换产生 `MARKET_SOURCE_SWITCHED` 事件；切换后不得重复消费相同闭合 Bar。
@@ -81,6 +81,8 @@ Decision 校验
 ```
 
 只有候选信号会触发模型。Context 包含锁定版本、触发事实、必要 K 线与指标、账户/持仓摘要、市场状态及少量近期相关决策，不包含 Broker 凭证。
+
+当前已实现到 `CandidateSignal`：后台定时扫描运行中的 Session，只消费闭合 K 线，计算白名单指标与规则并持久化去重；信号立即显示在 K 线和时间线。后续的 ContextBuilder 与模型交易决策尚未接通，因此当前不会因候选信号下单。
 
 合法 Decision 必须满足：
 

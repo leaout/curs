@@ -66,7 +66,7 @@ class TestEastMoneyAccount(unittest.TestCase):
             session_file='data/test.session',
         )
 
-    def test_qmt_compatible_position_and_asset_fields(self):
+    def test_standard_position_and_asset_fields(self):
         position = self.account.get_positions()[0]
         asset = self.account.get_current_account()
 

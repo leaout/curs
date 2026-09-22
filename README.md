@@ -4,7 +4,7 @@
 
 Curs 正在重构为一个面向多市场的 Trading Agent：每个策略都是一个长期大模型对话 Session，用户通过聊天创建和修改策略，交易信号、模型决策、风控与订单事件叠加在 K 线和时间线上。
 
-旧 Flask 页面、`run.py` 服务入口和第一代服务装配层已经移除。V2 与旧架构隔离，仅保留可迁移的 Broker、行情、数据库和数据采集能力。
+旧 Flask 页面、`run.py` 服务入口、第一代服务装配层和已停用的交易终端接入已经移除。V2 与旧架构隔离，仅保留可迁移的东方财富 Broker、行情、数据库和数据采集能力。
 
 ## 当前里程碑
 
@@ -20,12 +20,15 @@ Curs 正在重构为一个面向多市场的 Trading Agent：每个策略都是�
 - OpenAI、DeepSeek、Claude 及 OpenAI-compatible 模型适配器，API Key 只从环境变量读取。
 - “一句话创建策略”会编译为严格白名单 JSON Schema；模型未配置或输出不合法时仅保存草稿。
 - Web 工作台已连接真实 Session API，可创建会话、聊天修改、查看版本并暂停/恢复。
+- 闭合 K 线信号引擎：MA/EMA/RSI/MACD/ATR/VWAP/量比等白名单指标，支持比较与上穿/下穿规则。
+- 运行中的 Session 每 5 秒检查最新闭合 K 线；候选信号持久化并按策略版本与 K 线去重。
+- 候选信号通过 SSE 实时更新，并叠加到 K 线图和决策链时间线。
 
 尚未实现：
 
-- Paper Broker、QMT/东方财富 V2 Broker Adapter 和真实自动下单。
-- QMT 实时行情主源及 cpptdx 主备切换。
-- 闭合 K 线指标计算、候选信号引擎、模型交易决策、确定性风控和审计事件持久化。
+- Paper Broker、东方财富 V2 Broker Adapter 和真实自动下单。
+- 多市场实时行情 Provider 与 cpptdx 主备切换。
+- 候选信号后的模型交易决策、确定性风控、Paper Broker 和完整审计事件账本。
 
 因此当前版本用于架构和界面联调，不能用于真实自动交易。
 
@@ -35,7 +38,7 @@ Curs 正在重构为一个面向多市场的 Trading Agent：每个策略都是�
 trading_v2/       # 独立 FastAPI、领域模型、事件流、行情接口
 web_v2/           # React + TypeScript Vibe Trading 工作台
 docs/v2/          # V2 架构、数据模型、API 和交易生命周期
-curs/broker/      # 保留的 QMT/东方财富 Broker 能力
+curs/broker/      # 保留的东方财富 Broker 能力
 curs/collection/  # 保留的数据采集能力
 data_collection/  # 每日热点数据采集与导入
 test/             # V2 与保留模块测试
@@ -92,7 +95,15 @@ npm run dev
 TRADING_V2_DATABASE_URL=postgresql+psycopg2://user:password@127.0.0.1:5432/curs_trading
 ```
 
-当前会自动创建 `trading_sessions_v2`、`trading_messages_v2` 和 `trading_prompt_versions_v2`。Schema 迁移工具将在进入实盘阶段前补充。
+当前会自动创建 `trading_sessions_v2`、`trading_messages_v2`、`trading_prompt_versions_v2` 和 `candidate_signals_v2`。Schema 迁移工具将在进入实盘阶段前补充。
+
+有效策略恢复为“运行中”后，后台会定时获取行情，只处理 `is_closed=true` 的 K 线。也可手动触发一次评估：
+
+```http
+POST /api/v2/sessions/{session_id}/evaluate
+```
+
+相同 Session、策略版本、标的、周期、K 线结束时间和方向只保存一个候选信号。候选信号目前仅用于观察，不会调用模型或下单。
 
 ## 大模型配置
 
@@ -129,17 +140,12 @@ cpptdx 仅作为 A 股分钟 K 线、快照和补齐数据源，不承担 Broker
 
 ## Broker 配置
 
-保留的 QMT 与东方财富代码位于 `curs/broker/`。V2 Adapter 尚未接入，所以配置 Broker 不代表 V2 已获得下单能力。
+已停用的交易终端及其 SDK 已从代码、依赖和配置中完全移除。保留的东方财富代码位于 `curs/broker/`。V2 Adapter 尚未接入，所以配置 Broker 不代表 V2 已获得下单能力。
 
 示例配置：
 
 ```yaml
-broker: qmt
-
-qmt:
-  path: ""
-  account_id: ""
-  trader_name: ""
+broker: eastmoney
 
 eastmoney:
   account_no: ""
@@ -147,7 +153,7 @@ eastmoney:
   session_file: "data/eastmoney_trader.session"
 ```
 
-东方财富依赖网页交易接口，接口或登录校验变化可能导致失效。首次接入必须先使用只读连接测试，再使用模拟或审批模式验证。
+东方财富依赖网页交易接口，接口或登录校验变化可能导致失效。首次接入必须先使用只读连接测试，再使用模拟或审批模式验证。后续其他市场通过新的标准 Broker Adapter 接入，不再保留旧交易终端兼容层。
 
 ## 测试
 

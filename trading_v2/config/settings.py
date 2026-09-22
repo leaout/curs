@@ -48,6 +48,8 @@ class AppSettings(BaseSettings):
     model_base_url: str = ""
     model_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
     model_max_tokens: int = Field(default=1_500, ge=256, le=16_000)
+    signal_poll_interval_seconds: float = Field(default=5.0, ge=1, le=300)
+    signal_bar_limit: int = Field(default=200, ge=30, le=800)
 
     @field_validator("api_prefix")
     @classmethod

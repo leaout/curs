@@ -14,7 +14,6 @@ pytdx==1.67
 mpl_finance
 # ta-lib
 retrying
-xtquant
 schedule
 croniter
 

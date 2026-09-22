@@ -1,7 +1,7 @@
 # coding: utf-8
 """
 Broker 工厂模块
-根据配置创建 QMT 或东方财富账户
+根据配置创建东方财富账户
 """
 
 import logging
@@ -18,34 +18,13 @@ def create_account(config: dict, total_cash: float = 100000):
         total_cash: 初始可用资金
 
     Returns:
-        QmtStockAccount 或 EastMoneyAccount 实例
+        EastMoneyAccount 实例
     """
-    broker_type = str(config.get('broker', 'qmt')).strip().lower()
+    broker_type = str(config.get('broker', 'eastmoney')).strip().lower()
 
     if broker_type == 'eastmoney':
         return _create_eastmoney_account(config, total_cash)
-    if broker_type == 'qmt':
-        return _create_qmt_account(config, total_cash)
-    raise ValueError(f"不支持的交易商: {broker_type}（可选: qmt, eastmoney）")
-
-
-def _create_qmt_account(config: dict, total_cash: float):
-    from curs.broker.qmt_account import QmtStockAccount
-
-    qmt_config = config.get("qmt", {})
-    qmt_path = qmt_config.get("path", "")
-    account_id = qmt_config.get("account_id", "")
-    trader_name = qmt_config.get("trader_name", "")
-
-    if not qmt_path or not account_id:
-        raise ValueError("QMT 配置不完整：path 或 account_id 缺失")
-
-    return QmtStockAccount(
-        path=qmt_path,
-        account_id=account_id,
-        trader_name=trader_name,
-        total_cash=total_cash,
-    )
+    raise ValueError(f"不支持的交易商: {broker_type}（当前支持: eastmoney）")
 
 
 def _create_eastmoney_account(config: dict, total_cash: float):

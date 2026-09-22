@@ -79,20 +79,6 @@ def task_collect_ths_hot_stocks(config: dict) -> str:
     })
 
 
-def task_sync_stock_info(config: dict) -> str:
-    """同步股票信息任务"""
-    try:
-        from curs.database import get_db_manager
-        
-        db = get_db_manager()
-        result = db.sync_stock_info_from_qmt()
-        
-        return f"同步完成: 成功 {result.get('success_count', 0)}, 失败 {result.get('failed_count', 0)}"
-    except Exception as e:
-        logger.exception("同步股票信息任务失败")
-        return f"执行失败: {e}"
-
-
 def task_profit_analysis(config: dict) -> str:
     """盈利分析任务"""
     return "盈利分析任务执行完成"
@@ -132,7 +118,6 @@ def register_all_tasks(scheduler):
     scheduler.register_callback('collect_hot_stocks', task_collect_hot_stocks)
     scheduler.register_callback('collect_ths_hot_stocks', task_collect_ths_hot_stocks)
     scheduler.register_callback('import_collected_data', task_import_collected_data)
-    scheduler.register_callback('sync_stock_info', task_sync_stock_info)
     scheduler.register_callback('profit_analysis', task_profit_analysis)
     scheduler.register_callback('clear_hot_stocks', task_clear_hot_stocks)
     

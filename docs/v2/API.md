@@ -24,7 +24,7 @@
 
 ## 2. Session 与聊天
 
-当前已实现 `POST/GET /sessions`、`GET /sessions/{id}`、`POST /messages`、`POST /pause` 和 `POST /resume`。表中其余接口为后续契约。
+当前已实现 `POST/GET /sessions`、`GET /sessions/{id}`、`POST /messages`、`POST /pause`、`POST /resume`、`POST /evaluate` 和 `GET /events`。表中其余接口为后续契约。
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
@@ -36,6 +36,8 @@
 | `GET` | `/sessions/{id}/messages` | 分页读取对话 |
 | `POST` | `/sessions/{id}/pause` | 暂停信号处理 |
 | `POST` | `/sessions/{id}/resume` | 恢复信号处理 |
+| `POST` | `/sessions/{id}/evaluate` | 立即执行一次闭合 K 线候选信号评估 |
+| `GET` | `/sessions/{id}/events` | 当前 Session 的 SSE 实时事件 |
 | `POST` | `/sessions/{id}/archive` | 归档，不删除审计数据 |
 
 发送自然语言修改：
@@ -112,7 +114,7 @@ Idempotency-Key: msg-20260921-001
 | --- | --- | --- |
 | `GET` | `/market/instruments/search?q=...` | 搜索标准标的 |
 | `GET` | `/market/bars` | 查询 K 线 |
-| `GET` | `/market/status` | cpptdx/QMT 健康与延迟 |
+| `GET` | `/market/status` | 当前行情 Provider 健康与延迟 |
 | `GET` | `/sessions/{id}/annotations` | 查询信号、决策、风控和成交标注 |
 
 K 线查询示例：
@@ -140,6 +142,8 @@ GET /api/v2/market/bars?instrument=CN_EQUITY:XSHG:600000&timeframe=5m&from=...&t
 ```
 
 ## 6. 信号、决策与时间线
+
+当前候选信号随 `GET /sessions/{id}` 工作区快照的 `signals` 和 `events` 字段返回；独立查询接口是后续契约。信号包含触发 K 线、价格、方向、策略版本和逐条规则事实。后台只扫描状态为 `running` 且具有合法结构化策略的 Session。
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
@@ -174,7 +178,7 @@ GET /api/v2/market/bars?instrument=CN_EQUITY:XSHG:600000&timeframe=5m&from=...&t
 | `POST` | `/connections/{id}/test` | 执行无交易连接测试 |
 | `PUT` | `/model-profiles/{id}` | 更新模型配置；密钥为 write-only |
 | `GET` | `/model-profiles` | 返回模型名、超时及 `secret_configured` |
-| `PUT` | `/market-routing` | 配置 cpptdx/QMT 主备顺序 |
+| `PUT` | `/market-routing` | 配置各市场 Provider 的主备顺序 |
 
 生产环境优先从环境变量或密钥服务读取凭证。API 不保存或返回明文密钥。
 
@@ -189,7 +193,7 @@ Accept: text/event-stream
 
 ```text
 id: 01J...
-event: decision.created
+event: signal
 data: {"schema_version":1,"session_id":"...","correlation_id":"...","occurred_at":"...","payload":{...}}
 ```
 
@@ -199,7 +203,7 @@ data: {"schema_version":1,"session_id":"...","correlation_id":"...","occurred_at
 chat.delta / chat.completed
 strategy.drafted / strategy.published
 market.bar.closed / market.source.changed
-signal.created
+signal
 decision.created / decision.failed
 risk.approved / risk.rejected
 approval.requested / approval.resolved

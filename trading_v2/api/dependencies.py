@@ -8,6 +8,7 @@ from trading_v2.events import InMemoryEventStream
 from trading_v2.market.provider import MarketDataProvider
 from trading_v2.runtime import RuntimeStateStore
 from trading_v2.sessions.service import TradingSessionService
+from trading_v2.signals.runtime import SignalRuntime
 
 
 def get_settings(request: Request) -> AppSettings:
@@ -28,3 +29,7 @@ def get_market_data(request: Request) -> MarketDataProvider:
 
 def get_session_service(request: Request) -> TradingSessionService:
     return request.app.state.session_service
+
+
+def get_signal_runtime(request: Request) -> SignalRuntime:
+    return request.app.state.signal_runtime

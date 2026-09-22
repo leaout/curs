@@ -179,7 +179,7 @@ class OrderTracker:
                 wait_time = (now - order.order_time).total_seconds()
                 
                 if wait_time > self.max_wait_seconds:
-                    # 只记录超时日志，不自动撤单（QMT不支持撤单）
+                    # 只记录超时日志，具体撤单策略由 Broker Adapter 处理
                     logger.info(f"订单超时未成交: {order.order_id} - 股票: {order.stock_code} - 已等待{int(wait_time)}秒")
                     # 从待成交列表移除，但保留订单记录
                     self.pending_orders.discard(order_id)
@@ -235,64 +235,3 @@ class OrderTracker:
                             "status": order.status
                         })
         return results
-
-
-class OrderCallback:
-    """订单回调处理类"""
-    
-    def __init__(self, order_tracker: OrderTracker, trader, account):
-        self.order_tracker = order_tracker
-        self.trader = trader
-        self.account = account
-        
-        order_tracker.on_order_filled = self._on_filled
-        order_tracker.on_order_cancelled = self._on_cancelled
-        order_tracker.on_order_timeout = self._on_timeout
-    
-    def _on_filled(self, order: OrderInfo):
-        """成交回调"""
-        logger.info(f"订单成交回调: {order.order_id}")
-    
-    def _on_cancelled(self, order: OrderInfo):
-        """撤单回调"""
-        logger.info(f"订单撤单回调: {order.order_id}")
-    
-    def _on_timeout(self, order: OrderInfo):
-        """超时回调 - 自动撤单重排"""
-        logger.warning(f"订单超时，准备撤单重排: {order.order_id}")
-        
-        try:
-            from xtquant import xtconstant
-            # 使用account的cancel_order方法
-            cancel_result = self.account.cancel_order(order.order_id)
-            
-            if cancel_result is not None and cancel_result == 0:
-                logger.info(f"撤单成功: {order.order_id}")
-                order.cancel_count += 1
-                
-                if order.cancel_count < 3:
-                    retry_result = self.trader.order_stock(
-                        account=self.account,
-                        stock_code=order.stock_code,
-                        order_type=xtconstant.STOCK_BUY if order.order_type == "BUY" else xtconstant.STOCK_SELL,
-                        order_volume=order.volume - order.filled_volume,
-                        price_type=xtconstant.FIX_PRICE,
-                        price=order.price,
-                        strategy_name=self.account.trader_name,
-                        order_remark="retry order"
-                    )
-                    
-                    if retry_result:
-                        self.order_tracker.register_order(
-                            order.stock_code, 
-                            str(retry_result),
-                            order.volume - order.filled_volume,
-                            order.price,
-                            order.order_type
-                        )
-                        logger.info(f"重新下单成功: {retry_result}")
-                else:
-                    logger.warning(f"订单已重试{order.cancel_count}次，不再重试: {order.order_id}")
-                    
-        except Exception as e:
-            logger.error(f"撤单重排失败: {e}")

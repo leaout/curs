@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from trading_v2.agent.compiler import StrategyCompiler
+from trading_v2.agent.models import StrategySpec
 from trading_v2.domain.enums import AssetClass
 from trading_v2.events import InMemoryEventStream
 from trading_v2.sessions.models import (
@@ -17,6 +18,7 @@ from trading_v2.sessions.models import (
     TradingSession,
 )
 from trading_v2.sessions.repository import SessionRepository
+from trading_v2.signals.repository import SignalRepository
 
 
 class TradingSessionService:
@@ -25,10 +27,12 @@ class TradingSessionService:
         repository: SessionRepository,
         compiler: StrategyCompiler,
         events: InMemoryEventStream,
+        signals: SignalRepository | None = None,
     ) -> None:
         self.repository = repository
         self.compiler = compiler
         self.events = events
+        self.signals = signals
 
     async def initialize(self) -> None:
         await asyncio.to_thread(self.repository.initialize)
@@ -37,7 +41,32 @@ class TradingSessionService:
         return await asyncio.to_thread(self.repository.list_sessions)
 
     async def get_snapshot(self, session_id: str) -> SessionSnapshot | None:
-        return await asyncio.to_thread(self.repository.get_snapshot, session_id)
+        snapshot = await asyncio.to_thread(self.repository.get_snapshot, session_id)
+        if snapshot is None or self.signals is None:
+            return snapshot
+        signals = await asyncio.to_thread(self.signals.list_for_session, session_id)
+        events = [self.signals.event_projection(item) for item in signals[-50:]]
+        return snapshot.model_copy(update={"signals": signals, "events": events})
+
+    async def runtime_targets(
+        self, session_id: str | None = None,
+    ) -> list[tuple[TradingSession, int, StrategySpec]]:
+        sessions = (
+            [await asyncio.to_thread(self.repository.get_session, session_id)]
+            if session_id else await self.list_sessions()
+        )
+        targets = []
+        for session in sessions:
+            if session is None or session.status != SessionStatus.RUNNING:
+                continue
+            stored = await asyncio.to_thread(
+                self.repository.latest_strategy_with_version, session.id
+            )
+            if stored is None:
+                continue
+            version, raw = stored
+            targets.append((session, version, StrategySpec.model_validate(raw)))
+        return targets
 
     async def create_session(self, command: CreateSession) -> SessionSnapshot:
         symbol, venue, timeframe = _infer_market(command)

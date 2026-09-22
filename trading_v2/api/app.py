@@ -19,6 +19,8 @@ from trading_v2.market import CppTdxMarketDataProvider, MarketDataProvider
 from trading_v2.runtime import RuntimeStateStore
 from trading_v2.sessions.repository import SessionRepository
 from trading_v2.sessions.service import TradingSessionService
+from trading_v2.signals.repository import SignalRepository
+from trading_v2.signals.runtime import SignalRuntime
 from trading_v2.storage.database import Database
 
 
@@ -28,6 +30,7 @@ def create_app(
     runtime_state: RuntimeStateStore | None = None,
     market_data: MarketDataProvider | None = None,
     session_service: TradingSessionService | None = None,
+    signal_runtime: SignalRuntime | None = None,
 ) -> FastAPI:
     """Build an isolated V2 application without importing the legacy runtime."""
 
@@ -42,15 +45,29 @@ def create_app(
         timeout_seconds=app_settings.cpptdx_timeout_seconds,
         snapshot_interval_ms=app_settings.cpptdx_snapshot_interval_ms,
     )
+    database = (
+        session_service.repository.database
+        if session_service is not None else Database(app_settings.database_url)
+    )
+    signal_repository = SignalRepository(database)
     sessions = session_service or TradingSessionService(
-        repository=SessionRepository(Database(app_settings.database_url)),
+        repository=SessionRepository(database),
         compiler=StrategyCompiler(build_model_provider(app_settings)),
         events=stream,
+        signals=signal_repository,
+    )
+    if sessions.signals is None:
+        sessions.signals = signal_repository
+    signals = signal_runtime or SignalRuntime(
+        sessions=sessions, market=market, repository=signal_repository, events=stream,
+        poll_interval_seconds=app_settings.signal_poll_interval_seconds,
+        bar_limit=app_settings.signal_bar_limit,
     )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await sessions.initialize()
+        await signals.start()
         await state.start()
         known_sessions = await sessions.list_sessions()
         await state.set_active_sessions(len(known_sessions))
@@ -76,6 +93,7 @@ def create_app(
         try:
             yield
         finally:
+            await signals.stop()
             await market.close()
             await sessions.close()
             await state.stop()
@@ -100,6 +118,7 @@ def create_app(
     app.state.runtime_state = state
     app.state.market_data = market
     app.state.session_service = sessions
+    app.state.signal_runtime = signals
 
     if app_settings.cors_origins:
         app.add_middleware(

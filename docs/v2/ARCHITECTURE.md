@@ -6,8 +6,8 @@ V2 是一套独立的实时交易系统。用户围绕一个长期对话 Session
 
 V2 明确弃用旧 Flask UI、旧 Engine、`StrategyManager`、动态 Python 策略加载和旧页面接口。旧代码仅允许作为以下能力的迁移来源：
 
-- QMT 行情订阅、历史行情和账户交易。
 - 东方财富账户与交易接入。
+- cpptdx 行情、数据库和数据采集能力。
 - 已验证的股票代码、市场和订单状态转换逻辑。
 
 旧对象不得进入 V2 领域层。复用代码必须被 V2 Adapter 包装，并在边界转换成统一模型。
@@ -32,7 +32,7 @@ V2 明确弃用旧 Flask UI、旧 Engine、`StrategyManager`、动态 Python 策
                            └──────────────┬───────────────┘
                                           │ REST + SSE
 ┌──────────────┐  ticks/bars  ┌───────────▼──────────────┐
-│ cpptdx / QMT ├─────────────►│ FastAPI Control Plane    │
+│ Market Feeds │─────────────►│ FastAPI Control Plane    │
 │ Market       │              │ Session / Query / Stream │
 └──────────────┘              └───────────┬──────────────┘
                                          │ commands
@@ -44,7 +44,7 @@ V2 明确弃用旧 Flask UI、旧 Engine、`StrategyManager`、动态 Python 策
                                      │           │
                           ┌──────────▼───┐   ┌───▼──────────────┐
                           │ Model Client │   │ Broker Adapter   │
-                          │ OpenAI/...   │   │ Paper/QMT/EM     │
+                          │ OpenAI/...   │   │ Paper/Eastmoney  │
                           └──────────────┘   └──────────────────┘
                                      │
                              ┌───────▼────────┐
@@ -75,8 +75,8 @@ Session 不直接消费 Tick，也不提交订单。
 
 行情源统一输出 `Tick`、`Bar`、`MarketSnapshot` 和 `MarketStatus`。
 
-- `CppTdxMarketDataProvider`：分钟级 K 线、批量快照、历史补齐和 QMT 断开时降级。通过 HTTP 访问独立 cpptdx 服务。
-- `QmtMarketDataProvider`：实时 Tick/行情推送，以及需要更低延迟的 A 股数据。
+- `CppTdxMarketDataProvider`：A 股分钟级 K 线、批量快照和历史补齐。通过 HTTP 访问独立 cpptdx 服务。
+- 后续实时 Provider：按市场接入稳定数据源，统一输出标准 Tick、Bar 和健康状态。
 - `MarketRouter`：根据配置选主源和备用源；切换前检查时间戳、交易日和数据连续性。
 - `BarAggregator`：从标准 Tick 生成闭合分钟 K 线；只将闭合 Bar 送入信号引擎。
 
@@ -129,7 +129,7 @@ class Broker:
     async def reconcile(self): ...
 ```
 
-首批实现为 cpptdx、QMT；OpenAI、DeepSeek、Claude；Paper、QMT、东方财富。接口之外的业务模块使用普通 Python 服务和显式依赖注入。
+首批实现为 cpptdx；OpenAI、DeepSeek、Claude；Paper、东方财富。接口之外的业务模块使用普通 Python 服务和显式依赖注入。
 
 ## 6. 建议目录
 
@@ -139,13 +139,13 @@ trading_v2/
 ├── domain/          # 无外部依赖的领域类型和状态机
 ├── sessions/        # 对话、Prompt/策略版本及发布
 ├── market/          # 标准行情、路由、聚合、指标
-├── strategies/      # 编译、校验、信号检测
+├── signals/         # 指标、确定性规则、候选信号持久化与扫描
 ├── agent/           # 上下文和结构化模型决策
 ├── risk/            # 硬风控规则
 ├── execution/       # 委托、成交、对账
 ├── adapters/
-│   ├── market/      # cpptdx、QMT
-│   ├── brokers/     # Paper、QMT、东方财富
+│   ├── market/      # cpptdx、跨市场实时 Provider
+│   ├── brokers/     # Paper、东方财富及后续市场适配器
 │   └── models/      # OpenAI、DeepSeek、Claude
 ├── storage/         # SQLAlchemy、Repository、Alembic
 └── main.py
@@ -169,11 +169,11 @@ PostgreSQL
 cpptdx service
 ```
 
-QMT/东方财富终端按 Broker 需要独立运行。后台异步任务使用进程内 `asyncio` 有界队列；进程重启后从数据库恢复未完成 Run、待审批订单和待对账订单。只有实际负载证明单进程不足时才拆分 Runtime。
+东方财富登录会话按 Broker 需要独立维护。后台异步任务使用进程内 `asyncio` 有界队列；进程重启后从数据库恢复未完成 Run、待审批订单和待对账订单。只有实际负载证明单进程不足时才拆分 Runtime。
 
 ## 8. 架构约束
 
-- `domain` 不得导入 FastAPI、SQLAlchemy、QMT、cpptdx 或旧 `curs` 模块。
+- `domain` 不得导入 FastAPI、SQLAlchemy、cpptdx 或旧 `curs` 模块。
 - 旧 `curs` 代码只能由 `adapters` 导入。
 - `agent` 不得导入任何 Broker 实现。
 - Broker 只接受风控签发的执行命令，不接受模型原始输出。
@@ -185,7 +185,7 @@ QMT/东方财富终端按 Broker 需要独立运行。后台异步任务使用�
 
 1. 建立领域模型、PostgreSQL 迁移、FastAPI 和 React Workspace 空壳。
 2. 接入 cpptdx，完成 K 线查询、SSE 更新和数据新鲜度显示。
-3. 接入 QMT 行情并实现主备源切换。
+3. 建立 MarketRouter，并按市场接入实时行情 Provider 与主备切换。
 4. 完成 Session 聊天、策略编译、版本预览和发布。
 5. 完成候选信号、模型决策和图表标注。
 6. 完成 Paper Broker、风控、订单状态机和事件时间线。
@@ -193,12 +193,15 @@ QMT/东方财富终端按 Broker 需要独立运行。后台异步任务使用�
 
 ## 10. 当前实现切片（2026-09）
 
-已落地第 1、2 步以及第 4 步的“草稿编译”部分：
+已落地第 1、2、4 步以及第 5 步的“候选信号”部分：
 
 - SQLAlchemy Repository 持久化 Session、Message、PromptVersion 和结构化策略 JSON。
 - `StrategyCompiler` 只接受白名单指标与操作符，拒绝额外字段，不执行模型生成代码。
 - DeepSeek、OpenAI、Anthropic 与 OpenAI-compatible HTTP Provider 通过同一接口接入。
 - React 工作台以 API 数据为准；仅 K 线在 cpptdx 不可用时显示明确的演示数据。
-- 暂停/恢复目前只修改 Session 控制状态；尚无信号 Runtime，因此不会产生订单。
+- `SignalRuntime` 定时读取运行中 Session 的最新策略，只对闭合 Bar 计算白名单指标和规则。
+- `candidate_signals_v2` 按 Session、策略版本、标的、周期、K 线时间和方向唯一去重。
+- 信号经 SSE 推送，Web 将真实候选信号叠加到 K 线并显示在决策链中。
+- 暂停会停止新信号；当前信号尚不会调用决策模型或产生订单。
 
-下一切片是闭合 Bar 指标与候选信号引擎，然后接 Paper Broker 和确定性风控。
+下一切片是信号触发的模型决策、确定性风控与 Paper Broker。
