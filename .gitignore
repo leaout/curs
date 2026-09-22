@@ -63,6 +63,7 @@ pytest.log
 *.tmp
 *.bak
 *.session
+data/trading_v2.db*
 
 # Distributions / packaging
 *.egg-info/

@@ -7,6 +7,7 @@ export interface TradingSession {
   name: string;
   symbol: string;
   venue: string;
+  assetClass: string;
   timeframe: string;
   status: SessionStatus;
   mode: AgentMode;
@@ -48,6 +49,8 @@ export interface StrategyPromptVersion {
   summary: string;
   createdAt: string;
   active: boolean;
+  strategy?: Record<string, unknown>;
+  warning?: string;
 }
 
 export interface AgentEvent {

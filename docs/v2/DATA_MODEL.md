@@ -11,6 +11,8 @@
 
 ## 2. 会话与版本
 
+当前数据库先以三个 V2 表实现最小闭环：`trading_sessions_v2`、`trading_messages_v2`、`trading_prompt_versions_v2`。其中 PromptVersion 同时保存自然语言输入、编译后的策略 JSON、模型身份和警告；正式发布/回滚加入后再拆分独立 `strategy_versions`。
+
 ### 2.1 `trading_sessions`
 
 一个策略工作区对应一个长期 Session。

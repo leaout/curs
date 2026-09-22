@@ -33,7 +33,7 @@ export function ChatPanel({ messages, versions, busy, onSend }: ChatPanelProps) 
           <h2>策略对话</h2>
         </div>
         <button className={`version-button ${showVersions ? "active" : ""}`} onClick={() => setShowVersions((value) => !value)}>
-          <span>⌘</span> Prompt v{versions.find((version) => version.active)?.version ?? 1}
+          <span>⌘</span> Prompt v{versions.find((version) => version.active)?.version ?? 0}
         </button>
       </div>
 
@@ -45,6 +45,7 @@ export function ChatPanel({ messages, versions, busy, onSend }: ChatPanelProps) 
               <span className="version-number">v{version.version}</span>
               <span>{version.summary}<small>{version.createdAt}</small></span>
               {version.active && <b>当前</b>}
+              {version.warning && <small className="version-warning">{version.warning}</small>}
             </div>
           ))}
         </div>
@@ -54,10 +55,10 @@ export function ChatPanel({ messages, versions, busy, onSend }: ChatPanelProps) 
         <div className="chat-date"><span>今天</span></div>
         {messages.map((message) => (
           <article key={message.id} className={`message ${message.role}`}>
-            <div className="message-avatar">{message.role === "assistant" ? "V" : "你"}</div>
+            <div className="message-avatar">{message.role === "assistant" ? "V" : message.role === "system" ? "!" : "你"}</div>
             <div className="message-content">
               <div className="message-topline">
-                <strong>{message.role === "assistant" ? "Vibe Agent" : "你"}</strong>
+                <strong>{message.role === "assistant" ? "Vibe Agent" : message.role === "system" ? "系统" : "你"}</strong>
                 <span>{message.timestamp}</span>
                 {message.version && <em>v{message.version}</em>}
               </div>

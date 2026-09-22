@@ -24,6 +24,8 @@
 
 ## 2. Session 与聊天
 
+当前已实现 `POST/GET /sessions`、`GET /sessions/{id}`、`POST /messages`、`POST /pause` 和 `POST /resume`。表中其余接口为后续契约。
+
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | `POST` | `/sessions` | 创建策略对话 Session |
@@ -50,17 +52,21 @@ Idempotency-Key: msg-20260921-001
 }
 ```
 
-返回：
+当前同步返回助手消息；模型调用超时或校验失败时，消息会说明原因且版本保持草稿：
 
 ```json
 {
-  "message_id": "...",
-  "operation_id": "...",
-  "status": "accepted"
+  "id": "...",
+  "session_id": "...",
+  "role": "assistant",
+  "content": "已保存你的修改，但暂未生成可运行策略……",
+  "version": 2,
+  "status": "complete",
+  "created_at": "2026-09-22T08:00:00Z"
 }
 ```
 
-模型完成后产生助手消息和策略草稿事件。`expected_strategy_version` 防止用户基于旧页面覆盖新修改。
+后续异步化后再引入 `operation_id`；`expected_strategy_version` 与幂等键也尚未实现。
 
 ## 3. 策略版本
 

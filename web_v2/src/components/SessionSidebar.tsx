@@ -4,6 +4,7 @@ interface SessionSidebarProps {
   sessions: TradingSession[];
   selectedId: string;
   onSelect: (id: string) => void;
+  onCreate: () => void;
   marketConnected: boolean;
 }
 
@@ -14,7 +15,7 @@ const statusLabel: Record<TradingSession["status"], string> = {
   attention: "需处理",
 };
 
-export function SessionSidebar({ sessions, selectedId, onSelect, marketConnected }: SessionSidebarProps) {
+export function SessionSidebar({ sessions, selectedId, onSelect, onCreate, marketConnected }: SessionSidebarProps) {
   return (
     <aside className="session-sidebar panel-edge">
       <div className="sidebar-heading">
@@ -25,9 +26,10 @@ export function SessionSidebar({ sessions, selectedId, onSelect, marketConnected
         <button className="icon-button" title="搜索策略" aria-label="搜索策略">⌕</button>
       </div>
 
-      <button className="new-session-button"><span>＋</span> 用一句话创建策略</button>
+      <button className="new-session-button" onClick={onCreate}><span>＋</span> 用一句话创建策略</button>
 
       <div className="session-list">
+        {!sessions.length && <p className="empty-session-list">还没有策略会话</p>}
         {sessions.map((session) => (
           <button
             key={session.id}

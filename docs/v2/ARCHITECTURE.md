@@ -21,7 +21,7 @@ V2 明确弃用旧 Flask UI、旧 Engine、`StrategyManager`、动态 Python 策
 5. **确定性安全边界**：交易时段、仓位、价格、T+1、重复订单和损失限制全部由代码执行。
 6. **版本不可覆盖**：聊天造成的 Prompt 或策略变化生成新版本，历史订单始终可追溯到当时版本。
 7. **事件可审计**：信号、模型输入摘要、决策、风控、审批和订单状态以只追加事件记录。
-8. **简单部署优先**：第一阶段采用单后端进程、PostgreSQL、React Web；不引入 Kafka、Redis 或通用 Agent 框架。
+8. **简单部署优先**：第一阶段采用单后端进程、React Web，以及开发 SQLite/生产 PostgreSQL；不引入 Kafka、Redis 或通用 Agent 框架。
 
 ## 3. 总体结构
 
@@ -190,3 +190,15 @@ QMT/东方财富终端按 Broker 需要独立运行。后台异步任务使用�
 5. 完成候选信号、模型决策和图表标注。
 6. 完成 Paper Broker、风控、订单状态机和事件时间线。
 7. 增加 approval，最后小额度开放 live 与 Broker 对账。
+
+## 10. 当前实现切片（2026-09）
+
+已落地第 1、2 步以及第 4 步的“草稿编译”部分：
+
+- SQLAlchemy Repository 持久化 Session、Message、PromptVersion 和结构化策略 JSON。
+- `StrategyCompiler` 只接受白名单指标与操作符，拒绝额外字段，不执行模型生成代码。
+- DeepSeek、OpenAI、Anthropic 与 OpenAI-compatible HTTP Provider 通过同一接口接入。
+- React 工作台以 API 数据为准；仅 K 线在 cpptdx 不可用时显示明确的演示数据。
+- 暂停/恢复目前只修改 Session 控制状态；尚无信号 Runtime，因此不会产生订单。
+
+下一切片是闭合 Bar 指标与候选信号引擎，然后接 Paper Broker 和确定性风控。

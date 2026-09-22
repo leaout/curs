@@ -16,13 +16,16 @@ Implemented:
 - A React + TypeScript workspace with sessions, candlesticks, signal overlays, chat, prompt versions, and a decision timeline.
 - A cpptdx HTTP adapter for China-equity snapshots, minute bars, health checks, and freshness tracking.
 - An explicit `DEMO DATA` state when cpptdx is unavailable. Unconfigured brokers and models are never shown as connected.
+- Durable strategy sessions, chat messages, and append-only prompt/strategy versions. SQLite is the development default; PostgreSQL is supported for production.
+- Model adapters for OpenAI, DeepSeek, Claude, and OpenAI-compatible APIs. API keys are only read from environment variables.
+- One-sentence strategy creation compiled into a strict allowlisted JSON schema. Missing model configuration or invalid output remains a safe draft.
+- The Web workspace now uses the real Session API for creation, chat revisions, version history, pause, and resume.
 
 Not implemented yet:
 
-- Durable session and prompt/strategy-version storage.
-- V2 model calls for OpenAI, DeepSeek, and Claude.
 - Paper Broker, QMT/Eastmoney V2 broker adapters, and live order execution.
 - QMT as the real-time primary feed with cpptdx failover.
+- Closed-bar indicators, candidate signals, model trading decisions, deterministic risk checks, and persistent audit events.
 
 This version is for architecture and UI integration. It must not be used for live automated trading.
 
@@ -80,6 +83,32 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:5173`. Vite proxies `/api` to port 8010.
+
+## Database and strategy sessions
+
+Without database configuration, the service uses `data/trading_v2.db` and runs immediately. PostgreSQL is recommended in production:
+
+```dotenv
+TRADING_V2_DATABASE_URL=postgresql+psycopg2://user:password@127.0.0.1:5432/curs_trading
+```
+
+The service currently creates `trading_sessions_v2`, `trading_messages_v2`, and `trading_prompt_versions_v2` automatically. Schema migrations will be added before live trading is enabled.
+
+## Model configuration
+
+DeepSeek:
+
+```dotenv
+TRADING_V2_MODEL_ENABLED=true
+TRADING_V2_MODEL_PROVIDER=deepseek
+TRADING_V2_MODEL_NAME=deepseek-chat
+TRADING_V2_MODEL_API_KEY_ENV=DEEPSEEK_API_KEY
+DEEPSEEK_API_KEY=your-secret
+```
+
+For OpenAI, use `openai / gpt-5` with `OPENAI_API_KEY`. For Claude, use `anthropic / claude-sonnet-4-5` with `ANTHROPIC_API_KEY`. For a compatible Chat Completions service, select `openai_compatible` and set `TRADING_V2_MODEL_BASE_URL`.
+
+The model only compiles conversation input into a constrained strategy representation. It has no broker, order, or publication authority. Every new strategy currently stays in draft/observe mode.
 
 ## cpptdx
 

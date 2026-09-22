@@ -9,10 +9,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from trading_v2.api.routes.system import router as system_router
 from trading_v2.api.routes.market import router as market_router
+from trading_v2.api.routes.sessions import router as sessions_router
+from trading_v2.agent.compiler import StrategyCompiler
+from trading_v2.agent.providers import build_model_provider
 from trading_v2.config.settings import AppSettings, get_settings
+from trading_v2.domain.enums import ConnectionState
 from trading_v2.events import InMemoryEventStream
 from trading_v2.market import CppTdxMarketDataProvider, MarketDataProvider
 from trading_v2.runtime import RuntimeStateStore
+from trading_v2.sessions.repository import SessionRepository
+from trading_v2.sessions.service import TradingSessionService
+from trading_v2.storage.database import Database
 
 
 def create_app(
@@ -20,6 +27,7 @@ def create_app(
     event_stream: InMemoryEventStream | None = None,
     runtime_state: RuntimeStateStore | None = None,
     market_data: MarketDataProvider | None = None,
+    session_service: TradingSessionService | None = None,
 ) -> FastAPI:
     """Build an isolated V2 application without importing the legacy runtime."""
 
@@ -34,10 +42,28 @@ def create_app(
         timeout_seconds=app_settings.cpptdx_timeout_seconds,
         snapshot_interval_ms=app_settings.cpptdx_snapshot_interval_ms,
     )
+    sessions = session_service or TradingSessionService(
+        repository=SessionRepository(Database(app_settings.database_url)),
+        compiler=StrategyCompiler(build_model_provider(app_settings)),
+        events=stream,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        await sessions.initialize()
         await state.start()
+        known_sessions = await sessions.list_sessions()
+        await state.set_active_sessions(len(known_sessions))
+        await state.set_component(
+            "model",
+            ConnectionState.CONNECTED if app_settings.model_enabled else ConnectionState.NOT_CONFIGURED,
+            provider=app_settings.model_provider if app_settings.model_enabled else None,
+            message=(
+                f"{app_settings.model_name} configured"
+                if app_settings.model_enabled
+                else "model disabled; strategy changes remain drafts"
+            ),
+        )
         started = await stream.publish(
             "system.started",
             {
@@ -51,6 +77,7 @@ def create_app(
             yield
         finally:
             await market.close()
+            await sessions.close()
             await state.stop()
             stopped = await stream.publish(
                 "system.stopped",
@@ -72,6 +99,7 @@ def create_app(
     app.state.event_stream = stream
     app.state.runtime_state = state
     app.state.market_data = market
+    app.state.session_service = sessions
 
     if app_settings.cors_origins:
         app.add_middleware(
@@ -92,4 +120,5 @@ def create_app(
 
     app.include_router(system_router, prefix=app_settings.api_prefix)
     app.include_router(market_router, prefix=app_settings.api_prefix)
+    app.include_router(sessions_router, prefix=app_settings.api_prefix)
     return app

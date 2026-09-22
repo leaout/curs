@@ -40,6 +40,14 @@ class AppSettings(BaseSettings):
     cpptdx_base_url: str = "http://127.0.0.1:8022"
     cpptdx_timeout_seconds: float = Field(default=3.0, gt=0, le=60)
     cpptdx_snapshot_interval_ms: int = Field(default=1_000, ge=200, le=60_000)
+    database_url: str = "sqlite:///data/trading_v2.db"
+    model_enabled: bool = False
+    model_provider: str = "deepseek"
+    model_name: str = "deepseek-chat"
+    model_api_key_env: str = "DEEPSEEK_API_KEY"
+    model_base_url: str = ""
+    model_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    model_max_tokens: int = Field(default=1_500, ge=256, le=16_000)
 
     @field_validator("api_prefix")
     @classmethod
@@ -63,6 +71,23 @@ class AppSettings(BaseSettings):
         normalized = value.strip().rstrip("/")
         if not normalized.startswith(("http://", "https://")):
             raise ValueError("cpptdx_base_url must use http or https")
+        return normalized
+
+    @field_validator("model_provider")
+    @classmethod
+    def validate_model_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        allowed = {"openai", "deepseek", "anthropic", "openai_compatible"}
+        if normalized not in allowed:
+            raise ValueError(f"model_provider must be one of: {', '.join(sorted(allowed))}")
+        return normalized
+
+    @field_validator("model_name", "model_api_key_env")
+    @classmethod
+    def non_empty_model_setting(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("model name and API key environment variable cannot be empty")
         return normalized
 
 

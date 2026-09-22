@@ -61,6 +61,7 @@ class TradingV2ApiTest(unittest.TestCase):
             service_name="trading-v2-test",
             service_version="test",
             trading_mode="observe",
+            database_url="sqlite:///:memory:",
             _env_file=None,
         )
 
@@ -88,6 +89,32 @@ class TradingV2ApiTest(unittest.TestCase):
             self.assertEqual(root.json()["api"], "/api/v2")
             self.assertEqual(schema.status_code, 200)
             self.assertIn("/api/v2/status", schema.json()["paths"])
+            self.assertIn("/api/v2/sessions", schema.json()["paths"])
+
+    def test_session_conversation_is_persisted_as_draft_without_model(self) -> None:
+        with TestClient(create_app(settings=self.settings)) as client:
+            created = client.post(
+                "/api/v2/sessions",
+                json={"message": "为 600519 创建 5 分钟放量突破策略"},
+            )
+            self.assertEqual(created.status_code, 201)
+            session = created.json()
+            self.assertEqual(session["status"], "draft")
+            self.assertEqual(session["symbol"], "600519")
+
+            changed = client.post(
+                f"/api/v2/sessions/{session['id']}/messages",
+                json={"content": "把最大仓位降低到 3%"},
+            )
+            snapshot = client.get(f"/api/v2/sessions/{session['id']}")
+
+            self.assertEqual(changed.status_code, 200)
+            self.assertEqual(changed.json()["version"], 2)
+            self.assertEqual(snapshot.status_code, 200)
+            self.assertEqual(snapshot.json()["session"]["prompt_version"], 2)
+            self.assertEqual(len(snapshot.json()["messages"]), 4)
+            self.assertEqual(len(snapshot.json()["prompt_versions"]), 2)
+            self.assertIsNotNone(snapshot.json()["prompt_versions"][0]["warning"])
 
     def test_market_endpoints_use_normalized_instruments(self) -> None:
         market = StubMarketData()

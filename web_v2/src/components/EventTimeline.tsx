@@ -18,9 +18,10 @@ export function EventTimeline({ events }: EventTimelineProps) {
     <section className="timeline panel-edge">
       <div className="timeline-heading">
         <div><p className="eyebrow">LATEST RUN</p><h3>决策链</h3></div>
-        <div className="run-meta"><span className="live-pulse" /> Run #A8F2 · 14:37:00 <button>查看详情 ↗</button></div>
+        <div className="run-meta">{events.length ? <><span className="live-pulse" /> 实时事件流</> : "等待首个策略评估"}</div>
       </div>
       <div className="timeline-track">
+        {!events.length && <p className="timeline-empty">产生信号后，这里会显示上下文、模型、风控与订单决策链。</p>}
         {events.map((event, index) => (
           <div className={`timeline-event ${event.state}`} key={event.id}>
             {index < events.length - 1 && <span className="timeline-connector" />}

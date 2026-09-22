@@ -16,13 +16,16 @@ Curs 正在重构为一个面向多市场的 Trading Agent：每个策略都是�
 - React + TypeScript 工作台：策略会话、K 线、信号覆盖层、聊天、Prompt 版本和决策时间线。
 - cpptdx HTTP 行情适配器：A 股快照、分钟 K 线、健康检查和数据新鲜度。
 - cpptdx 不可用时明确显示 `DEMO DATA`，Broker 和模型未配置时不会伪装为已连接。
+- 持久化策略会话、聊天消息和不可覆盖的 Prompt/策略版本；开发环境默认 SQLite，生产可切换 PostgreSQL。
+- OpenAI、DeepSeek、Claude 及 OpenAI-compatible 模型适配器，API Key 只从环境变量读取。
+- “一句话创建策略”会编译为严格白名单 JSON Schema；模型未配置或输出不合法时仅保存草稿。
+- Web 工作台已连接真实 Session API，可创建会话、聊天修改、查看版本并暂停/恢复。
 
 尚未实现：
 
-- Session 和 Prompt/Strategy 版本的数据库持久化。
-- OpenAI、DeepSeek、Claude 的 V2 模型调用链。
 - Paper Broker、QMT/东方财富 V2 Broker Adapter 和真实自动下单。
 - QMT 实时行情主源及 cpptdx 主备切换。
+- 闭合 K 线指标计算、候选信号引擎、模型交易决策、确定性风控和审计事件持久化。
 
 因此当前版本用于架构和界面联调，不能用于真实自动交易。
 
@@ -80,6 +83,32 @@ npm run dev
 ```
 
 打开 `http://127.0.0.1:5173`。Vite 会将 `/api` 代理到 8010 端口。
+
+## 数据库和策略会话
+
+不配置数据库时使用 `data/trading_v2.db`，可立即运行。生产环境建议 PostgreSQL：
+
+```dotenv
+TRADING_V2_DATABASE_URL=postgresql+psycopg2://user:password@127.0.0.1:5432/curs_trading
+```
+
+当前会自动创建 `trading_sessions_v2`、`trading_messages_v2` 和 `trading_prompt_versions_v2`。Schema 迁移工具将在进入实盘阶段前补充。
+
+## 大模型配置
+
+DeepSeek：
+
+```dotenv
+TRADING_V2_MODEL_ENABLED=true
+TRADING_V2_MODEL_PROVIDER=deepseek
+TRADING_V2_MODEL_NAME=deepseek-chat
+TRADING_V2_MODEL_API_KEY_ENV=DEEPSEEK_API_KEY
+DEEPSEEK_API_KEY=your-secret
+```
+
+OpenAI 改为 `openai / gpt-5` 并使用 `OPENAI_API_KEY`；Claude 改为 `anthropic / claude-sonnet-4-5` 并使用 `ANTHROPIC_API_KEY`。兼容 OpenAI Chat Completions 的服务使用 `openai_compatible` 并设置 `TRADING_V2_MODEL_BASE_URL`。
+
+模型只负责把对话编译为受约束策略结构，不拥有 Broker、下单或发布权限。当前所有新策略均为草稿/观察模式。
 
 ## cpptdx
 
