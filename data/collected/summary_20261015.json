@@ -1,0 +1,148 @@
+{
+  "update_time": "2026-10-15T19:16:44.937273",
+  "date": "20261015",
+  "total": 81,
+  "top_gainers": [
+    {
+      "code": "600825.SH",
+      "name": "新华传媒",
+      "price": NaN,
+      "change_pct": NaN,
+      "rank": 13,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "600668.SH",
+      "name": "尖峰集团",
+      "price": 7.99,
+      "change_pct": 10.06,
+      "rank": 19,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "002543.SZ",
+      "name": "万和电气",
+      "price": 7.88,
+      "change_pct": 10.06,
+      "rank": 28,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "600812.SH",
+      "name": "华北制药",
+      "price": 6.57,
+      "change_pct": 10.05,
+      "rank": 1,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "600721.SH",
+      "name": "百花医药",
+      "price": 12.05,
+      "change_pct": 10.05,
+      "rank": 14,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    }
+  ],
+  "top_rank": [
+    {
+      "code": "600812.SH",
+      "name": "华北制药",
+      "price": 6.57,
+      "change_pct": 10.05,
+      "rank": 1,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "601811.SH",
+      "name": "新华文轩",
+      "price": 25.58,
+      "change_pct": 10.02,
+      "rank": 2,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "002945.SZ",
+      "name": "华林证券",
+      "price": 15.39,
+      "change_pct": 10.01,
+      "rank": 3,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "002343.SZ",
+      "name": "慈文传媒",
+      "price": 8.91,
+      "change_pct": 10.0,
+      "rank": 4,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "605058.SH",
+      "name": "澳弘电子",
+      "price": 70.49,
+      "change_pct": 10.0,
+      "rank": 5,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "000530.SZ",
+      "name": "冰山冷热",
+      "price": 6.93,
+      "change_pct": 10.0,
+      "rank": 6,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "603200.SH",
+      "name": "上海洗霸",
+      "price": 53.35,
+      "change_pct": 10.0,
+      "rank": 8,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "000823.SZ",
+      "name": "超声电子",
+      "price": 25.87,
+      "change_pct": 5.38,
+      "rank": 11,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "002815.SZ",
+      "name": "崇达技术",
+      "price": 23.25,
+      "change_pct": 9.98,
+      "rank": 12,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    },
+    {
+      "code": "600825.SH",
+      "name": "新华传媒",
+      "price": NaN,
+      "change_pct": NaN,
+      "rank": 13,
+      "source": "东方财富",
+      "collect_time": "2026-10-15 19:16:44"
+    }
+  ],
+  "market_distribution": {
+    "SH": 41,
+    "SZ": 40
+  }
+}
