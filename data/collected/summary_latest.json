@@ -1,148 +1,148 @@
 {
-  "update_time": "2026-10-23T19:22:07.850679",
-  "date": "20261023",
-  "total": 76,
+  "update_time": "2026-10-26T20:38:30.989479",
+  "date": "20261026",
+  "total": 78,
   "top_gainers": [
     {
-      "code": "002535.SZ",
-      "name": "林州重机",
-      "price": 3.03,
-      "change_pct": 10.18,
-      "rank": 52,
+      "code": "600558.SH",
+      "name": "大西洋",
+      "price": 5.56,
+      "change_pct": 10.1,
+      "rank": 10,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     },
     {
-      "code": "600303.SH",
-      "name": "曙光股份",
-      "price": 3.14,
-      "change_pct": 10.18,
-      "rank": 90,
+      "code": "002178.SZ",
+      "name": "延华智能",
+      "price": 5.34,
+      "change_pct": 10.1,
+      "rank": 16,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     },
     {
-      "code": "600215.SH",
-      "name": "派斯林",
-      "price": 6.34,
-      "change_pct": 10.07,
-      "rank": 49,
+      "code": "002578.SZ",
+      "name": "闽发铝业",
+      "price": 3.6,
+      "change_pct": 10.09,
+      "rank": 58,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     },
     {
-      "code": "002474.SZ",
-      "name": "榕基软件",
-      "price": 7.11,
-      "change_pct": 10.06,
-      "rank": 25,
+      "code": "002093.SZ",
+      "name": "国脉科技",
+      "price": 7.21,
+      "change_pct": 10.08,
+      "rank": 30,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     },
     {
-      "code": "603028.SH",
-      "name": "赛福天",
-      "price": 8.54,
+      "code": "002696.SZ",
+      "name": "百洋股份",
+      "price": 11.28,
       "change_pct": 10.05,
-      "rank": 31,
+      "rank": 14,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     }
   ],
   "top_rank": [
     {
-      "code": "002354.SZ",
-      "name": "天娱数科",
-      "price": 8.03,
-      "change_pct": 10.0,
-      "rank": 2,
+      "code": "000559.SZ",
+      "name": "万向钱潮",
+      "price": 12.71,
+      "change_pct": 10.04,
+      "rank": 1,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
-    },
-    {
-      "code": "002724.SZ",
-      "name": "海洋王",
-      "price": 12.33,
-      "change_pct": 9.99,
-      "rank": 3,
-      "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
-    },
-    {
-      "code": "603278.SH",
-      "name": "大业股份",
-      "price": 15.96,
-      "change_pct": 9.99,
-      "rank": 5,
-      "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
-    },
-    {
-      "code": "002747.SZ",
-      "name": "埃斯顿",
-      "price": 29.18,
-      "change_pct": 9.99,
-      "rank": 7,
-      "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
-    },
-    {
-      "code": "002241.SZ",
-      "name": "歌尔股份",
-      "price": 23.11,
-      "change_pct": 10.0,
-      "rank": 9,
-      "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     },
     {
       "code": "000678.SZ",
       "name": "襄阳轴承",
-      "price": 13.23,
+      "price": 14.55,
       "change_pct": 9.98,
+      "rank": 3,
+      "source": "东方财富",
+      "collect_time": "2026-10-26 20:38:30"
+    },
+    {
+      "code": "603528.SH",
+      "name": "多伦科技",
+      "price": 8.95,
+      "change_pct": 9.95,
+      "rank": 4,
+      "source": "东方财富",
+      "collect_time": "2026-10-26 20:38:30"
+    },
+    {
+      "code": "603278.SH",
+      "name": "大业股份",
+      "price": 17.25,
+      "change_pct": 8.08,
+      "rank": 5,
+      "source": "东方财富",
+      "collect_time": "2026-10-26 20:38:30"
+    },
+    {
+      "code": "601857.SH",
+      "name": "中国石油",
+      "price": 13.38,
+      "change_pct": 4.94,
+      "rank": 6,
+      "source": "东方财富",
+      "collect_time": "2026-10-26 20:38:30"
+    },
+    {
+      "code": "600838.SH",
+      "name": "上海九百",
+      "price": 12.1,
+      "change_pct": 10.0,
+      "rank": 7,
+      "source": "东方财富",
+      "collect_time": "2026-10-26 20:38:30"
+    },
+    {
+      "code": "002354.SZ",
+      "name": "天娱数科",
+      "price": 8.15,
+      "change_pct": 1.49,
+      "rank": 9,
+      "source": "东方财富",
+      "collect_time": "2026-10-26 20:38:30"
+    },
+    {
+      "code": "600558.SH",
+      "name": "大西洋",
+      "price": 5.56,
+      "change_pct": 10.1,
       "rank": 10,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     },
     {
-      "code": "002185.SZ",
-      "name": "华天科技",
-      "price": 16.19,
-      "change_pct": 4.12,
-      "rank": 13,
+      "code": "000700.SZ",
+      "name": "模塑科技",
+      "price": 13.07,
+      "change_pct": 10.02,
+      "rank": 11,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     },
     {
-      "code": "002343.SZ",
-      "name": "慈文传媒",
-      "price": 10.89,
-      "change_pct": 10.0,
-      "rank": 15,
+      "code": "605488.SH",
+      "name": "福莱新材",
+      "price": 41.97,
+      "change_pct": 10.01,
+      "rank": 12,
       "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
-    },
-    {
-      "code": "603466.SH",
-      "name": "风语筑",
-      "price": 14.69,
-      "change_pct": 10.04,
-      "rank": 16,
-      "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
-    },
-    {
-      "code": "003021.SZ",
-      "name": "兆威机电",
-      "price": 91.73,
-      "change_pct": 10.0,
-      "rank": 17,
-      "source": "东方财富",
-      "collect_time": "2026-10-23 19:22:07"
+      "collect_time": "2026-10-26 20:38:30"
     }
   ],
   "market_distribution": {
     "SH": 38,
-    "SZ": 38
+    "SZ": 40
   }
 }
