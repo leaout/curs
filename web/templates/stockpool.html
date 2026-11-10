@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>股票池管理 - 量化交易平台</title>
     <script src="/static/echarts.min.js"></script>
     <script src="/static/axios.min.js"></script>
@@ -14,7 +15,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--tiger-canvas);
             min-height: 100vh;
             color: #333;
         }
@@ -91,7 +92,7 @@
         }
 
         .stats-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--tiger-canvas);
             color: white;
             padding: 20px;
             border-radius: 12px;
@@ -116,6 +117,9 @@
         }
 
         .category-item {
+            width: 100%;
+            text-align: left;
+            border: 1px solid transparent;
             padding: 10px 15px;
             margin: 5px 0;
             border-radius: 8px;
@@ -126,7 +130,7 @@
         }
 
         .category-item:hover, .category-item.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--tiger-canvas);
             color: white;
             transform: translateX(5px);
         }
@@ -180,7 +184,7 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--tiger-canvas);
             color: white;
         }
 
@@ -257,8 +261,8 @@
 
         .filter-input:focus, .filter-select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+            border-color: var(--tiger-amber-ink);
+            box-shadow: 0 0 0 2px var(--tiger-yellow-tint);
         }
 
         /* 股票表格 */
@@ -269,6 +273,7 @@
 
         .stocks-table {
             width: 100%;
+            min-width: 690px;
             border-collapse: collapse;
         }
 
@@ -292,12 +297,12 @@
         }
 
         .stocks-table tr:hover {
-            background: #f8f9ff;
+            background: var(--tiger-subtle);
         }
 
         .stock-code {
             font-weight: 600;
-            color: #667eea;
+            color: var(--tiger-amber-ink);
             cursor: pointer;
             text-decoration: underline;
         }
@@ -471,7 +476,7 @@
 
         .form-input:focus, .form-select:focus, .form-textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--tiger-amber-ink);
             box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
         }
 
@@ -571,7 +576,7 @@
 
         .spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid var(--tiger-amber-ink);
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -615,21 +620,11 @@
             background: linear-gradient(135deg, #17a2b8, #6f42c1);
         }
     </style>
+    {% include '_curs_head.html' %}
 </head>
-<body>
-    <!-- 页面头部 -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">📊 量化交易平台</div>
-            <nav class="nav-links">
-                <a href="/" class="nav-link">首页</a>
-                <a href="/strategies" class="nav-link">策略管理</a>
-                <a href="/signals" class="nav-link">信号查询</a>
-                <a href="/stockpool" class="nav-link active">股票池管理</a>
-                <a href="#" class="nav-link">系统监控</a>
-            </nav>
-        </div>
-    </header>
+<body class="curs-page">
+    {% set active = "manage" %}
+    {% include "_curs_nav.html" %}
 
     <div class="container">
         <!-- 侧边栏 -->
@@ -659,10 +654,10 @@
             <div class="content-header">
                 <h1 class="content-title">股票池管理</h1>
                 <div class="action-buttons">
-                    <button class="btn btn-success" onclick="showAddStockModal()">
+                    <button class="btn btn-primary" onclick="showAddStockModal()">
                         <span>➕</span> 添加股票
                     </button>
-                    <button class="btn btn-primary" onclick="showBatchAddModal()">
+                    <button class="btn btn-secondary" onclick="showBatchAddModal()">
                         <span>📝</span> 批量添加
                     </button>
                     <button class="btn btn-secondary" onclick="refreshStocks()">
@@ -670,24 +665,25 @@
                     </button>
                 </div>
             </div>
+            <p class="curs-help">热点榜来自自动更新。自选、关注和黑名单由你维护。</p>
 
             <!-- 筛选器 -->
             <div class="filters-section">
                 <div class="filters-row">
                     <div class="filter-group">
-                        <label class="filter-label">股票代码</label>
+                        <label class="filter-label" for="stock-code-filter">股票代码</label>
                         <input type="text" class="filter-input" id="stock-code-filter" placeholder="输入股票代码">
                     </div>
                     <div class="filter-group">
-                        <label class="filter-label">股票名称</label>
+                        <label class="filter-label" for="stock-name-filter">股票名称</label>
                         <input type="text" class="filter-input" id="stock-name-filter" placeholder="输入股票名称">
                     </div>
                     <div class="filter-group">
-                        <label class="filter-label">分类</label>
+                        <label class="filter-label" for="category-filter">分类</label>
                         <select class="filter-select" id="category-filter">
                             <option value="">全部分类</option>
-                            <option value="default">默认</option>
-                            <option value="hot">热门</option>
+                            <option value="default">自选</option>
+                            <option value="hot">热点榜</option>
                             <option value="focus">关注</option>
                             <option value="blacklist">黑名单</option>
                         </select>
@@ -698,7 +694,7 @@
             </div>
 
             <!-- 股票列表 -->
-            <div class="stocks-table-container">
+            <div class="stocks-table-container" tabindex="0" role="region" aria-label="股票池列表">
                 <table class="stocks-table" id="stocks-table">
                     <thead>
                         <tr>
@@ -879,6 +875,8 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <a class="btn btn-secondary" id="stock-signals-link">K 线与信号</a>
+                <a class="btn btn-secondary" id="stock-research-link">个股报告</a>
                 <button class="btn btn-secondary" onclick="closeModal('stockDetailModal')">关闭</button>
             </div>
         </div>
@@ -886,7 +884,10 @@
 
     <script>
         let allStocks = [];
-        let filteredStocks = [];
+        let stockQuery = '';
+        let nameQuery = '';
+        let totalCount = 0;
+        let stockRequest = 0;
         let currentCategory = '';
         let currentPage = 1;
         let totalPages = 1;
@@ -905,21 +906,26 @@
 
         // 获取股票池数据
         async function loadStocks(category = '', page = 1) {
+            const id = ++stockRequest;
             try {
                 const params = new URLSearchParams();
-                if (category) params.append('category', category);
+                if (category) params.set('category', category);
+                if (stockQuery) params.set('stock', stockQuery);
+                if (nameQuery) params.set('name', nameQuery);
                 params.append('page', page);
                 params.append('limit', pageSize);
 
                 const response = await axios.get('/api/stockpool?' + params.toString());
+                if (id !== stockRequest) return;
                 allStocks = response.data.stocks;
-                filteredStocks = [...allStocks];
+                totalCount = response.data.total;
                 currentPage = response.data.page;
                 totalPages = response.data.total_pages;
 
                 renderStocksTable();
                 renderPagination();
             } catch (error) {
+                if (id !== stockRequest) return;
                 console.error('加载股票数据失败:', error);
                 showAlert('加载股票数据失败，请稍后重试', 'error');
             }
@@ -936,82 +942,68 @@
 
                 // 更新分类列表
                 const categoryList = document.getElementById('category-list');
-                let html = '<div class="category-item active" onclick="filterByCategory(\'\')">全部 <span class="category-count">(' + stats.total_stocks + ')</span></div>';
-
-                stats.category_stats.forEach(cat => {
-                    const className = cat.category === 'hot' ? 'hot' : cat.category === 'focus' ? 'focus' : cat.category === 'blacklist' ? 'blacklist' : 'default';
-                    html += `<div class="category-item category-${className}" onclick="filterByCategory('${cat.category}')">
-                        ${getCategoryName(cat.category)} <span class="category-count">(${cat.count})</span>
-                    </div>`;
-                });
-
-                categoryList.innerHTML = html;
+                const categories = [{category: '', count: stats.total_stocks}, ...stats.category_stats];
+                categoryList.replaceChildren(...categories.map(({category, count}) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'category-item';
+                    button.dataset.category = category;
+                    button.textContent = (category ? getCategoryName(category) : '全部') + ' (' + count + ')';
+                    button.addEventListener('click', () => filterByCategory(category));
+                    return button;
+                }));
+                updateCategorySelection();
             } catch (error) {
                 console.error('加载统计数据失败:', error);
             }
         }
 
-        // 按分类筛选
+        function updateCategorySelection() {
+            document.querySelectorAll('.category-item').forEach(item => {
+                const selected = item.dataset.category === currentCategory;
+                item.classList.toggle('active', selected);
+                item.setAttribute('aria-pressed', String(selected));
+            });
+        }
+
         function filterByCategory(category) {
             currentCategory = category;
-
-            // 更新选中状态
-            document.querySelectorAll('.category-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            if (category === '') {
-                document.querySelector('.category-item').classList.add('active');
-            } else {
-                document.querySelector(`[onclick="filterByCategory('${category}')"]`).classList.add('active');
-            }
-
+            document.getElementById('category-filter').value = category;
+            updateCategorySelection();
             loadStocks(category);
         }
 
-        // 应用筛选条件
         function applyFilters() {
-            const codeFilter = document.getElementById('stock-code-filter').value.toLowerCase();
-            const nameFilter = document.getElementById('stock-name-filter').value.toLowerCase();
-            const categoryFilter = document.getElementById('category-filter').value;
-
-            filteredStocks = allStocks.filter(stock => {
-                const codeMatch = !codeFilter || stock.stock_code.toLowerCase().includes(codeFilter);
-                const nameMatch = !nameFilter || (stock.stock_name && stock.stock_name.toLowerCase().includes(nameFilter));
-                const categoryMatch = !categoryFilter || stock.category === categoryFilter;
-
-                return codeMatch && nameMatch && categoryMatch;
-            });
-
-            renderStocksTable();
+            stockQuery = document.getElementById('stock-code-filter').value.trim();
+            nameQuery = document.getElementById('stock-name-filter').value.trim();
+            filterByCategory(document.getElementById('category-filter').value);
         }
 
-        // 清空筛选条件
         function clearFilters() {
             document.getElementById('stock-code-filter').value = '';
             document.getElementById('stock-name-filter').value = '';
             document.getElementById('category-filter').value = '';
-            filteredStocks = [...allStocks];
-            renderStocksTable();
+            applyFilters();
         }
 
         // 渲染股票表格
         function renderStocksTable() {
             const tbody = document.getElementById('stocks-tbody');
 
-            if (filteredStocks.length === 0) {
+            if (allStocks.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="6" class="empty-state">
                             <div class="empty-state-icon">📊</div>
                             <div class="empty-state-title">暂无股票</div>
-                            <div class="empty-state-description">请添加股票到股票池</div>
+                            <div class="empty-state-description">可以调整股票代码、名称或分类筛选</div>
                         </td>
                     </tr>
                 `;
                 return;
             }
 
-            tbody.innerHTML = filteredStocks.map(stock => `
+            tbody.innerHTML = allStocks.map(stock => `
                 <tr>
                     <td>
                         <div class="stock-code" onclick="showStockDetail('${stock.stock_code}')">${stock.stock_code}</div>
@@ -1037,8 +1029,8 @@
         // 获取分类显示名称
         function getCategoryName(category) {
             const names = {
-                'default': '默认',
-                'hot': '热门',
+                'default': '自选',
+                'hot': '热点榜',
                 'focus': '关注',
                 'blacklist': '黑名单'
             };
@@ -1058,8 +1050,12 @@
 
         // 显示股票详情
         async function showStockDetail(stockCode) {
+            document.getElementById('stock-signals-link').href = '/signals?' +
+                new URLSearchParams({stock: stockCode, date: '', chart: '1'});
+            document.getElementById('stock-research-link').href = '/finance-board?' +
+                new URLSearchParams({stock: stockCode});
             // 设置标题
-            document.getElementById('stock-detail-title').textContent = `${stockCode} 股票详情`;
+            document.getElementById('stock-detail-title').textContent = `${stockCode} ${allStocks.find(s=>s.stock_code===stockCode)?.stock_name || '名称暂缺'} 股票详情`;
 
             // 显示模态框
             document.getElementById('stockDetailModal').style.display = 'block';
@@ -1171,7 +1167,7 @@
                 // 配置K线图选项
                 const option = {
                     title: {
-                        text: `${stockCode} 日K线图`,
+                        text: `${stockCode} ${allStocks.find(s=>s.stock_code===stockCode)?.stock_name || '名称暂缺'} 日K线图`,
                         left: 'center',
                         textStyle: {
                             color: '#2c3e50',
@@ -1384,7 +1380,7 @@
 
         // 删除股票
         async function deleteStock(stockCode) {
-            if (!confirm(`确定要从股票池中移除 ${stockCode} 吗？`)) {
+            if (!confirm(`确定要从股票池中移除 ${stockCode} ${allStocks.find(s=>s.stock_code===stockCode)?.stock_name || '名称暂缺'} 吗？`)) {
                 return;
             }
 
@@ -1407,7 +1403,6 @@
         // 渲染分页控件
         function renderPagination() {
             const paginationContainer = document.getElementById('pagination-container');
-            const totalCount = allStocks.length + (currentPage - 1) * pageSize; // 估算总数
 
             if (totalPages <= 1) {
                 paginationContainer.style.display = 'none';

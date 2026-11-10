@@ -58,7 +58,11 @@ class Strategy(object):
 
     def before_trading(self, event):
         self._force_run_before_trading = False
-        self._before_trading(self._user_context)
+        if hasattr(self._user_context, 'stock_base_info'):
+            from curs.broker.public_quote import get_entity_list
+            self._user_context.stock_base_info = {item['id']: item for item in get_entity_list()}
+        if self._before_trading is not None:
+            self._before_trading(self._user_context)
 
     def handle_bar(self, event):
         if self._force_run_before_trading:
@@ -70,9 +74,15 @@ class Strategy(object):
     def handle_tick(self, event):
         if self._force_run_before_trading:
             self.before_trading(event)
-        else:
-            tick = event.tick
-            self._handle_tick(self._user_context, tick)
+        tick = event.tick
+        if hasattr(self._user_context, 'stock_base_info'):
+            from curs.broker.public_quote import get_provider
+            provider = get_provider()
+            for code in tick:
+                record = provider.records.get(code)
+                if record:
+                    self._user_context.stock_base_info[code] = record['info']
+        self._handle_tick(self._user_context, tick)
 
     def after_trading(self, event):
         self._after_trading(self._user_context)

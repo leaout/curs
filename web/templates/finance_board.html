@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>热点股研究台 · Curs</title>
+  <link rel="stylesheet" href="/static/finance-board.css?v=unified-1">
+    {% include '_curs_head.html' %}
+</head>
+<body class="curs-page">
+    {% set active = "research" %}
+    {% include "_curs_nav.html" %}
+  <main class="terminal-shell">
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow"><span></span> RESEARCH DESK</p>
+        <h1>热点股研究台</h1>
+        <p class="page-subtitle">跟踪热门股票，查看逐股分析和引用来源。</p>
+      </div>
+      <div class="date-control">
+        <label for="report-day">报告日期 <small>北京时间</small></label>
+        <input id="report-day" type="date">
+      </div>
+    </div>
+
+    <section class="market-summary" aria-label="研究概览">
+      <div><span>当前热点榜</span><strong id="pool-count">—</strong><small>最近交易日</small></div>
+      <div><span>当日报告</span><strong id="report-count">—</strong><small>按所选日期</small></div>
+      <div><span>定时批次</span><strong id="daily-count">—</strong><small id="daily-coverage">等待加载</small></div>
+      <div><span>每日分析时间</span><strong>21:30</strong><small>北京时间</small></div>
+    </section>
+
+    <section class="terminal-grid">
+      <aside class="intel-panel pool-panel" aria-label="个股筛选">
+        <div class="panel-heading">
+          <div><p class="eyebrow">WATCHLIST</p><h2>热点股票</h2></div>
+        </div>
+        <div class="pool-controls">
+          <label class="stock-search">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6" stroke="currentColor" stroke-width="2"/><path d="m15 15 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input id="pool-search" type="search" aria-label="搜索股票" placeholder="名称或股票代码" autocomplete="off">
+          </label>
+          <button id="pool-all" type="button" data-stock="" aria-pressed="true">全部股票</button>
+        </div>
+        <div class="pool-columns" aria-hidden="true"><span>排名 / 证券</span><span>报告</span></div>
+        <div id="pool" class="pool-list"><p class="empty-state">正在读取热点榜…</p></div>
+      </aside>
+
+      <div class="workspace">
+        <section class="intel-panel analysis-panel" aria-labelledby="analysis-title">
+          <div class="analysis-heading">
+            <div><p class="eyebrow">WORKBUDDY</p><h2 id="analysis-title">智能体分析</h2></div>
+            <p id="bridge-status" class="status-pill" role="status">等待分析</p>
+          </div>
+          <form id="bridge-form">
+            <label class="analysis-input" for="bridge-stock">股票代码<input id="bridge-stock" placeholder="如 600519.SH" autocomplete="off" required></label>
+            <button id="bridge-submit" class="action primary" type="submit">分析个股</button>
+            <button id="bridge-all" class="action" type="button">分析全榜</button>
+            <button id="bridge-check" class="action" type="button">检查连接</button>
+          </form>
+          <p id="bridge-connection" role="status" hidden></p>
+          <ul id="bridge-errors" class="analysis-errors"></ul>
+        </section>
+
+        <div class="research-detail research-detail-merged">
+          <article class="intel-panel report-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">RESEARCH</p><h2>研究报告</h2></div>
+              <p id="view-stock" class="stock-label" aria-live="polite">全部股票</p>
+              <a id="view-stock-chart" hidden>查看 K 线与信号</a>
+            </div>
+            <p id="board-status" role="status"></p>
+            <div id="reports" class="intel-reports"><p class="empty-state">正在读取报告…</p></div>
+          </article>
+        </div>
+      </div>
+    </section>
+    <footer class="terminal-footer"><span>CURS RESEARCH DESK</span><span>报告与公开来源仅供研究参考。</span></footer>
+  </main>
+  <script src="/static/finance-board.js?v=unified-1"></script>
+</body>
+</html>

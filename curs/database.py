@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import os
 import json
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class DatabaseManager:
         self.user = user or _default_config.get('user', 'postgres')
         self.password = password or _default_config.get('password', 'chenly.1')
         self.connection = None
+        self._query_lock = threading.RLock()
 
     def connect(self):
         """连接数据库"""
@@ -51,7 +53,8 @@ class DatabaseManager:
                 port=self.port,
                 database=self.database,
                 user=self.user,
-                password=self.password
+                password=self.password,
+                connect_timeout=10, options='-c statement_timeout=15000 -c timezone=Asia/Shanghai'
             )
             logger.info("数据库连接成功")
             return True
@@ -67,6 +70,10 @@ class DatabaseManager:
             logger.info("数据库连接已断开")
 
     def execute_query(self, query: str, params: tuple = None):
+        with self._query_lock:
+            return self._execute_query(query, params)
+
+    def _execute_query(self, query: str, params: tuple = None):
         """执行查询并返回结果"""
         # 检查连接是否存在或已关闭
         if not self.connection or self.connection.closed:
@@ -96,9 +103,10 @@ class DatabaseManager:
 
     def save_strategy_signal(self, strategy_name: str, stock_code: str, signal_type: str,
                            price: float = None, volume: int = None, order_id: str = None,
-                           status: str = 'PENDING', stock_name: str = None) -> bool:
+                           status: str = 'PENDING', stock_name: str = None,
+                           timestamp: datetime = None) -> bool:
         """保存策略信号到数据库"""
-        timestamp = datetime.now()
+        timestamp = timestamp or datetime.now()
         
         # 尝试获取股票名称（但失败不影响插入）
         try:
@@ -137,6 +145,7 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"保存策略信号失败: {strategy_name} - {signal_type} - {stock_code}, {e}")
             return False
+        return False
 
     def get_strategy_signals(self, strategy_name: str = None, stock_code: str = None,
                            signal_type: str = None, status: str = None,
@@ -445,6 +454,56 @@ class DatabaseManager:
 
         return self.execute_query(query, params)
 
+    def get_previous_zt_stocks(self, trade_date: str) -> List[str]:
+        """Use the last recorded trading day, including weekends and holidays."""
+        rows = self.execute_query('''SELECT stock_code FROM zt_stocks
+            WHERE trade_date = (SELECT MAX(trade_date) FROM zt_stocks WHERE trade_date < %s)
+            ORDER BY stock_code''', (trade_date,)) or []
+        return [row['stock_code'] for row in rows]
+
+    def save_zt_snapshot(self, trade_date, members, source):
+        """Atomically persist a complete close snapshot in the existing table."""
+        from uuid import uuid4
+        batch = str(uuid4())
+        snapshot_time = datetime.now().isoformat()
+        if not members:
+            raise ValueError('Empty snapshot is not a verified no-limit-up trading day')
+        connection = psycopg2.connect(host=self.host, port=self.port, database=self.database,
+                                      user=self.user, password=self.password, connect_timeout=10)
+        try:
+            with connection:
+                with connection.cursor() as cursor:
+                    cursor.execute('ALTER TABLE zt_stocks ADD COLUMN IF NOT EXISTS snapshot JSONB')
+                    for code, member in members.items():
+                        details = dict(member, source=source, batch_id=batch, expected=len(members), recorded_at=snapshot_time)
+                        cursor.execute('''INSERT INTO zt_stocks(trade_date, stock_code, snapshot) VALUES (%s,%s,%s::jsonb)
+                            ON CONFLICT(trade_date, stock_code) DO UPDATE SET snapshot=EXCLUDED.snapshot''',
+                                       (trade_date, code, json.dumps(details, ensure_ascii=False)))
+        finally:
+            connection.close()
+
+    def get_zt_snapshot(self, trade_date):
+        columns = self.execute_query("SELECT column_name FROM information_schema.columns WHERE table_name='zt_stocks' AND column_name='snapshot'")
+        if columns is None:
+            raise RuntimeError('Database unavailable')
+        query = ('SELECT stock_code, snapshot FROM zt_stocks WHERE trade_date=%s' if columns else
+                 'SELECT stock_code, NULL AS snapshot FROM zt_stocks WHERE trade_date=%s')
+        rows = self.execute_query(query, (trade_date,))
+        if rows is None:
+            raise RuntimeError('Database unavailable')
+        if not rows:
+            return None
+        complete = [row for row in rows if row.get('snapshot')]
+        if complete:
+            newest = max(complete, key=lambda row: row['snapshot']['recorded_at'])['snapshot']
+            complete = [r for r in complete if r['snapshot']['batch_id'] == newest['batch_id']]
+            if len(complete) != newest['expected']:
+                raise ValueError('Incomplete database limit-up snapshot')
+            return {'day': trade_date, 'source': 'postgres_zt_stocks_close_snapshot', 'finalized': True,
+                    'members': {row['stock_code']: row['snapshot'] for row in complete}}
+        return {'day': trade_date, 'source': 'postgres_zt_stocks_legacy_codes', 'finalized': False,
+                'members': {row['stock_code']: {'height': None, 'name': ''} for row in rows}}
+
     def get_latest_zt_stocks(self, days: int = 1) -> List[str]:
         """获取最近N天的涨停股票"""
         query = """
@@ -484,7 +543,7 @@ class DatabaseManager:
         query = "SELECT stock_code FROM stock_pool WHERE category = %s AND is_active = TRUE ORDER BY updated_at desc limit 100"
         params = (category,)
 
-        results = self.execute_query(query, params)
+        results = self.execute_query(query, params) or []
         return [row['stock_code'] for row in results]
 
     # ===== 热点股票日记录管理 =====

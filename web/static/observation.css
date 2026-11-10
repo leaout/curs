@@ -1,0 +1,23 @@
+.observation > h2 { font-size: 22px; margin: 22px 0 12px; }
+.observation-panel {
+  background: #fff; border: 1px solid var(--tiger-line);
+  border-radius: 8px; padding: 16px; margin: 12px 0;
+}
+.observation-panel h2 { margin: 0 0 10px; font-size: 18px; }
+.observation-panel p { color: var(--tiger-muted); }
+.observation-panel a { color: var(--tiger-amber-ink); }
+.observation-panel table { min-width: 640px; }
+.observation-panel tbody tr:nth-child(even) { background: var(--tiger-subtle); }
+.observation-panel tbody tr:hover { background: #fff9e9; }
+.observation-panel summary { cursor: pointer; color: var(--tiger-amber-ink); }
+#history td:first-child, #candidates td:first-child { min-width: 190px; }
+#rows td:first-child { min-width: 240px; }
+#rows td:nth-child(2) { min-width: 150px; }
+.info-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.info-item {
+  background: var(--tiger-subtle); border: 1px solid var(--tiger-line); border-radius: 6px;
+  padding: 6px 9px; color: var(--tiger-ink); max-width: 100%; overflow-wrap: anywhere;
+}
+#market-report-text { white-space: pre-line; color: var(--tiger-ink); }
+#market-report-status:empty { display: none; }
+#market-report-day { padding: 4px 8px; border: 1px solid var(--tiger-field-line); border-radius: 5px; }

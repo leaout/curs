@@ -1,0 +1,19 @@
+<header class="curs-bar">
+  <div class="curs-bar-inner">
+    <a class="curs-brand" href="{{ url_for('index') }}"><span aria-hidden="true">◆</span> CURS</a>
+    <nav aria-label="主导航">
+      <a href="{{ url_for('market_sentiment_page') }}"{% if active == 'market' %} aria-current="page"{% endif %}>市场</a>
+      <a href="{{ url_for('signals') }}"{% if active == 'signals' %} aria-current="page"{% endif %}>信号</a>
+      <a href="{{ url_for('finance_board_page') }}"{% if active == 'research' %} aria-current="page"{% endif %}>热点研究</a>
+      <a href="{{ url_for('manage') }}"{% if active == 'manage' %} aria-current="page"{% endif %}>管理</a>
+    </nav>
+    <span class="curs-mode">仅信号模式</span>
+  </div>
+</header>
+{% if active == 'manage' %}
+<nav class="curs-tabs curs-manage-tabs" aria-label="管理分区">
+  {% for key, label in [('pool','股票池'), ('strategies','策略状态'), ('tasks','任务与服务'), ('history','历史归档')] %}
+  <a href="{{ url_for('manage', section=key) }}"{% if section == key %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% endif %}

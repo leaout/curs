@@ -7,7 +7,9 @@ import sys
 import json
 import glob
 import logging
+import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logger = logging.getLogger(__name__)
@@ -36,8 +38,8 @@ def _get_db_config():
 def _get_connection():
     import psycopg2
     cfg = _get_db_config()
-    conn = psycopg2.connect(**cfg)
-    conn.autocommit = True
+    conn = psycopg2.connect(**cfg, connect_timeout=10)
+    conn.autocommit = False
     return conn
 
 
@@ -47,7 +49,17 @@ def find_latest_json() -> str:
     files = glob.glob(pattern)
     if not files:
         return None
-    return max(files, key=os.path.getmtime)
+    dated = []
+    for path in files:
+        match = re.fullmatch(r'hot_stocks_(\d{8})\.json', os.path.basename(path))
+        if match:
+            try:
+                date = datetime.strptime(match[1], '%Y%m%d').date()
+                if date <= datetime.now(ZoneInfo('Asia/Shanghai')).date():
+                    dated.append((date, path))
+            except ValueError:
+                continue
+    return max(dated)[1] if dated else None
 
 
 def load_stocks_from_file(filepath: str) -> list:
@@ -66,6 +78,8 @@ def load_stocks_from_file(filepath: str) -> list:
 def import_to_database(stocks: list, db_manager=None) -> dict:
     """导入股票数据到 hot_stock_daily + stock_pool 表"""
     logger.info(f"开始导入 {len(stocks)} 只股票数据")
+    if not stocks or any(not stock.get('code') for stock in stocks):
+        raise ValueError('Empty or invalid stock pool cannot replace existing data')
 
     # 提取采集日期
     today = datetime.now().strftime('%Y-%m-%d')
@@ -96,6 +110,7 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
                 ON CONFLICT (stock_code) DO UPDATE SET
                     stock_name = EXCLUDED.stock_name,
                     notes = EXCLUDED.notes,
+                    category = 'hot',
                     updated_at = CURRENT_TIMESTAMP,
                     is_active = TRUE
             """, (
@@ -106,7 +121,13 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
             success_count += 1
         except Exception as e:
             logger.error(f"导入失败 {stock.get('code')}: {e}")
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return {'success': False, 'total': len(stocks), 'success_count': 0,
+                    'failed_count': len(stocks), 'failed_stocks': [stock.get('code') for stock in stocks]}
 
+    conn.commit()
     cur.close()
     conn.close()
 
@@ -114,6 +135,8 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
         'success': True,
         'total': len(stocks),
         'success_count': success_count,
+        'failed_count': 0,
+        'failed_stocks': [],
     }
 
 
@@ -139,11 +162,29 @@ def main(config: dict = None) -> str:
         logger.warning(msg)
         return msg
 
+    file_date = datetime.strptime(os.path.basename(filepath)[11:19], '%Y%m%d').date()
+    max_age = int((config or {}).get('max_age_days', 14))
+    if (datetime.now(ZoneInfo('Asia/Shanghai')).date() - file_date).days > max_age:
+        msg = f'采集文件过期 ({file_date})，保留现有股票池，不重新导入'
+        logger.warning(msg)
+        return msg
+
     stocks = load_stocks_from_file(filepath)
     if not stocks:
         msg = "加载股票数据为空"
         logger.warning(msg)
         return msg
+
+    for stock in stocks:
+        if stock.get('collect_time'):
+            collected = datetime.fromisoformat(stock['collect_time'].replace('Z', '+00:00'))
+            if collected.tzinfo is not None:
+                collected = collected.astimezone(ZoneInfo('Asia/Shanghai'))
+            age = (datetime.now(ZoneInfo('Asia/Shanghai')).date() - collected.date()).days
+            if not 0 <= age <= max_age:
+                msg = f'记录原始采集时间过期或在未来 ({stock["collect_time"]})，保留现有股票池'
+                logger.warning(msg)
+                return msg
 
     result = import_to_database(stocks)
     msg = (f"导入完成: 共 {result['total']} 只, "

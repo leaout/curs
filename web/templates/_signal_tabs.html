@@ -1,0 +1,4 @@
+<nav class="curs-tabs" aria-label="信号分区">
+  <a href="{{ url_for('signals', **signal_filters) }}"{% if not reviewing %} aria-current="page"{% endif %}>机会列表</a>
+  <a id="review-tab" href="{{ url_for('signals', view='review', **signal_filters) }}"{% if reviewing %} aria-current="page"{% endif %}>后续表现</a>
+</nav>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>市场 · Curs</title>
+  {% include '_curs_head.html' %}
+  <link rel="stylesheet" href="/static/observation.css?v=unified-1">
+  <script src="/static/observation.js?v=20261015"></script>
+</head>
+<body class="curs-page">
+  {% set active = 'market' %}
+  {% include '_curs_nav.html' %}
+  <main class="curs-shell observation">
+    <h1>A 股市场</h1>
+
+<nav class="curs-tabs" aria-label="市场分区">
+  <a href="#intraday">盘中观察</a><a href="#market-close">收盘报告</a>
+</nav>
+<section class="observation-panel" id="market-close">
+  <h2>每日市场情绪报告</h2>
+  <label for="market-report-day">报告日期（北京时间）</label>
+  <input type="date" id="market-report-day">
+  <p id="market-report-status" role="status">正在读取市场报告…</p>
+  <div id="market-report-content" hidden>
+    <p id="market-report-text"></p>
+    <details><summary>引用来源</summary><ul id="market-report-sources"></ul></details>
+  </div>
+</section>
+<h2 id="intraday">盘中观察</h2>
+<script src="{{ url_for('static', filename='market-report.js', v=1) }}" defer></script>
+
+<p>沪深京 A 股公开快照。名单必须完整分页成功，不会以热点池替代。停牌、无价格限制及过期行情属于缺失；ST/PT/退市名称不计入普通情绪样本。规则状态不是投资建议，也不预测明日接力。</p>
+<section class="observation-panel"><h2>采集状态</h2><p id="collector">加载中…</p></section>
+<section class="observation-panel"><h2>最近快照（务必核对时间）</h2><p id="snapshot">暂无快照</p><p id="breadth"></p></section>
+<section class="observation-panel"><h2>分市场覆盖与广度</h2><div class="curs-table-wrap" tabindex="0" role="region" aria-label="数据表"><table><thead><tr><th>市场</th><th>名单数量</th><th>新鲜覆盖率</th><th>普通样本</th><th>上涨比例</th><th>涨幅中位数</th><th>涨停 / 跌停</th></tr></thead><tbody id="boards"></tbody></table></div></section>
+<section class="observation-panel"><h2>前一交易日涨停固定样本</h2><p id="cohort">缺失，不能判断接力赚钱效应</p></section>
+<section class="observation-panel"><h2>昨日连板梯队 → 今日盘中晋级</h2><p>晋级指当前仍处于涨停，并非收盘确认。缺失标的不计为失败；晋级比例以已观察样本为分母，必须同时看样本覆盖。</p><div class="curs-table-wrap" tabindex="0" role="region" aria-label="数据表"><table><thead><tr><th>昨日高度</th><th>固定样本</th><th>已观察</th><th>当前涨停</th><th>观察样本晋级比例</th></tr></thead><tbody id="ladder"></tbody></table></div></section>
+<details class="observation-panel"><summary>最近规则判断</summary><div class="curs-table-wrap" tabindex="0" role="region" aria-label="最近规则判断"><table><thead><tr><th>时间</th><th>规则状态</th><th>依据</th></tr></thead><tbody id="history"></tbody></table></div></details>
+<section class="observation-panel"><h2>接力影子观察 · 不修改原策略</h2><p>一进二、二进三及高位接力分别记录，不是买入信号。两分钟采样可能漏掉短暂开板；缺少题材配置不会通过，非交易时段只展示旧记录。</p><div class="curs-table-wrap" tabindex="0" role="region" aria-label="数据表"><table><thead><tr><th>记录时间</th><th>股票</th><th>梯队</th><th>状态</th><th>依据 / 未通过原因</th></tr></thead><tbody id="relay"></tbody></table></div><p id="relay-note">尚无记录，等待交易时段完整昨日名单与新鲜快照。</p></section>
+<details class="observation-panel"><summary>KOL 辅助依据（人工导入）</summary><p>只使用候选时间前已发布并导入的观点。观点用于对照复核，原风险条件继续生效。</p><div id="kol-evidence">暂无有效依据</div></details>
+<script>
+const put=(id,v)=>observationInfo(id,v);
+const percent=v=>v==null?'缺失':(v*100).toFixed(1)+'%';
+const change=v=>v==null?'缺失':v.toFixed(2)+'%';
+function rows(id,values){const body=document.getElementById(id);body.replaceChildren();for(const value of values){const tr=document.createElement('tr');for(const v of value){const td=document.createElement('td');td.textContent=observationText(v);tr.append(td)}body.append(tr)}}
+async function refresh(){try{const response=await fetch('/api/market-sentiment');if(!response.ok)throw Error('接口不可用');const data=await response.json();const c=data.collector;
+put('collector',`${c.running?'线程运行':'未运行'} | ${c.reason} | 最近尝试 ${c.last_attempt||'无'} | 最近有效 ${c.last_success||'无'}`);
+const relay=data.relay||{};rows('relay',(relay.observations||[]).map(r=>[r.timestamp,r.stock_label||r.stock_code,r.stage,r.status,[...r.reasons,`题材：${r.evidence.theme||'未知'}；观察开板次数：${r.evidence.observed_breaks??'未知'}`,`KOL：${r.kol_context?.assessment||'未评估'}；对照：${r.kol_shadow_status||r.status}`].join('；')]));put('relay-note',relay.notice||'暂无记录，等待交易时段完整昨日名单。');
+const evidenceBody=document.getElementById('kol-evidence');evidenceBody.replaceChildren();
+for(const r of relay.observations||[]){for(const e of r.kol_context?.evidence||[]){const item=document.createElement('p');item.textContent=`${r.stock_label||r.stock_code} · ${e.author} · ${e.kind} · 发布 ${e.published_at} · 首次导入 ${e.collected_at} · 命中 ${(e.evidence||[]).join('、')} · ${e.text} `;try{const url=new URL(e.source_url);if(url.protocol==='https:'&&!url.username&&!url.password){const link=document.createElement('a');link.href=url.href;link.textContent='查看原文';link.target='_blank';link.rel='noopener noreferrer';item.append(link)}}catch{}evidenceBody.append(item)}}
+const s=data.snapshots[0];if(!s){put('snapshot','暂无全市场快照。非交易时段不采集；失败后自动重试，不使用测试数据。');return}
+put('snapshot',`${s.timestamp} | ${s.state} | ${s.reason} | 覆盖 ${s.fresh}/${s.expected} (${percent(s.coverage)}) | 这是历史采集记录，不代表当前数据仍有效`);
+put('breadth',`普通样本 ${s.breadth.samples} | 上涨比例 ${percent(s.breadth.advancing_ratio)} | 中位涨幅 ${change(s.breadth.median_change_pct)} | 触板未封比例 ${percent(s.breadth.opened_ratio)}`);
+const labels={main:'主板',chinext:'创业板',star:'科创板',beijing:'北交所'};
+rows('boards',Object.entries(s.boards).map(([name,b])=>[labels[name],b.expected,percent(b.coverage),b.samples,percent(b.advancing_ratio),change(b.median_change_pct),`${b.limit_up} / ${b.limit_down}`]));
+const p=s.prior_limit_up;if(p){put('cohort',`${p.day} | 来源 ${p.source} | ${p.finalized?'完整盘后快照':'旧表代码记录，收盘完整性未确认'} | 覆盖 ${p.samples}/${p.expected} (${percent(p.coverage)}) | 收益中位数 ${change(p.median_change_pct)} | 低开比例 ${percent(p.low_open_ratio)} | 跌幅至少5%比例 ${percent(p.severe_loss_ratio)} | 连板高度缺失 ${p.unknown_height_count||0} 只`);rows('ladder',p.ladder.map(l=>[l.height,l.expected,l.observed,l.promoted_now,percent(l.promotion_ratio_observed)]))}else{put('cohort','前一交易日固定样本缺失，无法判断赚钱效应');rows('ladder',[])}
+rows('history',data.snapshots.slice(0,20).map(h=>[h.timestamp,h.state,h.reason]));
+}catch(e){put('collector','读取失败：'+e.message)}}refresh();setInterval(refresh,30000);
+</script>
+  </main>
+</body>
+</html>

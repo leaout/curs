@@ -20,7 +20,11 @@ def create_account(config: dict, total_cash: float = 100000):
     Returns:
         QmtStockAccount 或 EastMoneyAccount 实例
     """
-    broker_type = str(config.get('broker', 'qmt')).strip().lower()
+    broker_type = str(config.get('broker', 'signal')).strip().lower()
+
+    if config.get('signal_only', True) or broker_type in {'signal', 'paper'}:
+        from curs.broker.signal_account import SignalAccount
+        return SignalAccount(total_cash)
 
     if broker_type == 'eastmoney':
         return _create_eastmoney_account(config, total_cash)

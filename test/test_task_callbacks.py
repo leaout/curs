@@ -122,7 +122,7 @@ class TestRegisterAllTasks(unittest.TestCase):
         
         register_all_tasks(mock_scheduler)
         
-        self.assertEqual(mock_scheduler.register_callback.call_count, 7)
+        self.assertEqual(mock_scheduler.register_callback.call_count, 9)
         
         registered_types = [
             call[0][0] for call in mock_scheduler.register_callback.call_args_list
@@ -130,6 +130,8 @@ class TestRegisterAllTasks(unittest.TestCase):
         
         self.assertIn('sync_hot_stocks', registered_types)
         self.assertIn('collect_hot_stocks', registered_types)
+        self.assertIn('collect_ths_hot_stocks', registered_types)
+        self.assertIn('import_collected_data', registered_types)
         self.assertIn('sync_stock_info', registered_types)
         self.assertIn('profit_analysis', registered_types)
         self.assertIn('clear_hot_stocks', registered_types)

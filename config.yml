@@ -11,14 +11,32 @@ database:
   user: postgres
   password: ""
 
-# 交易商配置（支持 qmt 或 eastmoney）
-broker: qmt  # 可选: qmt | eastmoney
-
-# QMT 配置（broker: qmt 时使用）
-qmt:
-  path: ""
-  account_id: ""
-  trader_name: ""
+# 保留现有策略，只记录信号，不连接实盘账户
+signal_only: true
+broker: signal
+market_sentiment:
+  enabled: true
+  interval_seconds: 120
+  min_coverage: 0.9
+  max_age_seconds: 180
+  relay:
+    enabled: true
+    kol_context:
+      enabled: true
+      lookback_hours: 48
+    groups: {}  # 核实题材成员；为空不通过，只做影子观察
+market_data:
+  min_coverage: 0.8
+  provider: tencent
+  poll_interval_seconds: 5
+  timeout_seconds: 8
+  max_quote_age_seconds: 120
+  first_board:
+    enabled: true
+    confirm_seconds: 60
+    max_gap_seconds: 15
+    min_strong_peers: 3
+    groups: {}  # 可填真实板块成员；为空时只检查观察池合力，不声称板块确认
 
 # 东方财富配置（broker: eastmoney 时使用）
 eastmoney:
@@ -29,3 +47,16 @@ eastmoney:
 # 策略配置
 strategy:
   path: ./strategies
+
+# 离线 KOL 研究；所有相对路径基于本配置文件目录，不接入实盘引擎
+kol_intent:
+  posts_path: data/kol_intent/posts.csv
+  prices_path: data/kol_intent/prices.csv
+  output_dir: data/kol_intent/reports
+  use_finbert: true
+  model_name: ProsusAI/finbert
+  local_files_only: true  # 无本地模型时 warning 后走规则；false 允许下载
+  holding_days: 5
+  tickers: []  # prices_path 为空时通过现有公开行情接口读取
+  price_count: 250
+  adjustment: qfq

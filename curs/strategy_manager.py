@@ -40,6 +40,8 @@ class StategyLoader:
     def enable_live_trading(self):
         """启用实盘交易"""
         acc = self.account
+        if acc and getattr(acc, 'signal_only', False):
+            return False
         if acc and hasattr(acc, 'live_trading'):
             acc.live_trading = True
             return True
@@ -58,7 +60,7 @@ class StategyLoader:
         acc = self.account
         if acc and hasattr(acc, 'live_trading'):
             return acc.live_trading
-        return True
+        return False
 
      
 class StrategyManager:
@@ -131,7 +133,8 @@ class StrategyManager:
         """启用策略实盘交易"""
         for path, loader in self._strategies.items():
             if loader.strategy_id == strategy_id:
-                loader.enable_live_trading()
+                if not loader.enable_live_trading():
+                    return False
                 from curs.database import get_db_manager
                 get_db_manager().set_strategy_enabled(strategy_id, True)
                 logger.info(f"策略 {strategy_id} 实盘交易已开启")
