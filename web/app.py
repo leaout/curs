@@ -4,6 +4,7 @@ import csv
 import json
 import time
 import math
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, redirect, request, render_template, url_for
@@ -590,9 +591,9 @@ def api_sync_stock_info():
         return {'status': 'error', 'message': str(e)}, 500
 
 
-@app.route('/api/hotstocks/sync', methods=['POST', 'GET'])
+@app.route('/api/hotstocks/sync', methods=['POST'])
 def api_sync_hot_stocks():
-    """同步热点股票到数据库（支持GET和POST）"""
+    """手动抓取 WhatsHot 同花顺热股榜并同步到数据库。"""
     try:
         from curs.collection.hot_stocks import sync_hot_stocks_to_db
         from curs.database import get_db_manager
@@ -600,7 +601,7 @@ def api_sync_hot_stocks():
         db_manager = get_db_manager()
         result = sync_hot_stocks_to_db(db_manager, category='hot')
         
-        return result
+        return (result, 200) if result.get('success') else (result, 502)
     except Exception as e:
         logger.error(f"同步热点股票失败: {e}")
         return {'status': 'error', 'message': str(e)}, 500
@@ -896,6 +897,13 @@ def api_stockpool():
                 stock['added_at'] = stock['added_at'].strftime('%Y-%m-%d %H:%M:%S')
             if 'updated_at' in stock and stock['updated_at']:
                 stock['updated_at'] = stock['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            notes = stock.get('notes') or ''
+            source_match = re.search(r'(?:^|[,，])数据来源:([^,，]+)', notes)
+            fetched_match = re.search(r'(?:^|[,，])采集时间:([^,，]+)', notes)
+            stock['data_source'] = source_match.group(1).strip() if source_match else (
+                '来源未记录' if stock.get('category') == 'hot' else ''
+            )
+            stock['source_fetched_at'] = fetched_match.group(1).strip() if fetched_match else ''
 
         return {
             'stocks': stocks,
@@ -1399,8 +1407,8 @@ def api_task_types():
     """获取支持的任务类型"""
     return {
         'types': [
-            {'id': 'collect_hot_stocks', 'name': '东方财富热点股票采集', 'description': '采集东方财富热点股票并同步到股票池', 'config_hint': '无需配置，保持默认即可'},
-            {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '从网络获取热点股票并同步到数据库', 'config_hint': '{"category": "hot"}'},
+            {'id': 'collect_hot_stocks', 'name': 'WhatsHot 同花顺热股采集', 'description': '抓取 whatshot.top 公开榜单并同步到股票池', 'config_hint': '需要安装 Chrome 浏览器'},
+            {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '抓取 whatshot.top 公开同花顺热股榜并同步到股票池', 'config_hint': '需要安装 Chrome 浏览器'},
             {'id': 'sync_stock_info', 'name': '同步股票信息', 'description': '从交易账户同步股票基本信息'},
             {'id': 'profit_analysis', 'name': '盈利分析', 'description': '分析策略信号的盈利情况'},
             {'id': 'clear_hot_stocks', 'name': '清除热点股票', 'description': '清除当天添加的热点股票'},

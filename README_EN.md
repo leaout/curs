@@ -8,6 +8,8 @@ Curs is a personal automated quantitative investment platform.
 
 In the [Hot Stock Research Desk](http://localhost:5000/finance-board), select a stock and date to view its reports and sources. Analyze one stock or the full list on demand. At 21:30 Beijing time each day, Curs uses WorkBuddy Desktop Bridge to analyze up to 100 stocks from the latest hot-stock ranking and retries unfinished reports. See the [Research Desk guide](docs/STOCK_INTELLIGENCE.md).
 
+Hot-stock collection now scrapes the public Tonghuashun ranking page on whatshot.top. It requires no API key and does not contact Tonghuashun directly; Chrome renders the page. The Curs web service syncs automatically after 15:35 Beijing time on weekdays, and the stock-pool page also has a manual sync action. Each hot-stock row shows its source and fetch time. The GitHub Actions daily scrape has been disabled. See the [WhatsHot integration guide](docs/WHATSHOT_INTEGRATION.md).
+
 Continuation assessment v1 adds shadow-only 1-to-2, 2-to-3 and higher-board observations to the existing market sentiment page. Environment, sampled sealing and explicit theme evidence are stored without modifying original strategies or placing orders. Empty theme groups do not pass. See the [design and roadmap](docs/RELAY_V1.md).
 
 Signal views, charts and forward observations group opportunities by Shanghai trading date, security and direction. Expanded details retain each strategy's original trigger and independent price observations. Aggregate observations use the earliest trigger without summing quantities. The raw API remains unchanged; grouped lists use `view=opportunities`.
@@ -266,7 +268,8 @@ Configure via `setup_schedule.bat`:
 | `CursBoot` | 90 seconds after boot | SYSTEM unattended startup, signal-only |
 | `CursPreMarket` | Weekdays 08:50 | Restart Curs only |
 | `CursAfterMarket` | Weekdays 16:00 | After-market stock picking |
-| `CursDailyImport` | Daily 21:00 | Import collected data |
+
+Hot stocks are now scraped by the Curs service after the market close on weekdays. The old `CursDailyImport` task is no longer used. Remove it from Windows Task Scheduler if it still exists, so archived files cannot overwrite service data.
 
 ## Architecture
 

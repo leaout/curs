@@ -8,6 +8,8 @@ Curs 是一个个人自动化量化投资平台。
 
 [热点股研究台](http://localhost:5000/finance-board) 支持点击股票并按日期查看报告和引用来源。可手动分析个股或全榜，Curs 每天北京时间 21:30 通过 WorkBuddy Desktop Bridge 逐只分析最新热点榜，最多 100 只，并补跑未完成的报告。详见[研究台使用指南](docs/STOCK_INTELLIGENCE.md)。
 
+热点榜采集直接抓取 WhatsHot 公开网页上的同花顺热股榜，不用 API Key、不直连同花顺上游；采集需要 Chrome 渲染页面。Curs Web 服务会在工作日北京时间 15:35 后自动同步，也可在股票池页面手动触发；列表显示来源和采集时间。GitHub Actions 的每日抓取已停用。详情见 [WhatsHot 热股榜接入说明](docs/WHATSHOT_INTEGRATION.md)。
+
 连板接力第一版在已有市场情绪页增加一进二、二进三、高位接力影子观察，记录环境、封板采样及题材依据，不修改原策略或触发交易。默认题材分组为空，不会默认通过。见 [设计与后续规划](docs/RELAY_V1.md)。
 
 信号列表、图表和前向观察默认按“上海交易日 + 股票 + 买卖方向”合并独立机会，展开保留各策略原始触发。综合价格观察取最早触发及其自身记录，不累加数量；策略对比仍使用各自参考价。原始 API 默认不变，列表使用 `view=opportunities`。
@@ -276,7 +278,8 @@ python run.py -p 8080            # Web端口8080
 | `CursBoot` | 开机后延迟90秒 | SYSTEM 无需登录启动，仅记录信号 |
 | `CursPreMarket` | 工作日 08:50 | 仅重启 Curs |
 | `CursAfterMarket` | 工作日 16:00 | 盘后选股 |
-| `CursDailyImport` | 每日 21:00 | 导入采集数据 |
+
+热点榜现在由 Curs 服务工作日收盘后直接抓取；旧的 `CursDailyImport` 任务不再使用。若 Windows 任务计划程序中仍保留该任务，请删除，避免导入历史归档覆盖服务数据。
 
 ## 架构说明
 

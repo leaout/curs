@@ -1,22 +1,19 @@
 # coding: utf-8
-"""
-GitHub Actions 定时采集脚本 - 输出 JSON/CSV 文件，不依赖数据库
-采集数据：东方财富热点股票
-"""
+"""GitHub Actions 定时采集脚本：渲染 WhatsHot 公开页并输出同花顺热股 JSON/CSV。"""
 import os
 import sys
 import json
 import csv
-import time
-import random
 import logging
 from datetime import datetime
 from typing import List, Dict
+from zoneinfo import ZoneInfo
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'collected')
+SHANGHAI = ZoneInfo('Asia/Shanghai')
 
 
 def format_stock_code(original_code: str) -> str:
@@ -53,66 +50,34 @@ def load_cache() -> List[Dict]:
 
 
 def collect_hot_stocks(max_retries: int = 3) -> List[Dict]:
-    """采集东方财富热点股票（含重试）"""
-    try:
-        import akshare as ak
-    except ImportError:
-        logger.error("缺少 akshare 依赖，请安装: pip install akshare")
-        return []
+    """读取 WhatsHot 热股榜；不以旧名单冒充当天数据。"""
+    from curs.collection.whatshot_hot_stocks import get_whatshot_hot_stocks
 
-    for attempt in range(1, max_retries + 1):
-        delay = 5 + random.uniform(2, 5) * attempt
-        logger.info(f"正在获取东方财富热点股票（第{attempt}次尝试，延迟{delay:.1f}秒）...")
-        time.sleep(delay)
+    for attempt in range(1, max(1, max_retries) + 1):
+        stocks = get_whatshot_hot_stocks()
+        if stocks:
+            collected_at = datetime.now(SHANGHAI).strftime('%Y-%m-%d %H:%M:%S')
+            for stock in stocks:
+                stock['collect_time'] = collected_at
+            logger.info('成功获取 %s 只 WhatsHot 同花顺热股', len(stocks))
+            return stocks
+        if attempt < max_retries:
+            logger.warning('WhatsHot 热股榜采集失败，将重试 %s/%s', attempt, max_retries)
+            import time
+            time.sleep(min(5 * attempt, 15))
 
-        try:
-            df = ak.stock_hot_rank_em()
-            break
-        except Exception as e:
-            logger.warning(f"第{attempt}次获取失败: {e}")
-            if attempt == max_retries:
-                logger.error("已达最大重试次数，尝试使用缓存")
-                return load_cache()
-    else:
-        return load_cache()
-
-    stocks = []
-    for idx, row in df.head(100).iterrows():
-        code = str(row.get("代码", "")).strip()
-        if not code:
-            continue
-
-        formatted_code = format_stock_code(code)
-
-        # 过滤 ST、*ST、688、300、北交所
-        if formatted_code.startswith(('688', '30')) or formatted_code.endswith('.BJ'):
-            continue
-        name = str(row.get("股票名称", ""))
-        if name.startswith('ST') or name.startswith('*ST'):
-            continue
-
-        stocks.append({
-            'code': formatted_code,
-            'name': name,
-            'price': float(row.get("最新价", 0) or 0),
-            'change_pct': float(row.get("涨跌幅", 0) or 0),
-            'rank': int(row.get("当前排名", idx + 1) or idx + 1),
-            'source': '东方财富',
-            'collect_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        })
-
-    logger.info(f"成功获取 {len(stocks)} 只热点股票")
-    return stocks
+    logger.error('WhatsHot 热股榜采集失败；未生成新名单')
+    return []
 
 
 def save_to_json(stocks: List[Dict], label: str = 'hot_stocks'):
     """保存为 JSON 文件"""
     os.makedirs(DATA_DIR, exist_ok=True)
-    today = datetime.now().strftime('%Y%m%d')
+    today = datetime.now(SHANGHAI).strftime('%Y%m%d')
     filepath = os.path.join(DATA_DIR, f'{label}_{today}.json')
 
     data = {
-        'update_time': datetime.now().isoformat(),
+        'update_time': datetime.now(SHANGHAI).isoformat(),
         'date': today,
         'total': len(stocks),
         'stocks': stocks
@@ -132,14 +97,17 @@ def save_to_json(stocks: List[Dict], label: str = 'hot_stocks'):
 def save_to_csv(stocks: List[Dict], label: str = 'hot_stocks'):
     """保存为 CSV 文件"""
     os.makedirs(DATA_DIR, exist_ok=True)
-    today = datetime.now().strftime('%Y%m%d')
+    today = datetime.now(SHANGHAI).strftime('%Y%m%d')
     filepath = os.path.join(DATA_DIR, f'{label}_{today}.csv')
 
     if not stocks:
         logger.warning("无数据，CSV 未生成")
         return None
 
-    fieldnames = ['rank', 'code', 'name', 'price', 'change_pct', 'source', 'collect_time']
+    fieldnames = [
+        'rank', 'code', 'name', 'price', 'change_pct', 'source',
+        'source_update_time', 'source_fetched_at', 'hot', 'description', 'collect_time',
+    ]
     with open(filepath, 'w', encoding='utf-8-sig', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -152,10 +120,10 @@ def save_to_csv(stocks: List[Dict], label: str = 'hot_stocks'):
 def save_summary(stocks: List[Dict]):
     """保存汇总信息 JSON"""
     os.makedirs(DATA_DIR, exist_ok=True)
-    today = datetime.now().strftime('%Y%m%d')
+    today = datetime.now(SHANGHAI).strftime('%Y%m%d')
 
     summary = {
-        'update_time': datetime.now().isoformat(),
+        'update_time': datetime.now(SHANGHAI).isoformat(),
         'date': today,
         'total': len(stocks),
         'top_gainers': sorted(stocks, key=lambda x: x['change_pct'], reverse=True)[:5],

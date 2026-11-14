@@ -4,6 +4,7 @@ pandas
 requests
 logbook
 pyyaml
+tzdata
 aiohttp
 arrow
 xlrd

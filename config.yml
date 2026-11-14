@@ -44,6 +44,14 @@ eastmoney:
   password: ""        # 交易密码（敏感，请放 config.local.yml）
   session_file: "data/eastmoney_trader.session"  # 登录会话缓存（勿提交）
 
+# WhatsHot 公开网页上的同花顺热股榜（使用本机/Runner 的 Chrome 渲染）
+whatshot:
+  page_url: "https://whatshot.top/news/ths-10jqka?type=hot-stock&view=detail"
+  chrome_path: ""  # 可选；也可用 WHATSHOT_CHROME_PATH 指定 chrome.exe
+  limit: 100
+  render_wait_ms: 12000
+  timeout_seconds: 45
+
 # 策略配置
 strategy:
   path: ./strategies

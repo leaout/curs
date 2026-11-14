@@ -1,8 +1,5 @@
 # coding: utf-8
-"""
-同花顺热门股票采集器
-使用 pywencai 获取同花顺问财热门个股排名数据
-"""
+"""同花顺热门股票采集器，抓取 WhatsHot 公开网页榜单。"""
 import os
 import sys
 import logging
@@ -16,50 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_ths_hot_stocks() -> List[Dict]:
-    """获取同花顺热门个股排名（前100只）"""
-    try:
-        import pywencai
-    except ImportError:
-        logger.error("缺少 pywencai 依赖，请安装: pip install pywencai")
+    """获取 whatshot.top 公开页面上的同花顺热股榜。"""
+    from curs.collection.whatshot_hot_stocks import get_whatshot_hot_stocks
+
+    stocks = get_whatshot_hot_stocks()
+    if not stocks:
+        logger.warning("WhatsHot 同花顺热股榜没有返回数据")
         return []
-
-    try:
-        df = pywencai.get(query='热门个股排名前100', loop=True)
-        if df is None or len(df) == 0:
-            logger.warning("同花顺热点股票数据为空")
-            return []
-
-        stocks = []
-        for _, row in df.iterrows():
-            code = str(row.get('股票代码', '')).strip()
-            name = str(row.get('股票简称', '')).strip()
-            price = float(row.get('最新价', 0) or 0)
-            change_pct = float(row.get('最新涨跌幅', 0) or 0)
-            rank_col = [c for c in df.columns if '排名' in c]
-            rank = int(float(row.get(rank_col[0], 0)) or 0) if rank_col else 0
-
-            if not code:
-                continue
-
-            # 过滤 ST、*ST
-            if name.startswith('ST') or name.startswith('*ST'):
-                continue
-
-            stocks.append({
-                'code': code,       # 已含后缀，如 000725.SZ
-                'name': name,
-                'price': price,
-                'change_pct': change_pct,
-                'rank': rank,
-                'source': '同花顺'
-            })
-
-        logger.info(f"成功获取 {len(stocks)} 只同花顺热点股票")
-        return stocks
-
-    except Exception as e:
-        logger.error(f"获取同花顺数据失败: {e}", exc_info=True)
-        return []
+    return stocks
 
 
 def save_to_database(stocks: List[Dict]) -> Dict:

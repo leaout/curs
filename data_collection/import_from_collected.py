@@ -116,7 +116,7 @@ def import_to_database(stocks: list, db_manager=None) -> dict:
             """, (
                 stock['code'],
                 stock.get('name', ''),
-                f"排名:{stock.get('rank', 0)},价格:{stock.get('price', 0)},涨跌:{stock.get('change_pct', 0)}%,采集时间:{stock.get('collect_time', '')}"
+                f"排名:{stock.get('rank', 0)},价格:{stock.get('price', 0)},涨跌:{stock.get('change_pct', 0)}%,热度:{stock.get('hot', '')},榜单更新时间:{stock.get('source_update_time', '')},采集时间:{stock.get('collect_time', '')}"
             ))
             success_count += 1
         except Exception as e:

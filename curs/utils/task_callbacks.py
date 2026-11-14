@@ -56,27 +56,28 @@ def execute_dynamic_task(config: dict) -> str:
 # 这些是简化版，用于兼容旧的简单任务类型
 
 def task_sync_hot_stocks(config: dict) -> str:
-    """同步热点股票任务"""
-    return execute_dynamic_task({
-        'script_path': 'curs/collection/hot_stocks.py',
-        'function_name': 'sync_hot_stocks_to_db'
-    })
+    """使用 WhatsHot 同花顺榜单同步热点股票。"""
+    try:
+        from curs.collection.hot_stocks import sync_hot_stocks_to_db
+        from curs.database import get_db_manager
+
+        result = sync_hot_stocks_to_db(get_db_manager())
+        if not result.get('success'):
+            return '热点同步失败: {}'.format(result.get('message', result))
+        return '热点同步完成: {}'.format(result)
+    except Exception as exc:
+        logger.exception('WhatsHot 热点同步任务失败')
+        return '热点同步失败: {}'.format(exc)
 
 
 def task_collect_hot_stocks(config: dict) -> str:
-    """东方财富热点股票采集任务"""
-    return execute_dynamic_task({
-        'script_path': 'data_collection/eastmoney_hot_stocks.py',
-        'function_name': 'main'
-    })
+    """兼容旧任务 ID，统一使用 WhatsHot 同花顺热股榜。"""
+    return task_sync_hot_stocks(config)
 
 
 def task_collect_ths_hot_stocks(config: dict) -> str:
-    """同花顺热点股票采集任务"""
-    return execute_dynamic_task({
-        'script_path': 'data_collection/ths_hot_stocks.py',
-        'function_name': 'main'
-    })
+    """兼容旧任务 ID，统一使用 WhatsHot 聚合的同花顺热股榜。"""
+    return task_sync_hot_stocks(config)
 
 
 def task_sync_stock_info(config: dict) -> str:
@@ -118,11 +119,9 @@ def task_clear_hot_stocks(config: dict) -> str:
 
 
 def task_import_collected_data(config: dict) -> str:
-    """从 GitHub Actions 采集的 JSON 文件导入热点股票到数据库"""
-    return execute_dynamic_task({
-        'script_path': 'data_collection/import_from_collected.py',
-        'function_name': 'main'
-    })
+    """兼容旧任务 ID；历史归档不再自动导入股票池。"""
+    logger.warning('忽略旧的 import_collected_data 任务；热点榜现由 Curs 服务直接同步')
+    return '已停用：热点榜由 Curs 服务直接同步，GitHub 归档不会自动导入'
 
 
 def register_all_tasks(scheduler):

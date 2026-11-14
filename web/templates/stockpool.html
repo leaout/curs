@@ -92,8 +92,8 @@
         }
 
         .stats-card {
-            background: var(--tiger-canvas);
-            color: white;
+            background: var(--tiger-yellow);
+            color: var(--tiger-charcoal);
             padding: 20px;
             border-radius: 12px;
             text-align: center;
@@ -109,7 +109,8 @@
 
         .stats-label {
             font-size: 14px;
-            opacity: 0.9;
+            color: var(--tiger-charcoal);
+            opacity: 1;
         }
 
         .category-list {
@@ -130,8 +131,9 @@
         }
 
         .category-item:hover, .category-item.active {
-            background: var(--tiger-canvas);
-            color: white;
+            background: var(--tiger-yellow-tint);
+            color: var(--tiger-charcoal);
+            border-color: var(--tiger-amber-line);
             transform: translateX(5px);
         }
 
@@ -273,7 +275,7 @@
 
         .stocks-table {
             width: 100%;
-            min-width: 690px;
+            min-width: 900px;
             border-collapse: collapse;
         }
 
@@ -315,6 +317,11 @@
             color: #666;
             font-size: 13px;
         }
+
+        .source-cell { min-width: 175px; }
+        .source-name { color: #283746; font-weight: 600; }
+        .source-time { display: block; margin-top: 4px; color: #59636e; font-size: 12px; white-space: nowrap; }
+        .sync-status { align-self: center; color: #344054; font-size: 13px; }
 
         .category-badge {
             padding: 4px 10px;
@@ -654,6 +661,9 @@
             <div class="content-header">
                 <h1 class="content-title">股票池管理</h1>
                 <div class="action-buttons">
+                    <button class="btn btn-primary" id="sync-hotstocks-btn" onclick="syncHotStocks()">
+                        <span>📡</span> 同步热点榜
+                    </button>
                     <button class="btn btn-primary" onclick="showAddStockModal()">
                         <span>➕</span> 添加股票
                     </button>
@@ -665,7 +675,7 @@
                     </button>
                 </div>
             </div>
-            <p class="curs-help">热点榜来自自动更新。自选、关注和黑名单由你维护。</p>
+            <p class="curs-help">热点榜由服务工作日 15:35 后自动抓取；也可手动同步。自选、关注和黑名单由你维护。<span id="hotstocks-sync-status" class="sync-status" role="status" aria-live="polite"></span></p>
 
             <!-- 筛选器 -->
             <div class="filters-section">
@@ -702,13 +712,14 @@
                             <th>股票名称</th>
                             <th>分类</th>
                             <th>添加时间</th>
+                            <th>数据来源</th>
                             <th>备注</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody id="stocks-tbody">
                         <tr>
-                            <td colspan="6" class="loading">
+                            <td colspan="7" class="loading">
                                 <div class="spinner"></div>
                                 正在加载股票数据...
                             </td>
@@ -993,7 +1004,7 @@
             if (allStocks.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="empty-state">
+                        <td colspan="7" class="empty-state">
                             <div class="empty-state-icon">📊</div>
                             <div class="empty-state-title">暂无股票</div>
                             <div class="empty-state-description">可以调整股票代码、名称或分类筛选</div>
@@ -1006,24 +1017,31 @@
             tbody.innerHTML = allStocks.map(stock => `
                 <tr>
                     <td>
-                        <div class="stock-code" onclick="showStockDetail('${stock.stock_code}')">${stock.stock_code}</div>
+                        <div class="stock-code" onclick="showStockDetail('${escapeHtml(stock.stock_code)}')">${escapeHtml(stock.stock_code)}</div>
                     </td>
                     <td>
-                        <div class="stock-name">${stock.stock_name || '-'}</div>
+                        <div class="stock-name">${escapeHtml(stock.stock_name || '-')}</div>
                     </td>
                     <td>
-                        <span class="category-badge category-${stock.category || 'default'}">
-                            ${getCategoryName(stock.category)}
+                        <span class="category-badge category-${escapeHtml(stock.category || 'default')}">
+                            ${escapeHtml(getCategoryName(stock.category))}
                         </span>
                     </td>
-                    <td>${stock.added_at}</td>
-                    <td>${stock.notes || '-'}</td>
+                    <td>${escapeHtml(stock.added_at || '-')}</td>
+                    <td class="source-cell">${stock.data_source ? `<span class="source-name">${escapeHtml(stock.data_source)}</span>${stock.source_fetched_at ? `<span class="source-time">采集于 ${escapeHtml(stock.source_fetched_at)}</span>` : ''}` : '-'}</td>
+                    <td>${escapeHtml(stock.notes || '-')}</td>
                     <td class="action-buttons-cell">
-                        <button class="action-btn edit" onclick="editStock('${stock.stock_code}')">编辑</button>
-                        <button class="action-btn delete" onclick="deleteStock('${stock.stock_code}')">删除</button>
+                        <button class="action-btn edit" onclick="editStock('${escapeHtml(stock.stock_code)}')">编辑</button>
+                        <button class="action-btn delete" onclick="deleteStock('${escapeHtml(stock.stock_code)}')">删除</button>
                     </td>
                 </tr>
             `).join('');
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
         }
 
         // 获取分类显示名称
@@ -1441,6 +1459,27 @@
         function refreshStocks() {
             loadStocks(currentCategory);
             loadStats();
+        }
+
+        async function syncHotStocks() {
+            const button = document.getElementById('sync-hotstocks-btn');
+            const status = document.getElementById('hotstocks-sync-status');
+            button.disabled = true;
+            status.textContent = '正在抓取 WhatsHot 同花顺热股榜…';
+            try {
+                const response = await axios.post('/api/hotstocks/sync');
+                const result = response.data;
+                status.textContent = `同步完成：${result.success_count}/${result.total} 只；来源 ${result.source}；采集于 ${result.fetched_at}`;
+                currentCategory = 'hot';
+                document.getElementById('category-filter').value = 'hot';
+                updateCategorySelection();
+                await Promise.all([loadStocks('hot'), loadStats()]);
+            } catch (error) {
+                const message = error.response?.data?.message || error.message || '未知错误';
+                status.textContent = `同步失败：${message}`;
+            } finally {
+                button.disabled = false;
+            }
         }
 
         // 显示提示消息

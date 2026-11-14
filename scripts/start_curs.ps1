@@ -18,7 +18,7 @@ try {
     $processes = Get-CimInstance Win32_Process -Filter "Name='python.exe'"
     $launchers = @($processes | Where-Object {
         $_.ExecutablePath -eq "$projectPath\.venv\Scripts\python.exe" -and
-        $_.CommandLine -match '\brun\.py\b' -and $_.CommandLine -notmatch '--import-data'
+        $_.CommandLine -match '\brun\.py\b'
     })
     if ($Restart) {
         foreach ($launcher in $launchers) {

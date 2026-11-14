@@ -22,4 +22,4 @@ foreach ($name in @('CursBoot', 'CursPreMarket')) {
     }
     Set-ScheduledTask -TaskName $name -Action $action -Trigger $triggers -Principal $principal -Settings $settings | Out-Null
 }
-Write-Output "Unattended boot/premarket startup configured. Backup: $backupPath. After-market/import tasks unchanged."
+Write-Output "Unattended boot/premarket startup configured. Backup: $backupPath. Existing after-market tasks unchanged. Remove legacy CursDailyImport if present; hot-stock sync now runs in Curs."

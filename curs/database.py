@@ -556,8 +556,23 @@ class DatabaseManager:
             return results[0]['max_date'].isoformat()
         return None
 
+    def get_hot_stock_daily_source(self, trade_date: str) -> Optional[str]:
+        """Return the most common source recorded for a hot-stock snapshot date."""
+        query = """
+            SELECT source
+            FROM hot_stock_daily
+            WHERE trade_date = %s
+            GROUP BY source
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+        """
+        results = self.execute_query(query, (trade_date,))
+        return results[0].get('source') if results else None
+
     def save_hot_stock_daily(self, trade_date: str, stocks: List[Dict]) -> Dict:
         """保存当日热点股票记录到 hot_stock_daily 表（使用独立短连接）"""
+        if not stocks:
+            return {'success': False, 'message': '拒绝用空榜单覆盖已有日记录'}
         import psycopg2
         conn = None
         try:
@@ -566,31 +581,29 @@ class DatabaseManager:
                 database=self.database, user=self.user,
                 password=self.password,
             )
-            conn.autocommit = True
+            conn.autocommit = False
             cur = conn.cursor()
 
             cur.execute("DELETE FROM hot_stock_daily WHERE trade_date = %s", (trade_date,))
 
             success_count = 0
             for stock in stocks:
-                try:
-                    cur.execute("""
-                        INSERT INTO hot_stock_daily
-                            (trade_date, stock_code, stock_name, rank, price, change_pct, source)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        trade_date,
-                        stock.get('code', ''),
-                        stock.get('name', ''),
-                        stock.get('rank', 0),
-                        stock.get('price', 0),
-                        stock.get('change_pct', 0),
-                        stock.get('source', '东方财富'),
-                    ))
-                    success_count += 1
-                except Exception as e:
-                    logger.error(f"保存热点股票日记录失败 {stock.get('code')}: {e}")
+                cur.execute("""
+                    INSERT INTO hot_stock_daily
+                        (trade_date, stock_code, stock_name, rank, price, change_pct, source)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    trade_date,
+                    stock.get('code', ''),
+                    stock.get('name', ''),
+                    stock.get('rank', 0),
+                    stock.get('price', 0),
+                    stock.get('change_pct', 0),
+                    stock.get('source', '未知来源'),
+                ))
+                success_count += 1
 
+            conn.commit()
             cur.close()
             conn.close()
             return {'success': True, 'total': len(stocks), 'success_count': success_count}
@@ -599,6 +612,7 @@ class DatabaseManager:
             logger.error(f"保存热点股票日记录数据库操作失败: {e}")
             if conn:
                 try:
+                    conn.rollback()
                     conn.close()
                 except:
                     pass
