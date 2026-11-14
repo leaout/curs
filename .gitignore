@@ -175,3 +175,8 @@ dist/
 # Other
 *.DS_Store
 Thumbs.db
+data/collected/
+data/hotstocks.txt
+data/hotstocks_cache.json
+data/stock_intel.sqlite3
+data/zt_list_*.txt
