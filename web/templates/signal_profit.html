@@ -185,8 +185,11 @@
             margin-left: 8px;
         }
     </style>
+    {% include '_curs_head.html' %}
 </head>
-<body>
+<body class="curs-page">
+    {% set active = "manage" %}{% set section = "history" %}
+    {% include "_curs_nav.html" %}
     <div class="header">
         <h1>📈 信号盈利分析</h1>
     </div>
@@ -197,7 +200,7 @@
             <select id="priceType" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
                 <option value="high">最高价(当日卖点)</option>
                 <option value="close">收盘价</option>
-                <option value="avg">均价</option>
+                <option value="avg" disabled>均价（当前公开源不提供）</option>
             </select>
             <span class="info-text">基于T+1制度，从第2天开始统计</span>
             <span id="loadingText" style="display:none; color: #666; margin-left: 12px;">分析中，请稍候...</span>
@@ -422,7 +425,7 @@
                 if (profitCurveChart) profitCurveChart.destroy();
                 
                 const datasets = data.details.slice(0, 10).map((d, i) => ({
-                    label: d.stock_code,
+                    label: d.stock_label || `${d.stock_code} ${d.stock_name || '名称暂缺'}`,
                     data: d.daily_profits ? d.daily_profits.map(p => p.profit_pct) : [],
                     borderColor: `hsl(${i * 36}, 70%, 50%)`,
                     fill: false,

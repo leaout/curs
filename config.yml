@@ -5,18 +5,66 @@ version: 0.1.0
 
 # 数据库配置
 database:
-  host: 192.168.2.12
+  host: 192.168.2.238
   port: 6432
   database: postgres
   user: postgres
   password: ""
 
-# QMT 配置
-qmt:
-  path: ""
-  account_id: ""
-  trader_name: ""
+# 保留现有策略，只记录信号，不连接实盘账户
+signal_only: true
+broker: signal
+market_sentiment:
+  enabled: true
+  interval_seconds: 120
+  min_coverage: 0.9
+  max_age_seconds: 180
+  relay:
+    enabled: true
+    kol_context:
+      enabled: true
+      lookback_hours: 48
+    groups: {}  # 核实题材成员；为空不通过，只做影子观察
+market_data:
+  min_coverage: 0.8
+  provider: tencent
+  poll_interval_seconds: 5
+  timeout_seconds: 8
+  max_quote_age_seconds: 120
+  first_board:
+    enabled: true
+    confirm_seconds: 60
+    max_gap_seconds: 15
+    min_strong_peers: 3
+    groups: {}  # 可填真实板块成员；为空时只检查观察池合力，不声称板块确认
+
+# 东方财富配置（broker: eastmoney 时使用）
+eastmoney:
+  account_no: ""      # 资金账号
+  password: ""        # 交易密码（敏感，请放 config.local.yml）
+  session_file: "data/eastmoney_trader.session"  # 登录会话缓存（勿提交）
+
+# WhatsHot 公开网页上的同花顺热股榜（使用本机/Runner 的 Chrome 渲染）
+whatshot:
+  page_url: "https://whatshot.top/news/ths-10jqka?type=hot-stock&view=detail"
+  chrome_path: ""  # 可选；也可用 WHATSHOT_CHROME_PATH 指定 chrome.exe
+  limit: 100
+  render_wait_ms: 12000
+  timeout_seconds: 45
 
 # 策略配置
 strategy:
   path: ./strategies
+
+# 离线 KOL 研究；所有相对路径基于本配置文件目录，不接入实盘引擎
+kol_intent:
+  posts_path: data/kol_intent/posts.csv
+  prices_path: data/kol_intent/prices.csv
+  output_dir: data/kol_intent/reports
+  use_finbert: true
+  model_name: ProsusAI/finbert
+  local_files_only: true  # 无本地模型时 warning 后走规则；false 允许下载
+  holding_days: 5
+  tickers: []  # prices_path 为空时通过现有公开行情接口读取
+  price_count: 250
+  adjustment: qfq

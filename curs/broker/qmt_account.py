@@ -276,8 +276,8 @@ class QmtStockAccount(Account):
         self._live_trading = value
         logger.info(f"实盘交易{'已开启' if value else '已关闭'}")
 
-    def _order_stock_or_simulate(self, action, stock_code, order_type, order_volume, price_type, price, **kwargs):
-        if not self._live_trading:
+    def _order_stock_or_simulate(self, action, stock_code, order_type, order_volume, price_type, price, force_real=False, **kwargs):
+        if not force_real and not self._live_trading:
             logger.info(f"[模拟] {action} {stock_code} volume={order_volume} price={price}")
             import random
             return random.randint(100000, 999999)
@@ -305,10 +305,7 @@ class QmtStockAccount(Account):
     def on_trading_error(self, timestamp, error):
         pass
     def sell_all(self, stock_code):
-        print(stock_code)
-        print(self.account)
-        position = self.xt_trader.query_stock_position(self.account,stock_code)
-        print(position)
+        position = self.xt_trader.query_stock_position(self.account, stock_code)
         if position and position.can_use_volume > 0:
             fix_result_order_id = self._order_stock_or_simulate(
                 action="sell_all",
@@ -317,6 +314,7 @@ class QmtStockAccount(Account):
                 order_volume=int(position.can_use_volume),
                 price_type=xtconstant.MARKET_SH_CONVERT_5_CANCEL,
                 price=0,
+                force_real=True,
             )
             logger.info(f"order result id: {fix_result_order_id}")
             return fix_result_order_id

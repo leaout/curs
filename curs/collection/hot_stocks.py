@@ -1,11 +1,6 @@
 # coding: utf-8
-"""
-东方财富热点股票获取模块
-支持代理：设置环境变量 HTTP_PROXY 或 HTTPS_PROXY
-"""
-import akshare as ak
+"""WhatsHot 同花顺热股榜采集与股票池同步。"""
 import time
-import random
 import logging
 import os
 import json
@@ -82,6 +77,8 @@ def save_cache(stocks: List[Dict]):
 def get_hot_stocks_eastmoney(delay: float = 10.0) -> Optional[List[Dict]]:
     """获取东方财富热点股票"""
     try:
+        import akshare as ak
+
         logger.info(f"正在获取东方财富热点股票（延迟{delay}秒）...")
         time.sleep(delay)
         
@@ -110,62 +107,114 @@ def get_hot_stocks_eastmoney(delay: float = 10.0) -> Optional[List[Dict]]:
         return None
 
 
-def get_hot_stocks(delay: float = 10.0) -> Optional[List[Dict]]:
-    """获取东方财富热点股票"""
-    # 添加随机延迟避免被封
-    actual_delay = delay + random.uniform(2, 5)
-    stocks = get_hot_stocks_eastmoney(delay=actual_delay)
+def get_hot_stocks(delay: float = 10.0, allow_cache: bool = False) -> Optional[List[Dict]]:
+    """获取 WhatsHot 同花顺榜单；默认不以旧缓存冒充当天数据。"""
+    from curs.collection.whatshot_hot_stocks import get_whatshot_hot_stocks
+
+    stocks = get_whatshot_hot_stocks()
     
     if stocks:
         save_cache(stocks)
         return stocks
     
-    # 失败则使用缓存
-    logger.warning("获取失败，尝试使用缓存")
-    cached = load_cache()
-    if cached:
-        logger.info(f"使用缓存数据: {len(cached)} 只股票")
-        return cached
+    if allow_cache:
+        logger.warning("WhatsHot 获取失败，尝试使用有效期内缓存（可能不是当天数据）")
+        cached = load_cache()
+        if cached:
+            logger.info(f"使用缓存数据: {len(cached)} 只股票")
+            return cached
+
+    # 不直接请求东方财富或同花顺上游，避免绕过用户选择的来源并增加限流风险。
+    logger.warning("WhatsHot 获取失败；本次不使用旧缓存")
     
     return None
 
 
-def sync_hot_stocks_to_db(db_manager, category: str = 'hot') -> Dict:
-    """同步热点股票到数据库"""
-    stocks = get_hot_stocks()
-    
+def sync_hot_stocks_to_db(db_manager, category: str = 'hot', trade_date: str = None) -> Dict:
+    """抓取实时榜单并同步到股票池和每日快照；抓取失败时不落旧缓存。"""
+    stocks = get_hot_stocks(allow_cache=False)
+
     if not stocks:
         return {'success': False, 'message': '获取热点股票失败'}
-    
+
+    from zoneinfo import ZoneInfo
+    today = trade_date or datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d')
+    source = stocks[0].get('source', '未知来源')
+    fetched_at = stocks[0].get('source_fetched_at') or ''
+    source_update_time = stocks[0].get('source_update_time', '')
+
+    # 先 upsert 当前榜单，再清理不再上榜的热点股；完整成功后才写入日快照。
     success_count = 0
-    failed_count = 0
-    
     for stock in stocks:
         try:
-            db_manager.remove_stock_from_pool(stock['code'])
-            
             result = db_manager.add_stock_to_pool(
                 stock_code=stock['code'],
                 stock_name=stock.get('name', ''),
                 category=category,
                 added_by='auto_sync',
-                notes=f"排名:{stock.get('rank', 0)},价格:{stock.get('price', 0)},涨跌:{stock.get('change_pct', 0)}%"
+                notes=(
+                    f"数据来源:{stock.get('source', source)},采集时间:{stock.get('source_fetched_at', fetched_at)},"
+                    f"排名:{stock.get('rank', 0)},价格:{stock.get('price', 0)},"
+                    f"涨跌:{stock.get('change_pct', 0)}%,热度:{stock.get('hot', '')},"
+                    f"榜单更新时间:{stock.get('source_update_time', source_update_time)}"
+                )
             )
-            
             if result:
                 success_count += 1
-            else:
-                failed_count += 1
-                
         except Exception as e:
             logger.error(f"同步股票失败: {stock.get('code')}, {e}")
-            failed_count += 1
-    
+
+    if success_count != len(stocks):
+        return {
+            'success': False,
+            'message': '股票池写入不完整，日快照未标记为完成',
+            'total': len(stocks),
+            'success_count': success_count,
+            'source': source,
+            'fetched_at': fetched_at,
+        }
+
+    existing_hot_stocks = db_manager.get_stock_pool(category=category, active_only=False)
+    if existing_hot_stocks is None:
+        return {
+            'success': False,
+            'message': '无法读取现有热点股票，日快照未标记为完成',
+            'total': len(stocks),
+            'success_count': success_count,
+            'source': source,
+            'fetched_at': fetched_at,
+        }
+    current_codes = {stock['code'] for stock in stocks}
+    for existing in existing_hot_stocks:
+        old_code = existing.get('stock_code')
+        if old_code and old_code not in current_codes:
+            if not db_manager.remove_stock_from_pool(old_code):
+                return {
+                    'success': False,
+                    'message': '清理过期热点股票失败: {}'.format(old_code),
+                    'total': len(stocks),
+                    'success_count': success_count,
+                    'source': source,
+                    'fetched_at': fetched_at,
+                }
+
+    daily_result = db_manager.save_hot_stock_daily(today, stocks)
+    if not daily_result or not daily_result.get('success') or daily_result.get('success_count') != len(stocks):
+        return {
+            'success': False,
+            'message': '保存热点榜日记录失败: {}'.format((daily_result or {}).get('message', '记录数量不完整')),
+            'source': source,
+            'fetched_at': fetched_at,
+        }
+
     return {
         'success': True,
         'total': len(stocks),
         'success_count': success_count,
-        'failed_count': failed_count
+        'source': source,
+        'fetched_at': fetched_at,
+        'source_update_time': source_update_time,
+        'daily_saved_count': daily_result.get('success_count', 0),
     }
 
 
@@ -179,7 +228,7 @@ if __name__ == "__main__":
     else:
         print("未设置代理（设置环境变量 HTTP_PROXY 或 HTTPS_PROXY 可使用代理）")
     
-    stocks = get_hot_stocks(delay=3.0)
+    stocks = get_hot_stocks(delay=3.0, allow_cache=False)
     
     if stocks:
         print(f"获取到 {len(stocks)} 只热点股票:")

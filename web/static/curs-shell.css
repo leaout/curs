@@ -1,0 +1,45 @@
+html { color-scheme: light; }
+body.curs-page {
+  margin: 0;
+  padding: 0;
+  color: var(--tiger-ink);
+  background: var(--tiger-canvas);
+  font: 15px/1.55 system-ui, "Microsoft YaHei", sans-serif;
+}
+.curs-page :focus-visible { outline: 2px solid var(--tiger-amber-line); outline-offset: 3px; }
+.curs-bar { background: var(--tiger-charcoal); color: #fff; border-bottom: 1px solid #383839; }
+.curs-bar-inner {
+  display: flex; align-items: center; gap: 22px; max-width: 1800px;
+  min-height: 56px; padding: 0 24px; margin: auto; box-sizing: border-box;
+}
+.curs-brand { white-space: nowrap; font-weight: 750; letter-spacing: .08em; }
+.curs-brand span { color: var(--tiger-yellow); }
+.curs-bar a { color: inherit; text-decoration: none; }
+.curs-bar nav, .curs-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.curs-bar nav a, .curs-tabs a { padding: 9px 13px; border-radius: 5px; font-weight: 650; }
+.curs-bar nav a:hover { background: #343434; }
+.curs-bar nav a[aria-current] { background: var(--tiger-yellow); color: var(--tiger-ink); }
+.curs-mode { margin-left: auto; white-space: nowrap; color: #e7dfcf; font-size: 13px; }
+.curs-tabs { margin: 12px 0 18px; }
+.curs-tabs a { color: var(--tiger-ink); text-decoration: none; background: #fff; border: 1px solid var(--tiger-line); }
+.curs-tabs a[aria-current], .curs-tabs a:hover { background: var(--tiger-yellow-tint); color: var(--tiger-amber-ink); border-color: #e6c764; }
+.curs-manage-tabs, .curs-shell { box-sizing: border-box; max-width: 1800px; margin: 16px auto; padding: 0 24px; }
+.curs-shell > h1 { margin: 0; font-size: clamp(24px, 3vw, 32px); }
+.curs-shell > p, .curs-help { color: var(--tiger-muted); }
+.curs-panel { background: #fff; border: 1px solid var(--tiger-line); border-radius: 8px; padding: 16px; margin: 12px 0; }
+.curs-panel h2 { margin: 0 0 10px; font-size: 18px; }
+.curs-table-wrap { overflow-x: auto; }
+.curs-table-wrap table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.curs-table-wrap th, .curs-table-wrap td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--tiger-line); }
+.curs-table-wrap th { background: var(--tiger-subtle); white-space: nowrap; }
+.curs-panel a, .curs-shell > p a { color: var(--tiger-amber-ink); text-underline-offset: 3px; }
+.curs-page button, .curs-page select, .curs-page input { font: inherit; }
+.curs-page button:disabled { cursor: not-allowed; }
+.curs-page .btn-primary { background: var(--tiger-yellow); color: var(--tiger-ink); }
+.curs-page .btn-primary:hover { background: var(--tiger-yellow-hover); color: var(--tiger-ink); }
+@media (max-width: 650px) {
+  .curs-bar-inner { flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; }
+  .curs-bar nav { order: 2; width: 100%; }
+  .curs-bar nav a, .curs-tabs a { padding: 7px 10px; }
+  .curs-manage-tabs, .curs-shell { padding-inline: 12px; }
+}

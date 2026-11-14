@@ -5,6 +5,7 @@ from enum import Enum
 from collections import defaultdict
 from threading import Thread
 import time
+import logging
 
 class Event(object):
     def __init__(self, event_type, **kwargs):
@@ -36,7 +37,10 @@ class EventBus(object):
 
     def publish_event(self, event):
         for listener in self.__listeners[event.event_type]:
-            listener(event)
+            try:
+                listener(event)
+            except Exception:
+                logging.getLogger(__name__).exception('Strategy event handler failed: %s', event.event_type)
 
 
     def put_event(self, event):
@@ -48,7 +52,10 @@ class EventBus(object):
 
     def __process(self):
         while self.__is_runing:
-            event = self.get_event()
+            try:
+                event = self.__queue.get(timeout=1)
+            except Empty:
+                continue
             self.publish_event(event)
 
     def start(self):

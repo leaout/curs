@@ -1,4 +1,4 @@
-#coding:gbk
+# coding: utf-8
 #!/usr/bin/python
 """
 回测模型示例（非实盘交易策略）

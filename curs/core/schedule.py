@@ -1,35 +1,59 @@
-import schedule
-import time
-from datetime import datetime
+# coding: utf-8
 import threading
-from curs.events import *
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import schedule
+
+from curs.events import EVENT, Event
 from curs.log_handler.logger import logger
+
 
 class EventsScheduler:
     def __init__(self, event_bus):
         self.event_bus = event_bus
-        self.setup_schedule()
-        self.scheduler_thread = threading.Thread(target=self.run)
-        self.scheduler_thread.daemon = True  # 设置为守护线程，主线程结束时自动退出
-
-    def setup_schedule(self):
-        schedule.every().day.at("08:50").do(self.before_trading)
-        schedule.every().day.at("15:15").do(self.after_trading)
+        self._scheduler = schedule.Scheduler()
+        self._stop = threading.Event()
+        self._scheduler.every().day.at("08:50", "Asia/Shanghai").do(self.before_trading)
+        self._scheduler.every().day.at("15:15", "Asia/Shanghai").do(self.after_trading)
+        self._scheduler.every().day.at("21:30", "Asia/Shanghai").do(self.research_hot_stocks)
+        self._scheduler.every(15).minutes.do(self.research_hot_stocks)
+        self.scheduler_thread = threading.Thread(target=self.run, daemon=True)
 
     def before_trading(self):
-        logger.info(f"{datetime.now()}: {EVENT.BEFORE_TRADING} 触发")
-        # 在这里添加策略的预处理逻辑
-        self.event_bus.put_event(Event(EVENT.BEFORE_TRADING))
+        if datetime.now(ZoneInfo('Asia/Shanghai')).weekday() < 5:
+            self.event_bus.put_event(Event(EVENT.BEFORE_TRADING))
 
     def after_trading(self):
-        logger.info(f"{datetime.now()}: {EVENT.AFTER_TRADING} 触发")
-        # 在这里添加策略的后处理逻辑
-        self.event_bus.put_event(Event(EVENT.AFTER_TRADING))
+        if datetime.now(ZoneInfo('Asia/Shanghai')).weekday() < 5:
+            self.event_bus.put_event(Event(EVENT.AFTER_TRADING))
 
     def run(self):
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
+        while not self._stop.is_set():
+            try:
+                self._scheduler.run_pending()
+            except Exception:
+                logger.exception('Scheduled strategy event failed')
+            self._stop.wait(1)
+
+    def research_hot_stocks(self):
+        from curs.workbuddy_desktop import start
+
+        now = datetime.now(ZoneInfo('Asia/Shanghai'))
+        cutoff = now.replace(hour=21, minute=30, second=0, microsecond=0)
+        if now < cutoff:
+            if now.hour >= 21:
+                return  # The new hot list may be importing before the next scheduled batch.
+            cutoff -= timedelta(days=1)
+        try:
+            start(all_stocks=True, report_day=cutoff.date().isoformat())
+        except (RuntimeError, ValueError, OSError) as exc:
+            logger.warning('跳过本次热点股分析：%s', exc)
 
     def start(self):
         self.scheduler_thread.start()
+
+    def stop(self):
+        self._stop.set()
+        if self.scheduler_thread.is_alive():
+            self.scheduler_thread.join(timeout=3)

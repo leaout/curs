@@ -17,7 +17,6 @@ import argparse
 import logging
 import threading
 import time
-import subprocess
 from functools import wraps
 
 # 配置日志
@@ -28,66 +27,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def check_and_start_qmt(config):
-    """通过QMT账户连接成功作为判断，如果连接不上则启动QMT"""
-    try:
-        from curs.broker.qmt_account import QmtStockAccount
-
-        qmt_path = config["qmt"]["path"]
-        qmt_account_id = config["qmt"]["account_id"]
-        qmt_trader_name = config["qmt"]["trader_name"]
-
-        connection_success = QmtStockAccount.test_connection(
-            path=qmt_path,
-            account_id=qmt_account_id,
-            trader_name=qmt_trader_name,
-            session_id=int(time.time())
-        )
-
-        if connection_success:
-            logger.info("QMT账户连接成功")
-            return True
-
-        logger.warning("QMT账户连接失败，尝试启动QMT...")
-
-        # 使用 E:\script\startqmt.bat 启动QMT（不阻塞）
-        startqmt_path = r"E:\script\startqmt.bat"
-        if os.path.exists(startqmt_path):
-            logger.info(f"执行 {startqmt_path}")
-            subprocess.Popen(
-                ["cmd", "/c", "start", "QMT", startqmt_path],
-                creationflags=subprocess.CREATE_NEW_CONSOLE
-            )
-        else:
-            logger.warning(f"未找到 {startqmt_path}，尝试直接启动QMT")
-            qmt_exe = os.path.join(qmt_path, "bin.x64", "startminiqmt.bat")
-            if os.path.exists(qmt_exe):
-                subprocess.Popen(
-                    ["cmd", "/c", "start", "QMT", qmt_exe],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
-                )
-
-        # 等待QMT启动
-        max_checks = 6
-        for i in range(max_checks):
-            logger.info(f"等待QMT启动 ({i+1}/{max_checks})...")
-            time.sleep(10)
-            retry = QmtStockAccount.test_connection(
-                path=qmt_path,
-                account_id=qmt_account_id,
-                trader_name=qmt_trader_name,
-                session_id=int(time.time()) + i
-            )
-            if retry:
-                logger.info("QMT账户连接成功")
-                return True
-
-        logger.error("QMT连接失败，将继续运行但交易可能不可用")
-        return False
-
-    except Exception as e:
-        logger.exception(f"QMT连接检查时出错: {e}")
-        return False
+def check_and_start_broker(config):
+    """保留旧入口兼容性，但不再连接或启动任何实盘 Broker。"""
+    logger.info("实盘交易已禁用：使用公开行情和信号记录模式")
+    return True
 
 
 def singleton(cls):
@@ -131,19 +74,11 @@ class CursApp:
         from curs.database import init_db
         init_db()
         
-        # 自动导入 GitHub Actions 采集的数据
-        self._import_collected_data()
+        # 热点榜由本机服务直接采集，web-only 部署也会运行。
+        from curs.collection.hot_stock_scheduler import start_hot_stock_scheduler
+        start_hot_stock_scheduler()
         
         logger.info(f"Web服务已初始化，端口: {self.web_port}")
-    
-    def _import_collected_data(self):
-        """导入 GitHub Actions 采集的热点股票数据到数据库"""
-        try:
-            from data_collection.import_from_collected import main as do_import
-            result = do_import()
-            logger.info(f"数据导入: {result}")
-        except Exception as e:
-            logger.debug(f"未导入采集数据（首次运行或无数据文件）: {e}")
     
     def init_engine(self):
         """初始化交易引擎"""
@@ -219,10 +154,10 @@ class CursApp:
             logger.info(f"Web服务已启动: http://localhost:{self.web_port}")
         
         if engine:
-            # 检查并启动QMT
+            # 旧版引擎兼容入口：不连接或启动实盘 Broker
             config = self.load_config()
-            if not check_and_start_qmt(config):
-                logger.warning("QMT未连接，交易功能将不可用")
+            if not check_and_start_broker(config):
+                logger.warning("交易商未连接或配置不完整，交易功能将不可用")
             
             self.init_engine()
             engine_thread = threading.Thread(target=self.start_engine, daemon=True)
@@ -251,6 +186,11 @@ class CursApp:
     def stop(self):
         """停止所有服务"""
         self.running = False
+        try:
+            from curs.collection.hot_stock_scheduler import stop_hot_stock_scheduler
+            stop_hot_stock_scheduler()
+        except Exception:
+            logger.exception("停止热点股票调度器失败")
         if self.engine:
             self.engine.stop()
         logger.info("所有服务已停止")
@@ -268,7 +208,6 @@ def create_parser():
   python run.py --engine-only         仅启动交易引擎
   python run.py -p 8080               指定Web端口
   python run.py --no-web              不启动Web服务
-  python run.py --import-data         仅导入GH Actions采集数据
         """
     )
     
@@ -303,12 +242,6 @@ def create_parser():
         help='显示详细日志'
     )
     
-    parser.add_argument(
-        '--import-data',
-        action='store_true',
-        help='仅导入GitHub Actions采集数据，不启动服务'
-    )
-    
     return parser
 
 
@@ -319,15 +252,6 @@ def main():
     # 设置日志级别
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
-    
-    # 仅导入数据模式
-    if args.import_data:
-        from curs.database import init_db
-        init_db()
-        from data_collection.import_from_collected import main as do_import
-        result = do_import()
-        print(result)
-        return
     
     # 确定启动模式
     web = not args.engine_only

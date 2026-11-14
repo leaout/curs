@@ -1,10 +1,13 @@
+# coding: utf-8
 import os
 import csv
 import json
 import time
 import math
+import re
 from datetime import datetime
-from flask import Flask, request, render_template
+from zoneinfo import ZoneInfo
+from flask import Flask, redirect, request, render_template, url_for
 import pandas as pd
 import requests
 import sys
@@ -39,6 +42,119 @@ TASK_CALLBACKS = {
 }
 
 app = Flask(__name__)
+
+
+@app.route('/finance-board')
+def finance_board_page():
+    return render_template('finance_board.html')
+
+
+@app.route('/api/finance-board')
+def api_finance_board():
+    from curs.finance_board import board_report
+    report_day = request.args.get('date')
+    if report_day:
+        try:
+            if datetime.strptime(report_day, '%Y-%m-%d').date().isoformat() != report_day:
+                raise ValueError
+        except ValueError:
+            return {'error': '日期格式应为 YYYY-MM-DD'}, 400
+    return board_report(force=request.args.get('refresh') == '1', report_day=report_day)
+
+
+@app.route('/api/market-report')
+def api_market_report():
+    from curs.stock_intel import market_report
+    day = request.args.get('date', '')
+    try:
+        if datetime.strptime(day, '%Y-%m-%d').date().isoformat() != day:
+            raise ValueError
+    except ValueError:
+        return {'error': '日期格式应为 YYYY-MM-DD'}, 400
+    return {'report': market_report(day)}
+
+
+@app.route('/api/finance-board/desktop-bridge', methods=['GET', 'POST'])
+def api_finance_board_bridge():
+    from urllib.parse import urlsplit
+    from curs import workbuddy_desktop
+
+    origin = request.host_url.rstrip('/')
+    if (request.remote_addr not in ('127.0.0.1', '::1')
+            or urlsplit(origin).hostname not in ('localhost', '127.0.0.1', '::1')):
+        return {'error': '请从本机研究台调用 Desktop Bridge'}, 403
+    if request.method == 'GET':
+        return workbuddy_desktop.status(check=request.args.get('check') == '1')
+    if request.headers.get('Origin') != origin:
+        return {'error': '请求来源不匹配'}, 403
+    body = request.get_json(silent=True)
+    try:
+        body = body if isinstance(body, dict) else {}
+        workbuddy_desktop.start(body.get('stock_code'), all_stocks=body.get('all_stocks') is True)
+    except ValueError as exc:
+        return {'error': str(exc)}, 400
+    except (RuntimeError, OSError) as exc:
+        return {'error': str(exc)}, 409
+    return workbuddy_desktop.status(), 202
+
+
+@app.after_request
+def add_security_display_names(response):
+    if request.path.startswith('/api/') and response.is_json and response.status_code == 200:
+        from curs.stock_names import enrich
+        try:
+            payload = enrich(response.get_json())
+            response.set_data(app.json.dumps(payload))
+        except Exception:
+            logger.exception('Security name enrichment failed')
+    return response
+
+
+@app.route('/market-sentiment')
+def market_sentiment_page():
+    return render_template('market_sentiment.html')
+
+
+@app.route('/api/market-sentiment')
+def api_market_sentiment():
+    from curs.market_sentiment import report
+    from curs.core.engine import Engine
+    result = report()
+    from curs.relay import report as relay_report
+    result['relay'] = relay_report()
+    try:
+        result['collector'] = Engine.get_instance().get_sentiment_status()
+    except RuntimeError:
+        result['collector'] = {'running': False, 'reason': '引擎未启动'}
+    return result
+
+
+@app.route('/signal-review')
+def signal_review():
+    return redirect(url_for('signals', view='review'))
+
+
+@app.route('/api/signal-review')
+def api_signal_review():
+    from curs.signal_observer import report
+    from curs.first_board import candidates
+    result = report()
+    result['candidates'] = candidates()
+    return result
+
+
+@app.route('/api/health')
+def api_health():
+    from curs.core.engine import Engine
+    from curs.strategy_manager import StrategyManager
+    try:
+        engine = Engine.get_instance()
+        return {'service': 'curs', 'running': engine._running,
+                'quotes': engine.get_quote_stats(),
+                'strategies': StrategyManager.get_instance().list_strategies(),
+                'mode': 'signal_only'}
+    except RuntimeError:
+        return {'service': 'curs', 'running': False, 'mode': 'signal_only'}, 503
 
 # 创建data目录用于存储CSV文件
 DATA_DIR = 'data/strategy_records'
@@ -79,7 +195,7 @@ def get_strategy_positions(strategy_id):
 @app.route('/strategies')
 def strategies():
     """策略页面"""
-    return render_template('strategy.html')
+    return redirect(url_for('manage', section='strategies'))
 
 @app.route('/api/strategies')
 def api_strategies():
@@ -96,8 +212,7 @@ def api_strategy(strategy_id):
 @app.route('/strategy/<strategy_id>')
 def strategy(strategy_id):
     """获取单个策略详细信息"""
-    strategy_info = get_strategy_info(strategy_id)
-    return render_template('strategy.html', strategy=strategy_info)
+    return redirect(url_for('manage', section='strategies', strategy=strategy_id))
 
 @app.route('/strategy/<strategy_id>/start', methods=['POST'])
 def start_strategy(strategy_id):
@@ -176,7 +291,11 @@ def api_strategy_toggle(strategy_id):
 @app.route('/signals')
 def signals():
     """信号查询页面"""
-    return render_template('signals.html')
+    filters = {key: request.args[key] for key in ('date', 'strategy', 'stock', 'type', 'status', 'limit')
+               if key in request.args}
+    if request.args.get('view') == 'review':
+        return render_template('signal_review.html', reviewing=True, signal_filters=filters)
+    return render_template('signals.html', signal_filters=filters)
 
 @app.route('/api/signals/debug')
 def api_signals_debug():
@@ -238,7 +357,15 @@ def api_signals():
         stock_code = request.args.get('stock')
         signal_type = request.args.get('type')
         status = request.args.get('status')
-        limit = int(request.args.get('limit', 1000))  # 默认1000条
+        day = request.args.get('date')
+        shanghai = ZoneInfo('Asia/Shanghai')
+        if day:
+            try:
+                if datetime.strptime(day, '%Y-%m-%d').date().isoformat() != day:
+                    raise ValueError
+            except ValueError:
+                return {'error': '日期格式应为 YYYY-MM-DD'}, 400
+        limit = max(1, min(1000, int(request.args.get('limit', 1000))))
 
         db_manager = get_db_manager()
         signals = db_manager.get_strategy_signals(
@@ -246,19 +373,53 @@ def api_signals():
             stock_code=stock_code if stock_code else None,
             signal_type=signal_type if signal_type else None,
             status=status if status else None,
-            limit=limit
+            limit=10000 if day or request.args.get('view') == 'opportunities' else limit
         )
+        from curs.signal_recorder import local_signals
+        merged = {row.get('order_id') or str(row.get('id')): row for row in (signals or [])}
+        for row in local_signals():
+            if ((strategy_name and row['strategy_name'] != strategy_name)
+                    or (stock_code and row['stock_code'] != stock_code)
+                    or (signal_type and row['signal_type'] != signal_type)
+                    or (status and row['status'] != status)):
+                continue
+            existing = merged.get(row['order_id'])
+            if existing and existing.get('status') == 'SIGNAL_ONLY':
+                existing['timestamp'] = row['timestamp']
+                existing['mirror_pending'] = row['mirror_pending']
+            else:
+                merged.setdefault(row['order_id'], row)
+        def signal_time(row):
+            value = row['timestamp']
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=shanghai)
+            return value.timestamp()
+        signals = sorted(merged.values(), key=signal_time, reverse=True)
+        if day:
+            signals = [row for row in signals if datetime.fromtimestamp(
+                signal_time(row), shanghai).date().isoformat() == day]
+        raw_count = len(signals)
+        if request.args.get('view') == 'opportunities':
+            from curs.signal_opportunities import group_opportunities
+            signals = group_opportunities(signals)
+            for row in signals:
+                row['strategy_name'] = '、'.join(row['strategies'])
+        signals = signals[:limit]
 
         # 格式化时间戳
         for signal in signals:
             if 'timestamp' in signal and signal['timestamp']:
-                signal['timestamp'] = signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                timestamp = signal['timestamp']
+                if timestamp.tzinfo is not None:
+                    timestamp = timestamp.astimezone(ZoneInfo('Asia/Shanghai'))
+                signal['timestamp'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
             if 'created_at' in signal and signal['created_at']:
                 signal['created_at'] = signal['created_at'].strftime('%Y-%m-%d %H:%M:%S')
             if 'updated_at' in signal and signal['updated_at']:
                 signal['updated_at'] = signal['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
 
-        return {'signals': signals, 'total': len(signals)}
+        return {'signals': signals, 'total': len(signals), 'raw_count': raw_count,
+                'view': request.args.get('view', 'raw'), 'window': '最多10000条数据库记录及1000条本地记录；非全库总数'}
     except Exception as e:
         return {'error': str(e)}, 500
 
@@ -269,21 +430,30 @@ def api_signals_stats():
         db_manager = get_db_manager()
 
         # 获取所有信号
-        all_signals = db_manager.get_strategy_signals(limit=10000)
+        all_signals = db_manager.get_strategy_signals(limit=10000) or []
+        from curs.signal_recorder import local_signals
+        merged = {row.get('order_id') or str(row.get('id')): row for row in all_signals}
+        for row in local_signals(limit=10000):
+            merged.setdefault(row['order_id'], row)
+        all_signals = list(merged.values())
+        from curs.signal_opportunities import group_opportunities
+        opportunities = group_opportunities(all_signals)
 
         # 按策略分组统计
         strategy_stats = {}
-        status_stats = {'PENDING': 0, 'EXECUTED': 0, 'CANCELLED': 0}
+        status_stats = {'PENDING': 0, 'EXECUTED': 0, 'CANCELLED': 0, 'SIGNAL_ONLY': 0, 'MIXED': 0, 'UNKNOWN': 0}
         type_stats = {'BUY': 0, 'SELL': 0}
 
         for signal in all_signals:
             strategy = signal.get('strategy_name', 'unknown')
-            status = signal.get('status', 'unknown')
-            signal_type = signal.get('signal_type', 'unknown')
 
             if strategy not in strategy_stats:
                 strategy_stats[strategy] = 0
             strategy_stats[strategy] += 1
+
+        for signal in opportunities:
+            status = signal.get('status', 'unknown')
+            signal_type = signal.get('signal_type', 'unknown')
 
             if status in status_stats:
                 status_stats[status] += 1
@@ -295,7 +465,11 @@ def api_signals_stats():
             'strategy_stats': strategy_stats,
             'status_stats': status_stats,
             'type_stats': type_stats,
-            'total_signals': len(all_signals)
+            'total_signals': len(opportunities),
+            'raw_signal_count': len(all_signals),
+            'duplicate_triggers': len(all_signals)-len(opportunities),
+            'counting_rule': '综合统计按日期+股票+方向；策略计数保留原始触发',
+            'window': '最多10000条各来源记录，非全库总数'
         }
     except Exception as e:
         return {'error': str(e)}, 500
@@ -417,9 +591,9 @@ def api_sync_stock_info():
         return {'status': 'error', 'message': str(e)}, 500
 
 
-@app.route('/api/hotstocks/sync', methods=['POST', 'GET'])
+@app.route('/api/hotstocks/sync', methods=['POST'])
 def api_sync_hot_stocks():
-    """同步热点股票到数据库（支持GET和POST）"""
+    """手动抓取 WhatsHot 同花顺热股榜并同步到数据库。"""
     try:
         from curs.collection.hot_stocks import sync_hot_stocks_to_db
         from curs.database import get_db_manager
@@ -427,7 +601,7 @@ def api_sync_hot_stocks():
         db_manager = get_db_manager()
         result = sync_hot_stocks_to_db(db_manager, category='hot')
         
-        return result
+        return (result, 200) if result.get('success') else (result, 502)
     except Exception as e:
         logger.error(f"同步热点股票失败: {e}")
         return {'status': 'error', 'message': str(e)}, 500
@@ -487,16 +661,19 @@ def api_signals_profit_analysis():
     从信号发出后第2天(T+1)开始统计，考虑A股T+1制度
     """
     try:
-        from xtquant import xtdata
+        from curs.broker.public_quote import get_stock_kline_data
         from collections import defaultdict
         
         # 获取价格类型参数: high(最高价), close(收盘价), avg(均价)
         price_type = request.args.get('price_type', 'high')
+        if price_type not in ('high', 'close'):
+            return {'error': '公开日线不提供可验证的成交均价，请选择最高价或收盘价'}, 400
+        price_cache = {}
         
         db_manager = get_db_manager()
         
         # 获取已执行的买入信号
-        signals = db_manager.get_executed_buy_signals(limit=1000)
+        signals = db_manager.get_executed_buy_signals(limit=50)
         
         if not signals:
             return {'error': '暂无已执行的买入信号'}, 404
@@ -526,20 +703,24 @@ def api_signals_profit_analysis():
             
             try:
                 # 下载历史数据
-                xtdata.download_history_data(stock_code, period='1d', start_time='', end_time='')
+                if buy_time.tzinfo is not None:
+                    buy_time = buy_time.astimezone(ZoneInfo('Asia/Shanghai'))
+                if stock_code not in price_cache:
+                    price_cache[stock_code] = get_stock_kline_data(stock_code, count=320, adjustment='')
+                bars = price_cache[stock_code]
+                if not bars or buy_time.strftime('%Y-%m-%d') not in bars['dates']:
+                    raise ValueError('公开日线未覆盖实际买入日，不能推算持有天数')
                 
                 # 获取信号后30天的数据(从T+1开始，即从第2天开始)
                 # 如果当天买入，第2天才能卖出
                 start_time_str = buy_time.strftime('%Y%m%d') if hasattr(buy_time, 'strftime') else str(buy_time)[:10].replace('-', '')
                 
                 # 获取更多数据，确保包含T+1之后的数据
-                kline_data = xtdata.get_market_data(
-                    field_list=['time', 'open', 'high', 'low', 'close', 'volume', 'amount'],
-                    stock_list=[stock_code],
-                    period='1d',
-                    start_time=start_time_str,
-                    count=35  # 多获取几天
-                )
+                start = bars['dates'].index(buy_time.strftime('%Y-%m-%d'))
+                rows = bars['kline_data'][start:start + 35]
+                dates = bars['dates'][start:start + 35]
+                kline_data = {field: pd.DataFrame([[row[index] for row in rows]], index=[stock_code], columns=dates)
+                              for field, index in [('close', 1), ('high', 3)]}
                 
                 if kline_data and 'close' in kline_data and stock_code in kline_data['close'].index:
                     close_series = kline_data['close'].loc[stock_code]
@@ -550,9 +731,9 @@ def api_signals_profit_analysis():
                     volume_series = kline_data['volume'].loc[stock_code] if has_volume else None
                     amount_series = kline_data['amount'].loc[stock_code] if 'amount' in kline_data else None
                     
-                    max_profit_pct = 0
+                    max_profit_pct = float('-inf')
                     max_profit_day = 0
-                    max_profit_close_pct = 0
+                    max_profit_close_pct = float('-inf')
                     
                     # 从第2天开始统计(T+1)，跳过买入当天
                     for i in range(1, len(close_series)):  # 跳过第0天(买入当天)
@@ -603,6 +784,8 @@ def api_signals_profit_analysis():
                             if close_profit_pct > max_profit_close_pct:
                                 max_profit_close_pct = close_profit_pct
                     
+                    if not signal_result['daily_profits']:
+                        continue
                     signal_result['max_profit_pct'] = max_profit_pct
                     signal_result['max_profit_day'] = max_profit_day
                     signal_result['max_close_profit_pct'] = max_profit_close_pct
@@ -658,7 +841,7 @@ def api_signals_profit_analysis():
         return {
             'total_signals': len(results),
             'price_type': price_type,
-            'note': 'T+1制度：买入当天不能卖出，从第2天开始统计',
+            'note': '最近50条历史已执行买入记录；公开不复权日线价格对照，不是已实现收益，最高价不代表可成交。缺失日期不推算。',
             'summary': summary,
             'details': results[:50]
         }
@@ -673,26 +856,40 @@ def api_signals_profit_analysis():
 @app.route('/stockpool')
 def stockpool():
     """股票池管理页面"""
-    return render_template('stockpool.html')
+    return redirect(url_for('manage', section='pool'))
 
 @app.route('/api/stockpool')
 def api_stockpool():
     """获取股票池数据"""
     try:
-        category = request.args.get('category')
-        limit = int(request.args.get('limit', 20))  # 默认每页20条
-        page = int(request.args.get('page', 1))     # 默认第1页
+        category = request.args.get('category', '').strip()
+        stock = request.args.get('stock', '').strip()
+        name = request.args.get('name', '').strip()
+        limit = max(1, min(1000, request.args.get('limit', 20, type=int)))
+        page = max(1, request.args.get('page', 1, type=int))
         offset = (page - 1) * limit
 
         db_manager = get_db_manager()
-        stocks = db_manager.get_stock_pool(category=category, limit=limit, offset=offset)
-
-        # 获取总数用于分页
-        total_query = "SELECT COUNT(*) as total FROM stock_pool WHERE is_active = TRUE"
+        where = ['is_active = TRUE']
+        params = []
         if category:
-            total_query += f" AND category = '{category}'"
-        total_result = db_manager.execute_query(total_query)
-        total = total_result[0]['total'] if total_result else 0
+            where.append('category = %s')
+            params.append(category)
+        if stock:
+            where.append('strpos(lower(stock_code), lower(%s)) > 0')
+            params.append(stock)
+        if name:
+            where.append('strpos(lower(stock_name), lower(%s)) > 0')
+            params.append(name)
+        conditions = ' AND '.join(where)
+        total_result = db_manager.execute_query(
+            f'SELECT COUNT(*) AS total FROM stock_pool WHERE {conditions}', tuple(params))
+        stocks = db_manager.execute_query(
+            f'SELECT * FROM stock_pool WHERE {conditions} ORDER BY added_at DESC, stock_code LIMIT %s OFFSET %s',
+            (*params, limit, offset))
+        if total_result is None or stocks is None:
+            return {'error': '股票池暂时不可用'}, 503
+        total = total_result[0]['total']
 
         # 格式化时间戳
         for stock in stocks:
@@ -700,6 +897,13 @@ def api_stockpool():
                 stock['added_at'] = stock['added_at'].strftime('%Y-%m-%d %H:%M:%S')
             if 'updated_at' in stock and stock['updated_at']:
                 stock['updated_at'] = stock['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            notes = stock.get('notes') or ''
+            source_match = re.search(r'(?:^|[,，])数据来源:([^,，]+)', notes)
+            fetched_match = re.search(r'(?:^|[,，])采集时间:([^,，]+)', notes)
+            stock['data_source'] = source_match.group(1).strip() if source_match else (
+                '来源未记录' if stock.get('category') == 'hot' else ''
+            )
+            stock['source_fetched_at'] = fetched_match.group(1).strip() if fetched_match else ''
 
         return {
             'stocks': stocks,
@@ -867,114 +1071,17 @@ def api_update_stock_category():
     except Exception as e:
         return {'success': False, 'message': str(e)}, 500
 
-def _get_qmt_accounts():
-    """从 StrategyManager 获取所有 QmtStockAccount"""
-    try:
-        from curs.strategy_manager import StrategyManager
-        manager = StrategyManager.get_instance()
-        accounts = []
-        for path, loader in manager._strategies.items():
-            acc = loader.account
-            if acc:
-                accounts.append((loader.strategy_id, acc))
-        return accounts
-    except RuntimeError:
-        return []
-
-# ===== 持仓管理路由 =====
-
 @app.route('/positions')
 def positions():
-    """持仓管理页面"""
-    return render_template('positions.html')
+    return redirect(url_for('manage', section='history'))
+
 
 @app.route('/api/positions')
-def api_positions():
-    """获取持仓信息"""
-    try:
-        accounts = _get_qmt_accounts()
-        if not accounts:
-            return {'error': 'QMT账户未初始化'}, 500
-
-        _, qmt_account = accounts[0]
-        positions = qmt_account.get_positions()
-        positions_data = []
-
-        for pos in positions:
-            open_price = pos.open_price
-            if open_price is not None:
-                if math.isinf(open_price) or math.isnan(open_price):
-                    open_price = None
-
-            positions_data.append({
-                'account_id': pos.account_id,
-                'stock_code': pos.stock_code,
-                'volume': pos.volume,
-                'can_use_volume': pos.can_use_volume,
-                'open_price': open_price,
-                'market_value': pos.market_value,
-                'frozen_volume': pos.frozen_volume,
-                'on_road_volume': pos.on_road_volume,
-                'yesterday_volume': pos.yesterday_volume
-            })
-
-        asset = qmt_account.get_current_account()
-        account_data = {
-            'account_id': asset.account_id,
-            'cash': asset.cash,
-            'frozen_cash': asset.frozen_cash,
-            'market_value': asset.market_value,
-            'total_asset': asset.total_asset
-        }
-
-        return {'positions': positions_data, 'account': account_data}
-
-    except Exception as e:
-        return {'error': str(e)}, 500
-
 @app.route('/api/liquidate', methods=['POST'])
-def api_liquidate():
-    """一键清仓"""
-    try:
-        accounts = _get_qmt_accounts()
-        if not accounts:
-            return {'success': False, 'message': 'QMT账户未初始化'}, 500
-
-        _, qmt_account = accounts[0]
-        results = qmt_account.liquidate_all_positions()
-        return {
-            'success': True,
-            'message': f'已发起清仓 {len(results)} 只股票',
-            'results': results
-        }
-
-    except Exception as e:
-        return {'success': False, 'message': str(e)}, 500
-
 @app.route('/api/liquidate/<stock_code>', methods=['POST'])
-def api_liquidate_stock(stock_code):
-    """清仓单个股票"""
-    try:
-        if not is_valid_stock_code(stock_code):
-            return {'success': False, 'message': '无效的股票代码'}, 400
+def retired_positions(stock_code=None):
+    return {'error': '持仓和清仓功能已退役，当前服务仅记录信号'}, 410
 
-        accounts = _get_qmt_accounts()
-        if not accounts:
-            return {'success': False, 'message': 'QMT账户未初始化'}, 500
-
-        _, qmt_account = accounts[0]
-        order_id = qmt_account.sell_all(stock_code)
-        if order_id:
-            return {
-                'success': True,
-                'message': f'已发起清仓股票 {stock_code}',
-                'order_id': order_id
-            }
-        else:
-            return {'success': False, 'message': '清仓失败：无持仓或可用数量为0'}, 400
-
-    except Exception as e:
-        return {'success': False, 'message': str(e)}, 500
 
 # ===== 股票详情路由 =====
 
@@ -985,7 +1092,7 @@ def api_stock_kline(stock_code):
         if not is_valid_stock_code(stock_code):
             return {'error': '无效的股票代码格式'}, 400
 
-        from curs.broker.qmt_quote import get_stock_kline_data
+        from curs.broker.public_quote import get_stock_kline_data
         kline_data = get_stock_kline_data(stock_code)
         if kline_data:
             return kline_data
@@ -1002,7 +1109,7 @@ def api_stock_quote(stock_code):
         if not is_valid_stock_code(stock_code):
             return {'error': '无效的股票代码格式'}, 400
 
-        from curs.broker.qmt_quote import get_stock_quote_data
+        from curs.broker.public_quote import get_stock_quote_data
         quote_data = get_stock_quote_data(stock_code)
         if quote_data:
             return quote_data
@@ -1085,77 +1192,25 @@ def get_strategy_info(strategy_id):
 
 @app.route('/')
 def index():
-    """主页"""
-    return '''
-    <html>
-    <head>
-        <title>量化交易系统</title>
-        <style>
-            body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            h1 { color: #2c3e50; text-align: center; }
-            .nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 30px; }
-            .nav-card { background: #f8f9fa; padding: 20px; border-radius: 6px; text-align: center; border: 1px solid #dee2e6; transition: transform 0.2s; }
-            .nav-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-            .nav-card h3 { margin: 0 0 10px 0; color: #495057; }
-            .nav-card p { margin: 10px 0; color: #6c757d; }
-            .nav-button { display: inline-block; background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-top: 10px; }
-            .nav-button:hover { background: #0056b3; color: white; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>量化交易系统</h1>
-            <p style="text-align: center; color: #6c757d;">选择您要访问的功能模块</p>
+    return redirect(url_for('market_sentiment_page'))
 
-            <div class="nav-grid">
-                <div class="nav-card">
-                    <h3>📊 策略管理</h3>
-                    <p>查看和管理交易策略，监控策略运行状态和性能指标</p>
-                    <a href="/strategies" class="nav-button">进入策略管理</a>
-                </div>
-
-                <div class="nav-card">
-                    <h3>📈 信号查询</h3>
-                    <p>实时查看策略生成的买卖信号，支持多维度筛选和统计</p>
-                    <a href="/signals" class="nav-button">进入信号查询</a>
-                </div>
-
-                <div class="nav-card">
-                    <h3>🏊 股票池管理</h3>
-                    <p>管理股票池，支持批量添加删除股票，按分类管理</p>
-                    <a href="/stockpool" class="nav-button">进入股票池</a>
-                </div>
-
-                <div class="nav-card">
-                    <h3>💼 持仓管理</h3>
-                    <p>查看QMT持仓信息，支持一键清仓和单股票清仓操作</p>
-                    <a href="/positions" class="nav-button">进入持仓管理</a>
-                </div>
-
-                <div class="nav-card">
-                    <h3>⚙️ 系统设置</h3>
-                    <p>配置系统参数，管理数据库连接和交易账户</p>
-                    <a href="#" class="nav-button" onclick="alert('功能开发中')">进入系统设置</a>
-                </div>
-
-                <div class="nav-card">
-                    <h3>⏰ 定时任务</h3>
-                    <p>配置和管理定时任务，查看任务执行日志</p>
-                    <a href="/tasks" class="nav-button">进入定时任务</a>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    '''
 
 # ===== 定时任务管理路由 =====
 
 @app.route('/tasks')
 def tasks_page():
     """定时任务管理页面"""
-    return render_template('tasks.html')
+    return redirect(url_for('manage', section='tasks'))
+
+
+@app.route('/manage')
+def manage():
+    section = request.args.get('section', 'pool')
+    templates = {'pool': 'stockpool.html', 'strategies': 'strategy.html',
+                 'tasks': 'tasks.html', 'history': 'history.html'}
+    if section not in templates:
+        return redirect(url_for('manage'))
+    return render_template(templates[section], section=section)
 
 @app.route('/api/tasks', methods=['GET'])
 def api_get_tasks():
@@ -1352,9 +1407,9 @@ def api_task_types():
     """获取支持的任务类型"""
     return {
         'types': [
-            {'id': 'collect_hot_stocks', 'name': '东方财富热点股票采集', 'description': '采集东方财富热点股票并同步到股票池', 'config_hint': '无需配置，保持默认即可'},
-            {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '从网络获取热点股票并同步到数据库', 'config_hint': '{"category": "hot"}'},
-            {'id': 'sync_stock_info', 'name': '同步股票信息', 'description': '从QMT同步股票基本信息'},
+            {'id': 'collect_hot_stocks', 'name': 'WhatsHot 同花顺热股采集', 'description': '抓取 whatshot.top 公开榜单并同步到股票池', 'config_hint': '需要安装 Chrome 浏览器'},
+            {'id': 'sync_hot_stocks', 'name': '同步热点股票', 'description': '抓取 whatshot.top 公开同花顺热股榜并同步到股票池', 'config_hint': '需要安装 Chrome 浏览器'},
+            {'id': 'sync_stock_info', 'name': '同步股票信息', 'description': '从交易账户同步股票基本信息'},
             {'id': 'profit_analysis', 'name': '盈利分析', 'description': '分析策略信号的盈利情况'},
             {'id': 'clear_hot_stocks', 'name': '清除热点股票', 'description': '清除当天添加的热点股票'},
             {'id': 'custom_script', 'name': '自定义脚本任务', 'description': '执行自定义Python脚本', 'config_hint': '{"script_path": "路径/脚本.py", "function_name": "函数名"}'},

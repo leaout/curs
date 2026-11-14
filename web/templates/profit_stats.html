@@ -223,8 +223,11 @@
             font-size: 18px;
         }
     </style>
+    {% include '_curs_head.html' %}
 </head>
-<body>
+<body class="curs-page">
+    {% set active = "manage" %}{% set section = "history" %}
+    {% include "_curs_nav.html" %}
     <div class="header">
         <h1>📊 盈利统计分析</h1>
     </div>

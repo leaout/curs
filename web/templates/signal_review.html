@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>信号后续表现 · Curs</title>
+  {% include '_curs_head.html' %}
+  <link rel="stylesheet" href="/static/observation.css?v=unified-1">
+  <script src="/static/observation.js?v=20261015"></script>
+</head>
+<body class="curs-page">
+  {% set active = 'signals' %}
+  {% include '_curs_nav.html' %}
+  <main class="curs-shell observation">
+    <h1>策略信号</h1>
+{% include '_signal_tabs.html' %}
+<p>只观察，不下单、不假定成交。统计仅覆盖热点股票池，不代表全市场。涨停排队买不到、跌停卖不出均未计作成交。</p>
+<p id="opportunity-summary">综合观察按交易日、股票、买卖方向合并；展开查看独立策略。</p>
+<section class="observation-panel"><h2>行情健康</h2><p id="health">加载中…</p></section>
+<section class="observation-panel"><h2>最近环境快照</h2><p id="environment">尚无采集记录</p></section>
+<section class="observation-panel"><h2>首板持续确认（独立对照策略）</h2><p>候选→持续确认→信号。100 股仅为观察单位，不是仓位建议。没有分组时只检查观察池合力，不声称题材或龙头判断；确认涨停也不代表能买到。</p><div class="curs-table-wrap" tabindex="0" role="region" aria-label="数据表"><table><thead><tr><th>日期/标的</th><th>状态</th><th>原因</th><th>确认依据</th></tr></thead><tbody id="candidates"></tbody></table></div></section>
+<section class="observation-panel"><h2>独立机会与策略对比</h2><p>每个机会仅一行，以最早触发参考价及其观察记录为准。展开后各策略按自己的触发时间与价格计算，不共用收益。数值是观察到的价格变动，不是成交收益；缺失日期不补零，首末样本不保证开盘或收盘。</p><div class="curs-table-wrap" tabindex="0" role="region" aria-label="数据表"><table><thead><tr><th>机会 / 策略展开</th><th>标的 / 最早参考价</th><th>最早触发环境</th><th>最近观察日期</th><th>最新变动</th><th>已观察最大变动</th><th>已观察最小变动</th><th>最近日样本</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<script>
+const text=(id,value)=>observationInfo(id,value);
+const pct=v=>Number(v).toFixed(2)+'%';
+async function refresh(){try{
+const [health,review]=await Promise.all([fetch('/api/health').then(r=>r.json()),fetch('/api/signal-review').then(r=>{if(!r.ok)throw Error('观察接口不可用');return r.json()})]);
+const q=health.quotes||{};
+text('health',`${q.session==='outside_session'?'非交易时段；以下为最近采集状态':'交易时段'} | ${q.reason||'服务未就绪'} | 覆盖率 ${pct((q.coverage||0)*100)} | 最近成功 ${q.last_success||'无'} | 连续失败 ${q.consecutive_failures||0}`);
+const env=review.environments[0];if(env)text('environment',`${env.minute} | 热点池有效 ${env.observed} 只 | 涨停 ${env.limit_up} | 跌停 ${env.limit_down} | 触板未封 ${env.opened_limit_up} | ${env.decision}`);
+const candidateBody=document.getElementById('candidates');candidateBody.replaceChildren();
+for(const candidate of review.candidates||[]){const tr=document.createElement('tr');for(const v of [`${candidate.day} ${candidate.stock_label||candidate.code}`,candidate.state,candidate.reason,observationEvidence(candidate.evidence)]){const td=document.createElement('td');td.textContent=observationText(v);tr.append(td)}candidateBody.append(tr)}
+const tbody=document.getElementById('rows');
+const expanded=new Set([...tbody.querySelectorAll('details[open]')].map(item=>item.dataset.opportunity));
+tbody.replaceChildren();
+const opportunities=review.opportunities||[];
+text('opportunity-summary',`当前窗口：${opportunities.length} 个独立机会 | ${review.summary?.raw_signal_count||0} 条原始触发 | 综合采用最早触发基准，数量不累加`);
+for(const s of opportunities){
+const observations=s.observations||[];const o=observations.at(-1);
+const max=observations.length?Math.max(...observations.map(r=>r.max_price_change_pct)):null;
+const min=observations.length?Math.min(...observations.map(r=>r.min_price_change_pct)):null;
+const tr=document.createElement('tr');const first=document.createElement('td');
+const details=document.createElement('details');
+details.dataset.opportunity=JSON.stringify([s.trade_date,s.stock_code,s.signal_type]);
+details.open=expanded.has(details.dataset.opportunity);
+const summary=document.createElement('summary');
+summary.textContent=`${s.trade_date} ${observationText(s.signal_type)} · ${s.strategy_count} 个策略 / ${s.trigger_count} 次触发`;details.append(summary);
+for(const member of s.signals){const block=document.createElement('p');const samples=member.observations||[];block.textContent=`${member.strategy_name} · ${observationText(member.timestamp)} · 参考价 ${member.price}`;
+for(const sample of samples){const line=document.createElement('div');line.textContent=`${sample.day}：最新 ${pct(sample.last_price_change_pct)}，最高 ${pct(sample.max_price_change_pct)}，最低 ${pct(sample.min_price_change_pct)}，${sample.samples} 样本`;block.append(line)}if(!samples.length){const line=document.createElement('div');line.textContent='等待该策略触发后的有效行情';block.append(line)}details.append(block)}
+first.append(details);tr.append(first);
+const values=[`${s.stock_label||s.stock_code} / ${s.price}`,s.environment?.state||'未记录',o?.day||'等待后续行情',o?pct(o.last_price_change_pct):'—',max==null?'—':pct(max),min==null?'—':pct(min),o?.samples||0];
+for(const v of values){const td=document.createElement('td');td.textContent=observationText(v);tr.append(td)}tbody.append(tr)}
+if(!opportunities.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.textContent='尚无本地信号记录';tr.append(td);tbody.append(tr)}
+}catch(e){text('health','读取失败：'+e.message)}}refresh();setInterval(refresh,30000);
+</script>
+  </main>
+</body>
+</html>

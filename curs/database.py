@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 import os
 import json
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ def _load_db_config():
             if config and 'database' in config:
                 db = config['database']
                 return {
-                    'host': db.get('host', '192.168.2.12'),
+                    'host': db.get('host', '192.168.2.238'),
                     'port': db.get('port', 6432),
                     'database': db.get('database', 'postgres'),
                     'user': db.get('user', 'postgres'),
@@ -36,12 +37,13 @@ class DatabaseManager:
 
     def __init__(self, host=None, port=None, database=None,
                  user=None, password=None):
-        self.host = host or _default_config.get('host', '192.168.2.12')
+        self.host = host or _default_config.get('host', '192.168.2.238')
         self.port = port or _default_config.get('port', 6432)
         self.database = database or _default_config.get('database', 'postgres')
         self.user = user or _default_config.get('user', 'postgres')
         self.password = password or _default_config.get('password', 'chenly.1')
         self.connection = None
+        self._query_lock = threading.RLock()
 
     def connect(self):
         """连接数据库"""
@@ -51,7 +53,8 @@ class DatabaseManager:
                 port=self.port,
                 database=self.database,
                 user=self.user,
-                password=self.password
+                password=self.password,
+                connect_timeout=10, options='-c statement_timeout=15000 -c timezone=Asia/Shanghai'
             )
             logger.info("数据库连接成功")
             return True
@@ -67,6 +70,10 @@ class DatabaseManager:
             logger.info("数据库连接已断开")
 
     def execute_query(self, query: str, params: tuple = None):
+        with self._query_lock:
+            return self._execute_query(query, params)
+
+    def _execute_query(self, query: str, params: tuple = None):
         """执行查询并返回结果"""
         # 检查连接是否存在或已关闭
         if not self.connection or self.connection.closed:
@@ -78,6 +85,7 @@ class DatabaseManager:
                 cursor.execute(query, params)
                 if cursor.description:  # 如果是SELECT查询
                     results = cursor.fetchall()
+                    self.connection.commit()
                     return [dict(row) for row in results]
                 else:  # 如果是INSERT/UPDATE/DELETE查询
                     self.connection.commit()
@@ -95,9 +103,10 @@ class DatabaseManager:
 
     def save_strategy_signal(self, strategy_name: str, stock_code: str, signal_type: str,
                            price: float = None, volume: int = None, order_id: str = None,
-                           status: str = 'PENDING', stock_name: str = None) -> bool:
+                           status: str = 'PENDING', stock_name: str = None,
+                           timestamp: datetime = None) -> bool:
         """保存策略信号到数据库"""
-        timestamp = datetime.now()
+        timestamp = timestamp or datetime.now()
         
         # 尝试获取股票名称（但失败不影响插入）
         try:
@@ -136,6 +145,7 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"保存策略信号失败: {strategy_name} - {signal_type} - {stock_code}, {e}")
             return False
+        return False
 
     def get_strategy_signals(self, strategy_name: str = None, stock_code: str = None,
                            signal_type: str = None, status: str = None,
@@ -444,6 +454,56 @@ class DatabaseManager:
 
         return self.execute_query(query, params)
 
+    def get_previous_zt_stocks(self, trade_date: str) -> List[str]:
+        """Use the last recorded trading day, including weekends and holidays."""
+        rows = self.execute_query('''SELECT stock_code FROM zt_stocks
+            WHERE trade_date = (SELECT MAX(trade_date) FROM zt_stocks WHERE trade_date < %s)
+            ORDER BY stock_code''', (trade_date,)) or []
+        return [row['stock_code'] for row in rows]
+
+    def save_zt_snapshot(self, trade_date, members, source):
+        """Atomically persist a complete close snapshot in the existing table."""
+        from uuid import uuid4
+        batch = str(uuid4())
+        snapshot_time = datetime.now().isoformat()
+        if not members:
+            raise ValueError('Empty snapshot is not a verified no-limit-up trading day')
+        connection = psycopg2.connect(host=self.host, port=self.port, database=self.database,
+                                      user=self.user, password=self.password, connect_timeout=10)
+        try:
+            with connection:
+                with connection.cursor() as cursor:
+                    cursor.execute('ALTER TABLE zt_stocks ADD COLUMN IF NOT EXISTS snapshot JSONB')
+                    for code, member in members.items():
+                        details = dict(member, source=source, batch_id=batch, expected=len(members), recorded_at=snapshot_time)
+                        cursor.execute('''INSERT INTO zt_stocks(trade_date, stock_code, snapshot) VALUES (%s,%s,%s::jsonb)
+                            ON CONFLICT(trade_date, stock_code) DO UPDATE SET snapshot=EXCLUDED.snapshot''',
+                                       (trade_date, code, json.dumps(details, ensure_ascii=False)))
+        finally:
+            connection.close()
+
+    def get_zt_snapshot(self, trade_date):
+        columns = self.execute_query("SELECT column_name FROM information_schema.columns WHERE table_name='zt_stocks' AND column_name='snapshot'")
+        if columns is None:
+            raise RuntimeError('Database unavailable')
+        query = ('SELECT stock_code, snapshot FROM zt_stocks WHERE trade_date=%s' if columns else
+                 'SELECT stock_code, NULL AS snapshot FROM zt_stocks WHERE trade_date=%s')
+        rows = self.execute_query(query, (trade_date,))
+        if rows is None:
+            raise RuntimeError('Database unavailable')
+        if not rows:
+            return None
+        complete = [row for row in rows if row.get('snapshot')]
+        if complete:
+            newest = max(complete, key=lambda row: row['snapshot']['recorded_at'])['snapshot']
+            complete = [r for r in complete if r['snapshot']['batch_id'] == newest['batch_id']]
+            if len(complete) != newest['expected']:
+                raise ValueError('Incomplete database limit-up snapshot')
+            return {'day': trade_date, 'source': 'postgres_zt_stocks_close_snapshot', 'finalized': True,
+                    'members': {row['stock_code']: row['snapshot'] for row in complete}}
+        return {'day': trade_date, 'source': 'postgres_zt_stocks_legacy_codes', 'finalized': False,
+                'members': {row['stock_code']: {'height': None, 'name': ''} for row in rows}}
+
     def get_latest_zt_stocks(self, days: int = 1) -> List[str]:
         """获取最近N天的涨停股票"""
         query = """
@@ -483,8 +543,116 @@ class DatabaseManager:
         query = "SELECT stock_code FROM stock_pool WHERE category = %s AND is_active = TRUE ORDER BY updated_at desc limit 100"
         params = (category,)
 
-        results = self.execute_query(query, params)
+        results = self.execute_query(query, params) or []
         return [row['stock_code'] for row in results]
+
+    # ===== 热点股票日记录管理 =====
+
+    def get_last_trade_date(self) -> Optional[str]:
+        """获取 hot_stock_daily 表中最近的一个交易日"""
+        query = "SELECT MAX(trade_date) as max_date FROM hot_stock_daily"
+        results = self.execute_query(query)
+        if results and results[0].get('max_date'):
+            return results[0]['max_date'].isoformat()
+        return None
+
+    def get_hot_stock_daily_source(self, trade_date: str) -> Optional[str]:
+        """Return the most common source recorded for a hot-stock snapshot date."""
+        query = """
+            SELECT source
+            FROM hot_stock_daily
+            WHERE trade_date = %s
+            GROUP BY source
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+        """
+        results = self.execute_query(query, (trade_date,))
+        return results[0].get('source') if results else None
+
+    def save_hot_stock_daily(self, trade_date: str, stocks: List[Dict]) -> Dict:
+        """保存当日热点股票记录到 hot_stock_daily 表（使用独立短连接）"""
+        if not stocks:
+            return {'success': False, 'message': '拒绝用空榜单覆盖已有日记录'}
+        import psycopg2
+        conn = None
+        try:
+            conn = psycopg2.connect(
+                host=self.host, port=self.port,
+                database=self.database, user=self.user,
+                password=self.password,
+            )
+            conn.autocommit = False
+            cur = conn.cursor()
+
+            cur.execute("DELETE FROM hot_stock_daily WHERE trade_date = %s", (trade_date,))
+
+            success_count = 0
+            for stock in stocks:
+                cur.execute("""
+                    INSERT INTO hot_stock_daily
+                        (trade_date, stock_code, stock_name, rank, price, change_pct, source)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    trade_date,
+                    stock.get('code', ''),
+                    stock.get('name', ''),
+                    stock.get('rank', 0),
+                    stock.get('price', 0),
+                    stock.get('change_pct', 0),
+                    stock.get('source', '未知来源'),
+                ))
+                success_count += 1
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {'success': True, 'total': len(stocks), 'success_count': success_count}
+
+        except Exception as e:
+            logger.error(f"保存热点股票日记录数据库操作失败: {e}")
+            if conn:
+                try:
+                    conn.rollback()
+                    conn.close()
+                except:
+                    pass
+            return {'success': False, 'message': str(e)}
+
+    def get_consecutive_hot_stocks(self, min_consecutive_days: int = 2) -> List[str]:
+        """从 hot_stock_daily 中筛选连续多天都上榜的股票
+
+        找到最近连续 N 个交易日都在榜上的股票。
+        N 默认为 2，即至少昨天和今天都出现才返回。
+        """
+        query = """
+            SELECT stock_code
+            FROM hot_stock_daily
+            WHERE trade_date >= (
+                SELECT MIN(trade_date) FROM (
+                    SELECT DISTINCT trade_date
+                    FROM hot_stock_daily
+                    ORDER BY trade_date DESC
+                    LIMIT %s
+                ) sub
+            )
+            GROUP BY stock_code
+            HAVING COUNT(DISTINCT trade_date) >= %s
+            ORDER BY stock_code
+        """
+        results = self.execute_query(query, (min_consecutive_days, min_consecutive_days))
+        return [row['stock_code'] for row in results] if results else []
+
+    def get_top_ranked_hot_stocks(self, limit: int = 30) -> List[str]:
+        """从 hot_stock_daily 中获取最新交易日排名前 N 的热点股票"""
+        query = """
+            SELECT stock_code
+            FROM hot_stock_daily
+            WHERE trade_date = (SELECT MAX(trade_date) FROM hot_stock_daily)
+            ORDER BY rank ASC
+            LIMIT %s
+        """
+        results = self.execute_query(query, (limit,))
+        return [row['stock_code'] for row in results] if results else []
 
     def get_all_active_stocks_from_pool(self) -> List[str]:
         """获取股票池中所有激活的股票代码"""
@@ -1009,9 +1177,13 @@ def get_db_manager() -> DatabaseManager:
 
 
 def init_db():
-    """初始化数据库所有表"""
+    """初始化数据库所有表（并发初始化时通过 advisory lock 串行化）"""
     db = get_db_manager()
-    db.create_tables()
-    db.create_scheduled_tasks_table()
-    db.create_strategy_config_table()
+    db.execute_query("SELECT pg_advisory_lock(897531)")
+    try:
+        db.create_tables()
+        db.create_scheduled_tasks_table()
+        db.create_strategy_config_table()
+    finally:
+        db.execute_query("SELECT pg_advisory_unlock(897531)")
     logger.info("数据库表初始化完成")

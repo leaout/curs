@@ -1,4 +1,6 @@
+# coding: utf-8
 from curs.core import *
+from curs.broker.public_quote import get_entity_list
 from curs.cursglobal import *
 from curs.const import *
 

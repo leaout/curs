@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>历史归档 · Curs</title>
+  {% include '_curs_head.html' %}
+</head>
+<body class="curs-page">
+  {% set active = 'manage' %}
+  {% include '_curs_nav.html' %}
+  <main class="curs-shell">
+    <h1>历史归档</h1>
+    <p>以下页面使用旧版成交或已执行信号记录。当前策略的观察数据见「信号 → 后续表现」。</p>
+    <section class="curs-panel">
+      <h2>旧版交易记录</h2>
+      <ul>
+        <li><a href="{{ url_for('profit') }}">历史成交盈亏</a></li>
+        <li><a href="{{ url_for('signal_profit') }}">历史已执行信号的后续价格</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

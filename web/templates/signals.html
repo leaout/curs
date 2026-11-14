@@ -2,13 +2,15 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>策略信号查询系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>信号 · Curs</title>
     <script src="/static/echarts.min.js"></script>
     <script src="/static/axios.min.js"></script>
+    {% include '_curs_head.html' %}
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f2f2f2;
+            background-color: var(--tiger-canvas);
             margin: 0;
             padding: 20px;
         }
@@ -21,15 +23,25 @@
             overflow: hidden;
         }
         .header {
-            background: #2c3e50;
+            background: var(--tiger-charcoal);
             color: white;
             padding: 20px;
             text-align: center;
         }
+        .header a {
+            display: inline-block;
+            color: #ffffff;
+            background: #38352d;
+            padding: 8px 14px;
+            border: 1px solid #706548;
+            border-radius: 6px;
+            font-size: 16px;
+            text-underline-offset: 4px;
+        }
         .filters {
             padding: 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
+            background: var(--tiger-subtle);
+            border-bottom: 1px solid var(--tiger-line);
         }
         .filter-row {
             display: flex;
@@ -46,19 +58,20 @@
             font-size: 14px;
             font-weight: bold;
             margin-bottom: 5px;
-            color: #495057;
+            color: var(--tiger-muted);
         }
         .filter-input, .filter-select {
             padding: 8px 12px;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--tiger-field-line);
             border-radius: 4px;
             font-size: 14px;
             min-width: 120px;
         }
         .filter-button {
             padding: 8px 16px;
-            background: #007bff;
-            color: white;
+            background: var(--tiger-yellow);
+            color: var(--tiger-ink);
+            font-weight: 700;
             border: none;
             border-radius: 4px;
             cursor: pointer;
@@ -66,15 +79,15 @@
             margin-left: 10px;
         }
         .filter-button:hover {
-            background: #0056b3;
+            background: var(--tiger-yellow-hover);
         }
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             padding: 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
+            background: var(--tiger-subtle);
+            border-bottom: 1px solid var(--tiger-line);
         }
         .stat-card {
             background: white;
@@ -87,7 +100,7 @@
             font-size: 28px;
             font-weight: bold;
             margin: 10px 0;
-            color: #007bff;
+            color: var(--tiger-amber-ink);
         }
         .stat-label {
             color: #666;
@@ -105,14 +118,14 @@
         .signals-table td {
             padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--tiger-line);
         }
         .signals-table th {
-            background-color: #f5f5f5;
+            background-color: var(--tiger-subtle);
             font-weight: bold;
         }
         .signals-table tr:hover {
-            background-color: #f9f9f9;
+            background-color: #fdf9ed;
         }
         .status-badge {
             padding: 4px 8px;
@@ -124,9 +137,13 @@
             background: #fff3cd;
             color: #856404;
         }
+        .status-signal_only {
+            background: #efede7;
+            color: #454137;
+        }
         .status-executed {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: #efede7;
+            color: #454137;
         }
         .status-cancelled {
             background: #f8d7da;
@@ -146,7 +163,7 @@
         .chart-container {
             height: 300px;
             margin-top: 20px;
-            border: 1px solid #dee2e6;
+            border: 1px solid var(--tiger-line);
             border-radius: 4px;
         }
         .no-data {
@@ -160,40 +177,52 @@
             bottom: 20px;
             right: 20px;
             padding: 10px 20px;
-            background: #28a745;
-            color: white;
+            background: var(--tiger-yellow);
+            color: var(--tiger-ink);
+            font-weight: 700;
             border: none;
             border-radius: 50px;
             cursor: pointer;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
         .refresh-button:hover {
-            background: #218838;
+            background: var(--tiger-yellow-hover);
         }
+        :focus-visible { outline: 2px solid var(--tiger-amber-line); outline-offset: 2px; }
+        .header { border-top: 4px solid var(--tiger-yellow); }
+        .header a:hover { color: var(--tiger-yellow); border-color: var(--tiger-yellow); }
+        .curs-page .filter-button.secondary { background: #fff; border: 1px solid var(--tiger-field-line); }
+        .signals-table { min-width: 860px; }
+        .stock-link { color: var(--tiger-amber-ink); text-underline-offset: 3px; }
     </style>
 </head>
-<body>
+<body class="curs-page">
+    {% set active = 'signals' %}
+    {% include '_curs_nav.html' %}
+    <main class="curs-shell">
+        <h1>策略信号</h1>
+        <p>按交易日、股票和方向合并。展开查看每条策略触发。</p>
+        {% include '_signal_tabs.html' %}
     <div class="container">
-        <div class="header">
-            <h1>策略信号查询系统</h1>
-            <p>实时查看和分析策略生成的买卖信号</p>
-        </div>
-
         <!-- 筛选器 -->
         <div class="filters">
             <div class="filter-row">
                 <div class="filter-group">
-                    <label class="filter-label">策略名称</label>
+                    <label class="filter-label" for="date-filter">交易日（北京时间）</label>
+                    <input type="date" class="filter-input" id="date-filter">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label" for="strategy-filter">策略名称</label>
                     <select class="filter-select" id="strategy-filter">
                         <option value="">全部策略</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">股票代码</label>
+                    <label class="filter-label" for="stock-filter">股票代码</label>
                     <input type="text" class="filter-input" id="stock-filter" placeholder="输入股票代码">
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">信号类型</label>
+                    <label class="filter-label" for="type-filter">信号类型</label>
                     <select class="filter-select" id="type-filter">
                         <option value="">全部类型</option>
                         <option value="BUY">买入</option>
@@ -201,16 +230,17 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">状态</label>
+                    <label class="filter-label" for="status-filter">状态</label>
                     <select class="filter-select" id="status-filter">
                         <option value="">全部状态</option>
                         <option value="PENDING">待执行</option>
+                        <option value="SIGNAL_ONLY">仅信号</option>
                         <option value="EXECUTED">已执行</option>
                         <option value="CANCELLED">已取消</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label class="filter-label">显示数量</label>
+                    <label class="filter-label" for="limit-filter">显示数量</label>
                     <select class="filter-select" id="limit-filter">
                         <option value="50">50条</option>
                         <option value="100" selected>100条</option>
@@ -219,7 +249,7 @@
                     </select>
                 </div>
                 <button class="filter-button" onclick="loadSignals()">查询</button>
-                <button class="filter-button" onclick="clearFilters()">清空筛选</button>
+                <button class="filter-button secondary" onclick="clearFilters()">查看全部日期</button>
             </div>
         </div>
 
@@ -227,11 +257,11 @@
         <div class="stats-grid" id="stats-grid">
             <div class="stat-card">
                 <div class="stat-value" id="total-signals">0</div>
-                <div class="stat-label">总信号数</div>
+                <div class="stat-label">当前列表机会</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="pending-signals">0</div>
-                <div class="stat-label">待执行</div>
+                <div class="stat-value" id="signal-only-count">0</div>
+                <div class="stat-label">仅信号</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="executed-signals">0</div>
@@ -251,14 +281,15 @@
             <!-- K线图区域 -->
             <div class="kline-section" id="kline-section" style="display: none; margin-top: 30px;">
                 <div class="kline-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 id="kline-title" style="color: #2c3e50; margin: 0;">股票K线图与买卖信号</h3>
+                    <h3 id="kline-title" style="color: var(--tiger-ink); margin: 0;">股票K线图与买卖信号</h3>
+                    <a id="kline-research" class="stock-link">查看个股报告</a>
                     <button class="filter-button" onclick="closeKlineView()">关闭K线图</button>
                 </div>
-                <div class="kline-chart-container" style="height: 500px; border: 1px solid #dee2e6; border-radius: 4px;" id="kline-chart"></div>
+                <div class="kline-chart-container" style="height: 500px; border: 1px solid var(--tiger-line); border-radius: 4px;" id="kline-chart"></div>
             </div>
 
             <!-- 信号列表 -->
-            <div id="signals-content">
+            <div id="signals-content" class="curs-table-wrap" tabindex="0" role="region" aria-label="信号列表">
                 <div class="loading">正在加载信号数据...</div>
             </div>
         </div>
@@ -275,10 +306,25 @@
         const myChart = echarts.init(chartDom);
 
         // 页面加载时初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            loadStrategies();
+        document.addEventListener('DOMContentLoaded', async function() {
+            const filters = new URLSearchParams(location.search);
+            document.getElementById('date-filter').value = filters.has('date')
+                ? filters.get('date')
+                : new Intl.DateTimeFormat('sv-SE', {timeZone:'Asia/Shanghai'}).format(new Date());
+            document.getElementById('stock-filter').value = filters.get('stock') || '';
+            for (const key of ['type', 'status', 'limit']) {
+                const input = document.getElementById(key + '-filter');
+                const value = filters.get(key);
+                if ([...input.options].some(option => option.value === value)) input.value = value;
+            }
+            await loadStrategies();
+            const strategy = document.getElementById('strategy-filter');
+            if ([...strategy.options].some(option => option.value === filters.get('strategy'))) {
+                strategy.value = filters.get('strategy');
+            }
             loadSignals();
-            loadStats();
+            const code = filters.get('stock');
+            if (filters.get('chart') === '1' && /^\d{6}\.(SH|SZ|BJ)$/.test(code || '')) showStockKline(code);
         });
 
         // 获取策略列表
@@ -312,14 +358,24 @@
                 const status = document.getElementById('status-filter').value;
                 const limit = document.getElementById('limit-filter').value;
 
+                const day = document.getElementById('date-filter').value;
                 if (strategy) params.append('strategy', strategy);
                 if (stock) params.append('stock', stock);
                 if (type) params.append('type', type);
                 if (status) params.append('status', status);
                 params.append('limit', limit);
+                const pageParams = new URLSearchParams(params);
+                pageParams.set('date', day);
+                history.replaceState(null, '', location.pathname + '?' + pageParams);
+                const reviewParams = new URLSearchParams(pageParams);
+                reviewParams.set('view', 'review');
+                document.getElementById('review-tab').href = location.pathname + '?' + reviewParams;
+                if (day) params.append('date', day);
+                params.append('view', 'opportunities');
 
                 const response = await axios.get('/api/signals?' + params.toString());
                 const data = response.data;
+                updateStats(data.signals || []);
 
                 if (data.signals && data.signals.length > 0) {
                     displaySignals(data.signals);
@@ -329,23 +385,22 @@
                     updateChart([]);
                 }
             } catch (error) {
+                updateStats(null);
+                updateChart([]);
                 console.error('加载信号数据失败:', error);
                 signalsContent.innerHTML = '<div class="no-data">加载数据失败，请稍后重试</div>';
             }
         }
 
-        // 加载统计数据
-        async function loadStats() {
-            try {
-                const response = await axios.get('/api/signals/stats');
-                const stats = response.data;
-
-                document.getElementById('total-signals').textContent = stats.total_signals;
-                document.getElementById('pending-signals').textContent = stats.status_stats.PENDING;
-                document.getElementById('executed-signals').textContent = stats.status_stats.EXECUTED;
-                document.getElementById('buy-signals').textContent = stats.type_stats.BUY;
-            } catch (error) {
-                console.error('加载统计数据失败:', error);
+        function updateStats(signals) {
+            const counts = {
+                'total-signals': signals?.length,
+                'signal-only-count': signals?.filter(row => row.status === 'SIGNAL_ONLY').length,
+                'executed-signals': signals?.filter(row => row.status === 'EXECUTED').length,
+                'buy-signals': signals?.filter(row => row.signal_type === 'BUY').length,
+            };
+            for (const [id, count] of Object.entries(counts)) {
+                document.getElementById(id).textContent = count ?? '—';
             }
         }
 
@@ -357,13 +412,13 @@
                 <table class="signals-table">
                     <thead>
                         <tr>
-                            <th>时间</th>
+                            <th>最早触发时间</th>
                             <th>策略名称</th>
                             <th>股票代码</th>
                             <th>信号类型</th>
-                            <th>价格</th>
-                            <th>数量</th>
-                            <th>订单ID</th>
+                            <th>最早参考价</th>
+                            <th>首条参考数量（不累加）</th>
+                            <th>首条记录ID</th>
                             <th>状态</th>
                         </tr>
                     </thead>
@@ -377,13 +432,13 @@
                 html += `
                     <tr>
                         <td>${signal.timestamp}</td>
-                        <td>${signal.strategy_name}</td>
-                        <td><a href="#" onclick="showStockKline('${signal.stock_code}')" style="color: #007bff; text-decoration: underline;">${signal.stock_code}</a></td>
+                        <td>${signal.trigger_count > 1 ? `<details><summary>${signal.strategy_count} 个策略 · ${signal.trigger_count} 次触发</summary>${signal.signals.map(s => `<p>${escapeStockName(s.strategy_name)} · ${escapeStockName(String(s.timestamp))} · 参考价 ${s.price}</p>`).join('')}</details>` : escapeStockName(signal.strategy_name)}</td>
+                        <td><a href="#" onclick="showStockKline('${signal.stock_code}')" class="stock-link">${signal.stock_code}</a> <span>${escapeStockName(signal.stock_name || '名称暂缺')}</span></td>
                         <td class="${typeClass}">${signal.signal_type === 'BUY' ? '买入' : '卖出'}</td>
                         <td>${signal.price || '-'}</td>
                         <td>${signal.volume || '-'}</td>
                         <td>${signal.order_id || '-'}</td>
-                        <td><span class="status-badge ${statusClass}">${getStatusText(signal.status)}</span></td>
+                        <td><span class="status-badge ${statusClass}">${getStatusText(signal.status)}${signal.mirror_pending ? '（待同步）' : ''}</span></td>
                     </tr>
                 `;
             });
@@ -400,7 +455,7 @@
         function updateChart(signals) {
             // 按时间分组统计信号数量
             const timeData = {};
-            const statusData = { 'PENDING': 0, 'EXECUTED': 0, 'CANCELLED': 0 };
+            const statusData = { 'PENDING': 0, 'EXECUTED': 0, 'CANCELLED': 0, 'SIGNAL_ONLY': 0, 'MIXED': 0, 'UNKNOWN': 0 };
 
             signals.forEach(signal => {
                 const time = signal.timestamp.substring(0, 10); // 取日期部分
@@ -436,7 +491,7 @@
                     data: counts,
                     type: 'bar',
                     itemStyle: {
-                        color: '#007bff'
+                        color: '#e9ac15'
                     }
                 }]
             };
@@ -448,6 +503,9 @@
         function getStatusText(status) {
             const statusMap = {
                 'PENDING': '待执行',
+                'SIGNAL_ONLY': '仅信号',
+                'MIXED': '多种状态（展开查看）',
+                'UNKNOWN': '状态未知',
                 'EXECUTED': '已执行',
                 'CANCELLED': '已取消'
             };
@@ -456,6 +514,7 @@
 
         // 清空筛选条件
         function clearFilters() {
+            document.getElementById('date-filter').value = '';
             document.getElementById('strategy-filter').value = '';
             document.getElementById('stock-filter').value = '';
             document.getElementById('type-filter').value = '';
@@ -466,6 +525,7 @@
 
         // 显示股票K线图
         async function showStockKline(stockCode) {
+            document.getElementById('kline-research').href = '/finance-board?' + new URLSearchParams({stock: stockCode});
             document.getElementById('kline-title').textContent = `${stockCode} K线图与买卖信号`;
             document.getElementById('kline-section').style.display = 'block';
 
@@ -473,6 +533,12 @@
             document.getElementById('kline-section').scrollIntoView({ behavior: 'smooth' });
 
             await loadStockKlineWithSignals(stockCode);
+        }
+
+        function escapeStockName(value) {
+            const element = document.createElement('span');
+            element.textContent = value;
+            return element.innerHTML;
         }
 
         // 当前K线图实例
@@ -497,9 +563,10 @@
                 // 加载K线数据
                 const klineResponse = await axios.get(`/api/stock/${encodeURIComponent(stockCode)}/kline`);
                 const klineData = klineResponse.data;
+                document.getElementById('kline-title').textContent = `${klineData.stock_label || stockCode} K线图与买卖信号`;
 
                 // 加载该股票的信号数据
-                const signalsResponse = await axios.get('/api/signals?stock=' + encodeURIComponent(stockCode) + '&limit=1000');
+                const signalsResponse = await axios.get('/api/signals?stock=' + encodeURIComponent(stockCode) + '&limit=1000&view=opportunities');
                 const signalsData = signalsResponse.data.signals || [];
 
                 // 初始化ECharts
@@ -624,10 +691,10 @@
                 // 配置K线图选项
                 const option = {
                     title: {
-                        text: `${stockCode} 日K线图与买卖信号`,
+                        text: `${klineData.stock_label || stockCode} 日K线图与买卖信号`,
                         left: 'center',
                         textStyle: {
-                            color: '#2c3e50',
+                            color: '#202124',
                             fontSize: 16
                         }
                     },
@@ -746,7 +813,7 @@
                             borderColor: '#ddd',
                             fillerColor: 'rgba(0, 123, 255, 0.2)',
                             handleStyle: {
-                                color: '#007bff'
+                                color: '#a47500'
                             }
                         }
                     ],
@@ -884,8 +951,8 @@
         // 自动刷新（每30秒）
         setInterval(() => {
             loadSignals();
-            loadStats();
         }, 30000);
     </script>
+    </main>
 </body>
 </html>

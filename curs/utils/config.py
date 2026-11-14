@@ -67,3 +67,21 @@ def _load_env_overrides(config):
         value = os.environ.get(env_key)
         if value:
             config['qmt'][config_key] = value
+
+    # 交易商及东方财富配置
+    broker_type = os.environ.get('CURS_BROKER')
+    if broker_type:
+        config['broker'] = broker_type
+
+    if 'eastmoney' not in config:
+        config['eastmoney'] = {}
+
+    eastmoney_env_map = {
+        'CURS_EASTMONEY_ACCOUNT_NO': 'account_no',
+        'CURS_EASTMONEY_PASSWORD': 'password',
+        'CURS_EASTMONEY_SESSION_FILE': 'session_file',
+    }
+    for env_key, config_key in eastmoney_env_map.items():
+        value = os.environ.get(env_key)
+        if value:
+            config['eastmoney'][config_key] = value
