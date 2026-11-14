@@ -1,45 +1,44 @@
 # Curs
 
-Curs is a personal A-share research and signal-recording platform. The current default is **signal-only**: it does not connect to a live brokerage account or place orders.
+### An A-share market research and strategy signal desk
 
-[中文版](README.md)
+Bring market themes, public quotes, strategy signals, and AI-assisted research into one workspace for a clearer view of the trading day.
 
-## Current features
+**Current mode: research and signal recording only. No live brokerage connection or automatic order execution.**
 
-- Uses public Tencent quotes to produce and record observations from the existing strategies.
-- Collects the Tonghuashun hot-stock ranking shown on WhatsHot and displays its source and fetch time in the stock-pool page.
-- Stores daily hot-stock snapshots and end-of-day limit-up records for market-sentiment and historical research pages.
-- Includes hot-stock research, optional WorkBuddy Desktop Bridge analysis, market-sentiment monitoring, forward signal observations, and a shadow relay monitor.
+[中文版](README.md) · [Quick Start](#quick-start) · [Documentation](#documentation)
 
-## Hot-stock collection
+## What you can do
 
-Curs renders WhatsHot's public Tonghuashun ranking with local Chrome. No API key is required, and Curs does not request Tonghuashun directly. The web service syncs on weekdays after 15:35 China Standard Time, retries every 15 minutes until 22:00, and also provides a manual sync action under **Manage → Stock Pool**. The GitHub Actions daily collection and archive-import workflow has been removed.
+### Follow market themes
 
-Chrome must be installed on the host, and the Windows account running Curs must be able to launch it. If Chrome is not detected automatically, set its path in `config.local.yml`:
+View the Tonghuashun hot-stock ranking published on WhatsHot, see each stock's data source and collection time, and keep daily snapshots for later research.
 
-```yaml
-whatshot:
-  chrome_path: "C:/Program Files/Google/Chrome/Application/chrome.exe"
-```
+### Observe strategy signals
 
-If the page is unavailable, its structure changes, or no valid stock rows are found, collection fails and retries; a stale cache is never presented as today's ranking. The page does not provide a reliable live trade price. See the [WhatsHot integration and troubleshooting guide](docs/WHATSHOT_INTEGRATION.md) for source and data limitations.
+Run existing A-share strategies with public market data and review signals, trigger context, and subsequent price observations in one place. Signals are for research and are not orders or confirmed fills.
 
-## Install and run
+### Read market sentiment
 
-Requires Python 3.10+, a reachable PostgreSQL database, and Chrome.
+Use market breadth, limit-up records, and consecutive limit-up ladders to follow the market environment and theme continuation.
+
+### Research individual stocks with an agent
+
+Open a hot stock's research view and optionally use the local WorkBuddy Desktop Bridge to produce an AI-assisted analysis.
+
+## Quick Start
+
+Requirements: Python 3.10+, PostgreSQL, and Chrome available to the account running Curs.
 
 ```powershell
+git clone https://github.com/leaout/curs.git
+cd curs
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python run.py
 ```
 
-Open <http://localhost:5000>. Daily hot-stock collection starts with the web service. `--engine-only` does not start the collector; `--web-only` runs the pages and hot-stock sync.
-
-## Configuration
-
-Put database credentials and machine-specific paths in the untracked `config.local.yml`. Defaults for quotes and WhatsHot are in `config.yml`. At minimum, configure PostgreSQL:
+Create `config.local.yml` in the project root and enter your database connection:
 
 ```yaml
 database:
@@ -47,24 +46,26 @@ database:
   port: 5432
   database: postgres
   user: postgres
-  password: "change-me"
+  password: "your-database-password"
 ```
 
-Ensure PostgreSQL is reachable and the required project tables exist. Service logs are written to `logs/`. Never commit database passwords, account credentials, login sessions, or local runtime data.
+Start the service and open <http://localhost:5000>:
 
-## Runtime boundaries
+```powershell
+python run.py
+```
 
-- `signal_only: true` and `broker: signal` are the defaults. A signal is not an order or a confirmed fill.
-- Public quote and WhatsHot sources have no availability guarantee; source or page changes may interrupt collection.
-- The after-close collection requires the service to remain running. It cannot run while the host is asleep or the service is stopped.
-- WorkBuddy analysis is optional and requires a reachable local Desktop Bridge; it is independent of hot-stock sync.
+If the service account cannot locate Chrome automatically, add `whatshot.chrome_path` to the same local config. See the [WhatsHot integration guide](docs/WHATSHOT_INTEGRATION.md) and [signal-only deployment guide](docs/SIGNAL_ONLY.md) for setup and troubleshooting.
 
-## Design and operations guides
+## Documentation
 
-- [WhatsHot hot-stock integration and troubleshooting](docs/WHATSHOT_INTEGRATION.md)
 - [Hot-stock agent research](docs/STOCK_INTELLIGENCE.md)
-- [Signal-only mode, quotes, and deployment](docs/SIGNAL_ONLY.md)
+- [WhatsHot ranking integration](docs/WHATSHOT_INTEGRATION.md)
+- [Signal mode, market data, and deployment](docs/SIGNAL_ONLY.md)
 - [Limit-up relay observation](docs/RELAY_V1.md)
 - [KOL evidence integration rules](docs/KOL_RELAY.md)
 - [Signal opportunity counting](docs/OPPORTUNITIES.md)
-- [Code review notes](docs/REVIEW_20261014.md)
+
+## Data and use
+
+Quotes and rankings come from public data sources; source or page changes can affect availability and completeness. Strategy signals and agent analysis are research tools, not investment advice or a promise of returns. This project currently does not execute live trades.
